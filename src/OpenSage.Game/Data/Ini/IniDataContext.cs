@@ -4,5 +4,5 @@ namespace OpenSage.Data.Ini;
 
 public sealed class IniDataContext
 {
-    internal Dictionary<string, IniToken> Defines { get; } = new Dictionary<string, IniToken>();
+    internal Dictionary<string, IniMacroDefinition> Defines { get; } = new Dictionary<string, IniMacroDefinition>();
 }

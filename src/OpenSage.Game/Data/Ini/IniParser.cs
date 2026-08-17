@@ -39,7 +39,14 @@ internal sealed partial class IniParser
 
     public const string EndToken = "END";
 
+    // Guards against cyclic macro definitions (e.g. '#define A B' + '#define B A').
+    private const int MaximumMacroExpansionsPerToken = 100;
+
     private TokenReader _tokenReader;
+
+    // Tokens produced by expanding a multi-token '#define' body, still to be consumed.
+    // Macro expansion never crosses a line boundary, so this is cleared on GoToNextLine.
+    private readonly LinkedList<IniToken> _pendingMacroTokens = new LinkedList<IniToken>();
 
     private readonly Stack<string> _directory;
     private readonly IniDataContext _dataContext;
@@ -90,6 +97,33 @@ internal sealed partial class IniParser
         _currentBlockOrFieldStack = new Stack<string>();
     }
 
+    /// <summary>
+    /// Creates a parser over raw INI source text. Used to re-parse captured source
+    /// fragments (e.g. deferred ChildObject blocks) and by tests.
+    /// </summary>
+    internal IniParser(
+        string source,
+        string filePath,
+        string directory,
+        FileSystem fileSystem,
+        AssetStore assetStore,
+        SageGame sageGame,
+        IniDataContext dataContext,
+        Encoding encoding)
+    {
+        _directory = new Stack<string>();
+        _directory.Push(directory);
+        _dataContext = dataContext;
+        _fileSystem = fileSystem;
+        _assetStore = assetStore;
+        SageGame = sageGame;
+        _encoding = encoding;
+
+        _tokenReader = new TokenReader(source, filePath);
+
+        _currentBlockOrFieldStack = new Stack<string>();
+    }
+
     private TokenReader CreateTokenReader(FileSystemEntry? entry, Encoding encoding)
     {
         string source;
@@ -108,7 +142,11 @@ internal sealed partial class IniParser
         return new TokenReader(source, entry?.FilePath);
     }
 
-    public void GoToNextLine() => _tokenReader.GoToNextLine();
+    public void GoToNextLine()
+    {
+        _pendingMacroTokens.Clear();
+        _tokenReader.GoToNextLine();
+    }
 
     public string ParseLine()
     {
@@ -868,25 +906,59 @@ internal sealed partial class IniParser
 
     public IniToken? GetNextTokenOptional(char[]? separators = null)
     {
-        var result = _tokenReader.NextToken(separators ?? Separators);
+        var expansions = 0;
 
-        if (result.HasValue)
+        while (true)
         {
+            IniToken? result;
+            if (_pendingMacroTokens.Count > 0)
+            {
+                result = _pendingMacroTokens.First!.Value;
+                _pendingMacroTokens.RemoveFirst();
+            }
+            else
+            {
+                result = _tokenReader.NextToken(separators ?? Separators);
+            }
+
+            if (!result.HasValue)
+            {
+                return null;
+            }
+
             if (_dataContext.Defines.TryGetValue(result.Value.Text.ToUpper(), out var macroExpansion))
             {
-                return macroExpansion;
+                if (++expansions > MaximumMacroExpansionsPerToken)
+                {
+                    throw new IniParseException($"Exceeded maximum macro expansion depth while expanding '{result.Value.Text}'", result.Value.Position);
+                }
+
+                // Prepend the body tokens so they are consumed next, ahead of
+                // any tokens queued by an enclosing expansion.
+                for (var i = macroExpansion.Tokens.Count - 1; i >= 0; i--)
+                {
+                    _pendingMacroTokens.AddFirst(macroExpansion.Tokens[i]);
+                }
+
+                continue;
             }
-            else if (ResolveFunc(result.Value.Text, out var funcResult))
+
+            if (ResolveFunc(result.Value.Text, out var funcResult))
             {
                 return funcResult.Value;
             }
-        }
 
-        return result;
+            return result;
+        }
     }
 
     public IniToken? PeekNextTokenOptional(char[]? separators = null)
     {
+        if (_pendingMacroTokens.Count > 0)
+        {
+            return _pendingMacroTokens.First!.Value;
+        }
+
         return _tokenReader.PeekToken(separators ?? Separators);
     }
 
@@ -979,7 +1051,7 @@ internal sealed partial class IniParser
                 continue;
             }
 
-            _tokenReader.GoToNextLine();
+            GoToNextLine();
 
             var token = _tokenReader.NextToken(Separators);
 
@@ -1074,7 +1146,7 @@ internal sealed partial class IniParser
 
         while (!_tokenReader.EndOfFile)
         {
-            _tokenReader.GoToNextLine();
+            GoToNextLine();
 
             var token = _tokenReader.NextToken(Separators);
 
@@ -1088,17 +1160,27 @@ internal sealed partial class IniParser
             if (fieldName == "#define")
             {
                 var macroName = ParseIdentifier();
-                var macroExpansionToken = _tokenReader.NextToken(Separators) ?? throw new IniParseException($"Missing macro expansion", token.Value.Position);
-                if (ResolveFunc(macroExpansionToken.Text, out var resolved))
+
+                // Store the whole body: many mod macros expand to more than one
+                // token (e.g. object filters), and truncating them to the first
+                // token silently corrupts the data at every use site.
+                var macroBody = new List<IniToken>();
+
+                var firstBodyToken = _tokenReader.NextToken(Separators) ?? throw new IniParseException($"Missing macro expansion", token.Value.Position);
+                if (ResolveFunc(firstBodyToken.Text, out var resolved))
                 {
-                    macroExpansionToken = resolved.Value;
+                    firstBodyToken = resolved.Value;
+                }
+                macroBody.Add(firstBodyToken);
+
+                IniToken? bodyToken;
+                while ((bodyToken = _tokenReader.NextToken(Separators)) != null)
+                {
+                    macroBody.Add(bodyToken.Value);
                 }
 
-                if (!_dataContext.Defines.TryAdd(macroName.ToUpper(), macroExpansionToken))
-                {
-                    // Overwrite the existing macro. This is necessary for BFME2 RotWk
-                    _dataContext.Defines[macroName.ToUpper()] = macroExpansionToken;
-                }
+                // Overwrite any existing macro. This is necessary for BFME2 RotWk.
+                _dataContext.Defines[macroName.ToUpper()] = new IniMacroDefinition(macroBody);
             }
             else if (fieldName == "#include")
             {
