@@ -661,6 +661,11 @@ public sealed class Game : DisposableBase, IGame
             Scene2D.AptWindowManager.PopWindow();
         }
 
+        // The match seed is what makes the logic RNG stream match-specific (api-freeze-v1 F5;
+        // step-3 handoff, wired in step 4). Every peer receives the same seed via game setup,
+        // so the stream stays lockstep-identical. Must precede map load: object creation draws.
+        GameLogic.Random.Initialize(unchecked((uint)seed));
+
         LoadMap(mapFileName, playerSettings, gameType);
 
         if (Scene3D == null)
