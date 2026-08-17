@@ -1,5 +1,11 @@
 ﻿
-namespace OpenSage.Logic.Object;
+// Moved from OpenSage.Game (OpenSage.Logic.Object) in scaffolding step 5: the frozen IXfer
+// surface (api-freeze-v1 S4) takes `ref ObjectId`, so the identity type is sim substrate and
+// lives below the module framework. Orders already speak object ids (SimOrder); the type joins
+// them here. Consumers keep compiling via `global using ObjectId = ...` bridge aliases, the
+// step-4 LogicFrame pattern.
+
+namespace OpenSage.SimCore.Orders;
 
 public readonly record struct ObjectId(uint Index)
 {

@@ -2,3 +2,6 @@
 // in OpenSage.SimCore.Ticking.
 global using LogicFrame = OpenSage.SimCore.Ticking.LogicFrame;
 global using LogicFrameSpan = OpenSage.SimCore.Ticking.LogicFrameSpan;
+
+// Step-5 (checksum framework): same bridge for the ObjectId move.
+global using ObjectId = OpenSage.SimCore.Orders.ObjectId;
