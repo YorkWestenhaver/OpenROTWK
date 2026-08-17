@@ -83,6 +83,53 @@ public class IniMacroTests
         Assert.True(filter.Exclude.Get(ObjectKinds.Structure));
     }
 
+    /// <summary>
+    /// A '#define' whose name is already a macro must still define that same name — the name
+    /// token is never macro-expanded. Real data re-parses shared files (a preload pass plus the
+    /// main sweep), so every macro in them is redefined at least once.
+    /// </summary>
+    [Fact]
+    public void RedefinitionDoesNotExpandTheNameBeingDefined()
+    {
+        var context = new IniParseTestContext();
+
+        context.ParseFileText("#define MY_FILTER ALL -STRUCTURE\n");
+        context.ParseFileText("#define MY_FILTER ALL -INFANTRY\n");
+
+        // The second #define updated MY_FILTER...
+        Assert.True(context.DataContext.Defines.ContainsKey("MY_FILTER"));
+
+        // ...and did not create a macro named after the first body's leading token.
+        Assert.False(context.DataContext.Defines.ContainsKey("ALL"));
+
+        var parser = context.CreateParser("MY_FILTER");
+        parser.GoToNextLine();
+        var filter = ObjectFilter.Parse(parser);
+
+        Assert.True(filter.Rules.Get(ObjectFilterRule.All));
+        Assert.True(filter.Exclude.Get(ObjectKinds.Infantry));
+        Assert.False(filter.Exclude.Get(ObjectKinds.Structure));
+    }
+
+    /// <summary>
+    /// The consequence of the bug above: a bogus 'ALL' macro made every plain 'ALL' keyword in
+    /// unrelated fields expand into an object filter.
+    /// </summary>
+    [Fact]
+    public void RedefinitionDoesNotPoisonTheAllKeyword()
+    {
+        var context = new IniParseTestContext();
+
+        context.ParseFileText("#define MY_FILTER ALL -STRUCTURE\n");
+        context.ParseFileText("#define MY_FILTER ALL -STRUCTURE\n");
+
+        var parser = context.CreateParser("ALL");
+        parser.GoToNextLine();
+
+        Assert.Equal("ALL", parser.GetNextTokenOptional()!.Value.Text);
+        Assert.Null(parser.GetNextTokenOptional());
+    }
+
     [Fact]
     public void CyclicDefinesTerminateInsteadOfLooping()
     {

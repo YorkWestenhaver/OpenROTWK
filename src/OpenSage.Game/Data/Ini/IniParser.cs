@@ -1303,7 +1303,23 @@ internal sealed partial class IniParser
 
         if (fieldName == "#define")
         {
-            var macroName = ParseIdentifier();
+            // The name being defined is read straight from the reader, never through
+            // GetNextToken: a '#define' that redefines an existing macro would otherwise have
+            // its *name* expanded and register the new body under the old body's first token.
+            //
+            // Real data does this constantly. water.ini's
+            //   #define AOTR_AFFECTED_BY_POISON_OBJECTFILTER  ALL -MACHINE -STRUCTURE ...
+            // is parsed once as part of the Default preload and again in the main sweep; on the
+            // second pass the name expanded to 'ALL', creating a bogus macro named 'ALL' whose
+            // body is an object filter. Every later 'DeathTypes = ALL' - ordinary retail data -
+            // then expanded into that filter and failed on '-MACHINE'.
+            var macroNameToken = _tokenReader.NextToken(Separators);
+            if (macroNameToken == null)
+            {
+                throw new IniParseException("Missing macro name", token.Position);
+            }
+
+            var macroName = macroNameToken.Value.Text;
 
             // Store the whole body: many mod macros expand to more than one
             // token (e.g. object filters), and truncating them to the first
