@@ -15,6 +15,13 @@ internal sealed class TokenReader
 
     public bool EndOfFile { get; private set; }
 
+    /// <summary>
+    /// True if the current line starts with whitespace. Used by error recovery
+    /// to distinguish (conventionally indented) block content from top-level blocks.
+    /// </summary>
+    public bool CurrentLineIsIndented =>
+        _currentLineText.Length > 0 && char.IsWhiteSpace(_currentLineText[0]);
+
     private IniToken? _peekedToken;
     private char[] _peekedTokenSeparators;
     private int _nextCharIndex;
@@ -29,6 +36,7 @@ internal sealed class TokenReader
         _source = source;
         _fileName = fileName;
 
+        _currentLineText = string.Empty;
         _currentLine = -1;
     }
 

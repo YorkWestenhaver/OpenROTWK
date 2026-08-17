@@ -23,6 +23,8 @@ namespace OpenSage.Data.Ini;
 
 internal sealed partial class IniParser
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private static readonly Dictionary<string, Func<IniParser, IniToken>> MacroFunctions = new Dictionary<string, Func<IniParser, IniToken>>
     {
          { "#DIVIDE(", (parser) => { return parser.DivideFunc(); } },
@@ -63,6 +65,12 @@ internal sealed partial class IniParser
     public IniTokenPosition CurrentPosition => _tokenReader.CurrentPosition;
 
     public SageGame SageGame { get; }
+
+    /// <summary>
+    /// Parse errors that were contained during <see cref="ParseFile"/>: the
+    /// offending top-level block was skipped and parsing continued.
+    /// </summary>
+    public List<IniParseError> ParseErrors { get; } = new List<IniParseError>();
 
     public GameData GameData => _assetStore.GameData.Current;
 
@@ -1144,9 +1152,14 @@ internal sealed partial class IniParser
         // the 'credits.ini' of ROTWK has a commented out starting block -> invalid
         if (SageGame == SageGame.Bfme2Rotwk && CurrentPosition.File.EndsWith("credits.ini")) return;
 
+        var skipGoToNextLine = false;
         while (!_tokenReader.EndOfFile)
         {
-            GoToNextLine();
+            if (!skipGoToNextLine)
+            {
+                GoToNextLine();
+            }
+            skipGoToNextLine = false;
 
             var token = _tokenReader.NextToken(Separators);
 
@@ -1155,62 +1168,129 @@ internal sealed partial class IniParser
                 continue;
             }
 
-            var fieldName = token.Value.Text;
-
-            if (fieldName == "#define")
+            try
             {
-                var macroName = ParseIdentifier();
-
-                // Store the whole body: many mod macros expand to more than one
-                // token (e.g. object filters), and truncating them to the first
-                // token silently corrupts the data at every use site.
-                //
-                // The body is stored verbatim, including macro functions like
-                // '#ADD( X 1 )'. They are evaluated lazily at each use site
-                // (via GetNextTokenOptional), because their arguments may be
-                // macros that are only defined later in the file.
-                var macroBody = new List<IniToken>();
-
-                IniToken? bodyToken;
-                while ((bodyToken = _tokenReader.NextToken(Separators)) != null)
-                {
-                    macroBody.Add(bodyToken.Value);
-                }
-
-                if (macroBody.Count == 0)
-                {
-                    throw new IniParseException($"Missing macro expansion", token.Value.Position);
-                }
-
-                // Overwrite any existing macro. This is necessary for BFME2 RotWk.
-                _dataContext.Defines[macroName.ToUpper()] = new IniMacroDefinition(macroBody);
+                ParseTopLevelItem(token.Value);
             }
-            else if (fieldName == "#include")
+            catch (Exception ex)
             {
-                var includeFileName = ParseQuotedString();
-                if (includeFileName.StartsWith(Path.DirectorySeparatorChar.ToString()))
-                {
-                    includeFileName = includeFileName.Remove(0, 1);
-                }
+                // Contain the error: record it, then skip to the next
+                // top-level block so one bad block doesn't hide the rest
+                // of the file.
+                RecordParseError(ex, token.Value.Position);
 
-                var includePath = Path.Combine(_directory.Peek(), includeFileName);
-                var includeEntry = _fileSystem.GetFile(includePath) ?? throw new InvalidOperationException();
-                // I doubt locale-specific-encoded files will ever include other files.
-                // But if they do, it's reasonable to assume included files use the same encoding as the includer.
-                var includeParser = new IniParser(includeEntry, _assetStore, SageGame, _dataContext, _encoding);
-                includeParser.ParseFile();
-            }
-            else if (BlockParsers.TryGetValue(fieldName, out var blockParser))
-            {
-                _currentBlockOrFieldStack.Push(fieldName);
-                blockParser(this, _assetStore);
-                _currentBlockOrFieldStack.Pop();
-            }
-            else
-            {
-                throw new IniParseException($"Unexpected block '{fieldName}'.", token.Value.Position);
+                // A failed block can leave partially-pushed state behind.
+                _currentBlockOrFieldStack.Clear();
+                BlockStack.Clear();
+
+                skipGoToNextLine = SkipToNextTopLevelBlock();
             }
         }
+    }
+
+    private void ParseTopLevelItem(in IniToken token)
+    {
+        var fieldName = token.Text;
+
+        if (fieldName == "#define")
+        {
+            var macroName = ParseIdentifier();
+
+            // Store the whole body: many mod macros expand to more than one
+            // token (e.g. object filters), and truncating them to the first
+            // token silently corrupts the data at every use site.
+            //
+            // The body is stored verbatim, including macro functions like
+            // '#ADD( X 1 )'. They are evaluated lazily at each use site
+            // (via GetNextTokenOptional), because their arguments may be
+            // macros that are only defined later in the file.
+            var macroBody = new List<IniToken>();
+
+            IniToken? bodyToken;
+            while ((bodyToken = _tokenReader.NextToken(Separators)) != null)
+            {
+                macroBody.Add(bodyToken.Value);
+            }
+
+            if (macroBody.Count == 0)
+            {
+                throw new IniParseException($"Missing macro expansion", token.Position);
+            }
+
+            // Overwrite any existing macro. This is necessary for BFME2 RotWk.
+            _dataContext.Defines[macroName.ToUpper()] = new IniMacroDefinition(macroBody);
+        }
+        else if (fieldName == "#include")
+        {
+            var includeFileName = ParseQuotedString();
+            if (includeFileName.StartsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                includeFileName = includeFileName.Remove(0, 1);
+            }
+
+            var includePath = Path.Combine(_directory.Peek(), includeFileName);
+            var includeEntry = _fileSystem.GetFile(includePath) ?? throw new IniParseException($"Included file not found: '{includeFileName}'", token.Position);
+            // I doubt locale-specific-encoded files will ever include other files.
+            // But if they do, it's reasonable to assume included files use the same encoding as the includer.
+            var includeParser = new IniParser(includeEntry, _assetStore, SageGame, _dataContext, _encoding);
+            includeParser.ParseFile();
+            ParseErrors.AddRange(includeParser.ParseErrors);
+        }
+        else if (BlockParsers.TryGetValue(fieldName, out var blockParser))
+        {
+            _currentBlockOrFieldStack.Push(fieldName);
+            try
+            {
+                blockParser(this, _assetStore);
+            }
+            finally
+            {
+                _currentBlockOrFieldStack.Pop();
+            }
+        }
+        else
+        {
+            throw new IniParseException($"Unexpected block '{fieldName}'.", token.Position);
+        }
+    }
+
+    private void RecordParseError(Exception ex, in IniTokenPosition blockStartPosition)
+    {
+        var position = ex is IniParseException ipe ? ipe.Position : blockStartPosition;
+        ParseErrors.Add(new IniParseError(ex, position));
+        Logger.Warn(ex, $"INI parse error in '{position.File}' at line {position.Line}; skipping to the next top-level block.");
+    }
+
+    /// <summary>
+    /// Advances the reader to the next line that looks like the start of a
+    /// top-level block (an unindented known block keyword, #define or #include).
+    /// Returns true if such a line was found and is now the current line.
+    /// </summary>
+    private bool SkipToNextTopLevelBlock()
+    {
+        while (!_tokenReader.EndOfFile)
+        {
+            GoToNextLine();
+
+            if (_tokenReader.CurrentLineIsIndented)
+            {
+                continue;
+            }
+
+            var token = _tokenReader.PeekToken(Separators);
+            if (token == null)
+            {
+                continue;
+            }
+
+            var text = token.Value.Text;
+            if (text == "#define" || text == "#include" || BlockParsers.ContainsKey(text))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
