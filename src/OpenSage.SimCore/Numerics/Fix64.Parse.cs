@@ -1,12 +1,11 @@
-// SIMCORE-EXEMPT: frozen F4 float boundaries (ToFloatForDisplay is float-typed by contract),
-// see api-freeze-v1 F4 and design-simcore-scaffolding §1.3.
-//
 // The two blessed float boundaries of the deterministic core (api-freeze-v1 F4):
 //   - INI decimal text  -> Fix64 : FromDecimalLiteral, integer arithmetic only, never
 //     through double. Same INI bytes => same raw bits on every machine.
 //   - wire float32 bits -> Fix64 : FromWireFloat, IEEE bit-pattern decomposition with
 //     integer ops, never a float local. Same bits in => same raw bits out on every peer.
-// Plus the one blessed display escape ToFloatForDisplay(); every crossing is greppable.
+// Both are integer-only, so this file is NOT analyzer-exempt: SIMCORE001-010 police it in
+// full. The third F4 crossing, the display escape ToFloatForDisplay(), is float-typed by
+// contract and therefore lives alone in Fix64.Display.cs, the only exempt surface here.
 
 using System;
 
@@ -209,15 +208,6 @@ namespace OpenSage.SimCore.Numerics
             }
 
             return new Fix64(negative ? -raw : raw);
-        }
-
-        /// <summary>
-        /// The one blessed escape to float, for rendering/UI display only. Never feed the
-        /// result back into sim state (api-freeze-v1 F4; the analyzer polices call sites).
-        /// </summary>
-        public float ToFloatForDisplay()
-        {
-            return (float)(m_rawValue / 4294967296.0);
         }
     }
 }

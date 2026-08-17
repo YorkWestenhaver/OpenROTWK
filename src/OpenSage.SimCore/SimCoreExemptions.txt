@@ -1,10 +1,17 @@
 # SimCore analyzer exemption registry (design-simcore-scaffolding §2.2, api-freeze-v1 F10).
-# Every file listed here must also carry a "// SIMCORE-EXEMPT:" header comment;
-# the analyzer (build-order step 2) cross-checks both sides.
+#
+# An exemption is a PAIR: every file listed here must also carry a "// SIMCORE-EXEMPT:" header
+# comment, and the analyzer cross-checks both sides. Either half on its own does nothing, so
+# lifting the quarantine is always a two-place, reviewable diff.
+#
+# Paths are project-relative, '/' separated, one per line; '#' starts a comment.
+
+# Hardware double used only as a first guess; the integer fixup makes the result
+# guess-independent, and DivSqrtEquivalenceTests proves it against a pure-integer reference.
 Numerics/Fix64.Division.cs
 Numerics/Fix64.Sqrt.cs
-# Finding logged in scaffolding-log.md (step 1): Fix64.Parse.cs holds the frozen F4
-# display boundary ToFloatForDisplay(), whose return type is float by contract.
-# It needs either this exemption entry or a targeted analyzer carve-out; listed
-# here pending the step-2 analyzer's ruling.
-Numerics/Fix64.Parse.cs
+
+# Step-2 ruling on the step-1 finding: the F4 display escape is float-typed by contract, so it
+# was split out of Fix64.Parse.cs into a file of its own. The exemption now covers exactly one
+# method instead of both integer-only F4 parse boundaries, which stay fully policed.
+Numerics/Fix64.Display.cs
