@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\OpenSage.SimCore\OpenSage.SimCore.csproj" />
+    <!-- autoheal-v1 (build-order step 7): the first REAL module through the harness
+         pipeline needs the game-side module framework and the headless host. -->
+    <ProjectReference Include="..\..\OpenSage.Game\OpenSage.Game.csproj" />
   </ItemGroup>
 
 </Project>

@@ -36,6 +36,7 @@ internal static class Program
         uint? untilFrame = null;
         uint checkpointInterval = 10;
         uint seed = 0xB00u;
+        var scenarioName = "scripted-v1";
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -46,6 +47,7 @@ internal static class Program
                 case "--until-frame": untilFrame = uint.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--checkpoint-interval": checkpointInterval = uint.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--seed": seed = ParseUInt(args[++i]); break;
+                case "--scenario": scenarioName = args[++i]; break;
                 default:
                     Console.Error.WriteLine($"unknown argument: {args[i]}");
                     return 2;
@@ -81,7 +83,19 @@ internal static class Program
         }
         var stopAfter = untilFrame ?? lastOrderFrame + 10;
 
-        var scenario = new ScriptedScenario(seed);
+        IDriverScenario scenario;
+        switch (scenarioName)
+        {
+            case "scripted-v1":
+                scenario = new ScriptedScenario(seed);
+                break;
+            case "autoheal-v1":
+                scenario = new AutoHealScenario(seed);
+                break;
+            default:
+                Console.Error.WriteLine($"unknown scenario: {scenarioName}");
+                return 2;
+        }
         var loop = new SimLoop(scenario)
         {
             CrcCheckpointIntervalInFrames = SyncChecker.EffectiveInterval(checkpointInterval),
@@ -102,7 +116,7 @@ internal static class Program
         }
 
         Console.WriteLine(
-            $"scripted-v1: frames=0..{stopAfter} orders={orders.Count} dispatched={scenario.Dispatched} " +
+            $"{scenarioName}: frames=0..{stopAfter} orders={orders.Count} dispatched={scenario.Dispatched} " +
             $"checkpoints={scenario.Checkpoints} objects={scenario.ObjectCount} " +
             $"finalCombined={scenario.FinalCombined:X8} seed=0x{seed:X8} interval={loop.CrcCheckpointIntervalInFrames}");
         return 0;
@@ -211,6 +225,19 @@ internal static class Program
 }
 
 // ---------------------------------------------------------------------------
+// Driver scenario surface: ISimSystems plus the dump/summary plumbing Main uses.
+// ---------------------------------------------------------------------------
+
+internal interface IDriverScenario : ISimSystems
+{
+    void AttachWriter(DeepCrcWriter writer);
+    int Dispatched { get; }
+    int Checkpoints { get; }
+    int ObjectCount { get; }
+    uint FinalCombined { get; }
+}
+
+// ---------------------------------------------------------------------------
 // The scripted scenario: deterministic, integer-only, order-sensitive.
 // ---------------------------------------------------------------------------
 
@@ -312,7 +339,7 @@ internal sealed class PlayersChannel : ICrcChannelSource
     }
 }
 
-internal sealed class ScriptedScenario : ISimSystems
+internal sealed class ScriptedScenario : IDriverScenario
 {
     private static readonly Fix64 Speed = Fix64.FromRaw(3L << 32);          // 3.0 units/frame
     private static readonly Fix64 InitialHealth = Fix64.FromRaw(100L << 32);
