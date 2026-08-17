@@ -64,6 +64,23 @@ public class IniMacroTests
     }
 
     [Fact]
+    public void SelfReferentialMultiTokenDefineThrowsInsteadOfStreamingForever()
+    {
+        var context = new IniParseTestContext();
+
+        // 'A' expands to '1 A': a consumer that reads tokens until exhaustion
+        // (filters, arrays) would otherwise receive an infinite token stream —
+        // each expansion happens in a separate GetNextTokenOptional call, so
+        // only a per-line expansion budget can catch it.
+        context.ParseFileText("#define A 1 A\n");
+
+        var parser = context.CreateParser("A");
+        parser.GoToNextLine();
+
+        Assert.Throws<IniParseException>(() => parser.ParseFloatArray());
+    }
+
+    [Fact]
     public void CyclicDefinesThrowInsteadOfLooping()
     {
         var context = new IniParseTestContext();

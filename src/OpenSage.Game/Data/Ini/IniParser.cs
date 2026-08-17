@@ -41,8 +41,13 @@ internal sealed partial class IniParser
 
     public const string EndToken = "END";
 
-    // Guards against cyclic macro definitions (e.g. '#define A B' + '#define B A').
-    private const int MaximumMacroExpansionsPerToken = 100;
+    // Guards against cyclic macro definitions (e.g. '#define A B' + '#define B A',
+    // or a self-referential multi-token body like '#define A 1 A'). The budget is
+    // per source line: a cycle that yields one token per GetNextTokenOptional call
+    // would otherwise stream tokens forever without tripping any per-call limit.
+    private const int MaximumMacroExpansionsPerLine = 1000;
+
+    private int _macroExpansionsThisLine;
 
     private TokenReader _tokenReader;
 
@@ -153,6 +158,7 @@ internal sealed partial class IniParser
     public void GoToNextLine()
     {
         _pendingMacroTokens.Clear();
+        _macroExpansionsThisLine = 0;
         _tokenReader.GoToNextLine();
     }
 
@@ -997,8 +1003,6 @@ internal sealed partial class IniParser
 
     public IniToken? GetNextTokenOptional(char[]? separators = null)
     {
-        var expansions = 0;
-
         while (true)
         {
             IniToken? result;
@@ -1019,7 +1023,7 @@ internal sealed partial class IniParser
 
             if (_dataContext.Defines.TryGetValue(result.Value.Text.ToUpper(), out var macroExpansion))
             {
-                if (++expansions > MaximumMacroExpansionsPerToken)
+                if (++_macroExpansionsThisLine > MaximumMacroExpansionsPerLine)
                 {
                     throw new IniParseException($"Exceeded maximum macro expansion depth while expanding '{result.Value.Text}'", result.Value.Position);
                 }
