@@ -102,7 +102,9 @@ public sealed class HostNetworkConnection : NetworkConnection
 
 public abstract class NetworkConnection : EchoConnection
 {
-    protected const int OrderSchedulingOffsetInFrames = 2;
+    // The +2-frame order schedule is a contract value (api-freeze-v1 F6); SimCore's order
+    // pipe owns it, and the transport re-uses it so the two can never drift apart.
+    protected const int OrderSchedulingOffsetInFrames = OpenSage.SimCore.Ticking.SimLoop.OrderSchedulingOffsetInFrames;
 
     protected EventBasedNetListener _listener;
     protected NetManager _manager;
