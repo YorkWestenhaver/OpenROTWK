@@ -26,7 +26,8 @@ public sealed class AttributeModifierAuraUpdateModuleData : UpdateModuleData
         { "AllowPowerWhenAttacking", (parser, x) => x.AllowPowerWhenAttacking = parser.ParseBoolean() },
         { "MaxActiveRank", (parser, x) => x.MaxActiveRank = parser.ParseInteger() },
         { "AffectContainedOnly", (parser, x) => x.AffectContainedOnly = parser.ParseBoolean() },
-        { "RequiresAllTriggers", (parser, x) => x.RequiresAllTriggers = parser.ParseBoolean() }
+        { "RequiresAllTriggers", (parser, x) => x.RequiresAllTriggers = parser.ParseBoolean() },
+        { "Permanent", (parser, x) => x.Permanent = parser.ParseBoolean() },
     };
 
     public bool StartsActive { get; private set; }
@@ -50,4 +51,11 @@ public sealed class AttributeModifierAuraUpdateModuleData : UpdateModuleData
 
     [AddedIn(SageGame.Bfme2Rotwk)]
     public bool RequiresAllTriggers { get; private set; }
+
+    /// <summary>
+    /// This module duplicates the upgrade-mux fields rather than deriving from
+    /// <see cref="UpgradeModuleData"/>, so it needs its own copy of Permanent.
+    /// </summary>
+    [AddedIn(SageGame.Bfme2)]
+    public bool Permanent { get; private set; }
 }

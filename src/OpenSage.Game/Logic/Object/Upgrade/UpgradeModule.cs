@@ -161,6 +161,7 @@ public sealed class UpgradeLogicData
         { "Description", (parser, x) => x.Description = parser.ParseLocalizedStringKey() },
         { "CustomAnimAndDuration", (parser, x) => x.CustomAnimAndDuration = AnimAndDuration.Parse(parser) },
         { "ActiveDuringConstruction", (parser, x) => x.ActiveDuringConstruction = parser.ParseBoolean() },
+        { "Permanent", (parser, x) => x.Permanent = parser.ParseBoolean() },
     };
 
     public LazyAssetReference<UpgradeTemplate>[] TriggeredBy { get; internal set; }
@@ -181,6 +182,16 @@ public sealed class UpgradeLogicData
 
     [AddedIn(SageGame.Bfme)]
     public bool ActiveDuringConstruction { get; internal set; }
+
+    /// <summary>
+    /// Once triggered, the module stays triggered even if the upgrade that triggered it is
+    /// removed again.
+    /// </summary>
+    /// <remarks>
+    /// Parsed and stored; <see cref="UpgradeModule"/> does not act on it yet.
+    /// </remarks>
+    [AddedIn(SageGame.Bfme2)]
+    public bool Permanent { get; internal set; }
 
     private HashSet<UpgradeTemplate> _triggeredByHashSet;
     internal HashSet<UpgradeTemplate> TriggeredByHashSet
