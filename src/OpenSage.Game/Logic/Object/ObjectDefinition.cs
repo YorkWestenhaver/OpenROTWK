@@ -323,15 +323,15 @@ public class ObjectDefinition : BaseAsset
         { "Geometry", (parser, x) => x.ParseGeometry(parser) },
         { "AdditionalGeometry", (parser, x) => x.ParseAdditionalGeometry(parser) },
 
-        { "GeometryName", (parser, x) => x._currentGeometryShape.Name = parser.ParseString() },
-        { "GeometryMajorRadius", (parser, x) => x._currentGeometryShape.MajorRadius = parser.ParseFloat() },
-        { "GeometryMinorRadius", (parser, x) => x._currentGeometryShape.MinorRadius = parser.ParseFloat() },
-        { "GeometryHeight", (parser, x) => x._currentGeometryShape.Height = parser.ParseFloat() },
+        { "GeometryName", (parser, x) => x.CurrentGeometryShape.Name = parser.ParseString() },
+        { "GeometryMajorRadius", (parser, x) => x.CurrentGeometryShape.MajorRadius = parser.ParseFloat() },
+        { "GeometryMinorRadius", (parser, x) => x.CurrentGeometryShape.MinorRadius = parser.ParseFloat() },
+        { "GeometryHeight", (parser, x) => x.CurrentGeometryShape.Height = parser.ParseFloat() },
         { "GeometryIsSmall", (parser, x) => x.Geometry.IsSmall = parser.ParseBoolean() },
-        { "GeometryOffset", (parser, x) => x._currentGeometryShape.Offset = parser.ParseVector3() },
+        { "GeometryOffset", (parser, x) => x.CurrentGeometryShape.Offset = parser.ParseVector3() },
         { "GeometryRotationAnchorOffset", (parser, x) => x.RotationAnchorOffset = parser.ParseVector2() },
-        { "GeometryActive", (parser, x) => x._currentGeometryShape.IsActive = parser.ParseBoolean() },
-        { "GeometryFrontAngle", (parser, x) => x._currentGeometryShape.FrontAngle = parser.ParseFloat() },
+        { "GeometryActive", (parser, x) => x.CurrentGeometryShape.IsActive = parser.ParseBoolean() },
+        { "GeometryFrontAngle", (parser, x) => x.CurrentGeometryShape.FrontAngle = parser.ParseFloat() },
 
         { "GeometryOther", (parser, x) => x.ParseOtherGeometry(parser) },
 
@@ -1309,7 +1309,18 @@ public class ObjectDefinition : BaseAsset
     }
 
     private GeometryShape _currentGeometryShape;
-    public GeometryShape CurrentGeometryShape => _currentGeometryShape;
+
+    /// <summary>
+    /// The geometry shape the <c>Geometry*</c> fields address: the one most recently introduced by
+    /// a <c>Geometry =</c> or <c>AdditionalGeometry =</c> line.
+    /// <para>
+    /// Data does not have to introduce one first — the engine's object template always owns a
+    /// geometry, so a bare <c>GeometryMajorRadius</c> (or a <c>ChildObject</c> that only overrides
+    /// a dimension of its parent's shape) simply edits it. Falling back to the default shape here
+    /// is what keeps those lines from dereferencing null.
+    /// </para>
+    /// </summary>
+    public GeometryShape CurrentGeometryShape => _currentGeometryShape ??= Geometry.Shapes[0];
 
     internal void ParseGeometry(IniParser parser)
     {
