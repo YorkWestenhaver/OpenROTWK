@@ -41,7 +41,29 @@ internal static class SkudefReader
         }
     }
 
+    /// <summary>
+    /// Case-insensitive ordinal comparer that folds to <em>lowercase</em>, matching the engine's
+    /// <c>_memicmp</c>-based <c>less_than_nocase</c>. Differs from
+    /// <see cref="StringComparer.OrdinalIgnoreCase"/> (which folds to uppercase) exactly on the
+    /// characters between <c>'Z'</c> (0x5A) and <c>'a'</c> (0x61) — most importantly <c>'_'</c>
+    /// (0x5F), which the engine sorts <em>before</em> letters and .NET sorts after them.
+    /// </summary>
+    internal sealed class LowerInvariantOrdinalComparer : IComparer<string?>
+    {
+        public static readonly LowerInvariantOrdinalComparer Instance = new();
+
+        public int Compare(string? x, string? y)
+        {
+            return string.CompareOrdinal(x?.ToLowerInvariant(), y?.ToLowerInvariant());
+        }
+    }
+
     public static void Read(string rootDirectory, Action<string> addBigArchive)
+    {
+        Read(rootDirectory, BigArchiveLoadOrder.Sage, addBigArchive);
+    }
+
+    public static void Read(string rootDirectory, BigArchiveLoadOrder loadOrder, Action<string> addBigArchive)
     {
 
         var skudefFiles = Directory.GetFiles(rootDirectory, "*.skudef", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive });
@@ -60,11 +82,11 @@ internal static class SkudefReader
             ? (TextReader)new StreamReader(skudefFile)
             : new StringReader("add-bigs-recurse ."))
         {
-            Read(rootDirectory, skudefFileContents, addBigArchive);
+            Read(rootDirectory, skudefFileContents, loadOrder, addBigArchive);
         }
     }
 
-    private static void Read(string skudefDirectory, TextReader skudefReader, Action<string> addBigArchive)
+    private static void Read(string skudefDirectory, TextReader skudefReader, BigArchiveLoadOrder loadOrder, Action<string> addBigArchive)
     {
         while (skudefReader.ReadLine() is { } line)
         {
@@ -85,7 +107,7 @@ internal static class SkudefReader
                     break;
 
                 case "add-bigs-recurse":
-                    foreach (var bigPath in GetBigFiles(fullPath))
+                    foreach (var bigPath in GetBigFiles(fullPath, loadOrder))
                     {
                         addBigArchive(bigPath);
                     }
@@ -94,7 +116,7 @@ internal static class SkudefReader
                 case "add-config":
                     using (var reader = new StreamReader(fullPath))
                     {
-                        Read(Path.GetDirectoryName(fullPath)!, reader, addBigArchive);
+                        Read(Path.GetDirectoryName(fullPath)!, reader, loadOrder, addBigArchive);
                     }
                     break;
             }
@@ -105,7 +127,56 @@ internal static class SkudefReader
     /// <summary>
     /// Enumerates all .big files in the specified directory and its subdirectories, in the order they should be loaded.
     /// </summary>
-    private static IEnumerable<string> GetBigFiles(string directory)
+    internal static IEnumerable<string> GetBigFiles(string directory, BigArchiveLoadOrder loadOrder)
+    {
+        return loadOrder switch
+        {
+            BigArchiveLoadOrder.Sage => GetBigFilesSage(directory),
+            BigArchiveLoadOrder.ZeroHour => GetBigFilesZeroHour(directory),
+            _ => throw new ArgumentOutOfRangeException(nameof(loadOrder)),
+        };
+    }
+
+    private static bool IsBigFile(string path)
+    {
+        // The engine's directory masks are "*.big" for the base layers and "*.BIG" for the -mod
+        // layer; on Win32 both are case-insensitive, so a case-sensitive extension test here would
+        // simply miss archives.
+        return Path.GetExtension(path).Equals(".big", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The SAGE engine's enumeration order.
+    /// <para>
+    /// <c>ArchiveFileSystem::init</c> issues one <c>loadBigFilesFromDirectory</c> call per directory
+    /// — the game root's <c>*.big</c> first, then <c>apt\*.big</c> — and each call walks an ordered
+    /// <c>std::set</c> keyed on the <c>tolower</c>-folded file name. So: every archive of a
+    /// directory, lower-fold-sorted, before any archive of a subdirectory.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<string> GetBigFilesSage(string directory)
+    {
+        var entries = Directory.GetFileSystemEntries(directory);
+
+        foreach (var entry in entries
+            .Where(x => !Directory.Exists(x) && IsBigFile(x))
+            .OrderBy(Path.GetFileName, LowerInvariantOrdinalComparer.Instance))
+        {
+            yield return entry;
+        }
+
+        foreach (var subDirectory in entries
+            .Where(Directory.Exists)
+            .OrderBy(Path.GetFileName, LowerInvariantOrdinalComparer.Instance))
+        {
+            foreach (var bigFile in GetBigFilesSage(subDirectory))
+            {
+                yield return bigFile;
+            }
+        }
+    }
+
+    private static IEnumerable<string> GetBigFilesZeroHour(string directory)
     {
         // The OSS version of Generals / ZH loads .big files with FindFirstFile / FindNextFile, which means they are returned
         // in whatever order the file system decides to return them. In practice on Windows & NTFS this is case-insensitive
@@ -154,12 +225,12 @@ internal static class SkudefReader
             if (Directory.Exists(entry))
             {
                 // Handle directories recursively to ensure the correct order in subdirectories
-                foreach (var bigFile in GetBigFiles(entry))
+                foreach (var bigFile in GetBigFilesZeroHour(entry))
                 {
                     yield return bigFile;
                 }
             }
-            else if (Path.GetExtension(entry) == ".big")
+            else if (IsBigFile(entry))
             {
                 yield return entry;
             }

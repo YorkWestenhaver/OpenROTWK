@@ -5,16 +5,33 @@ namespace OpenSage.IO;
 public sealed class BigFileSystem : FileSystem
 {
     private readonly BigDirectory _rootDirectory;
+    private readonly BigFileSystemOptions _options;
+
+    public BigFileSystemOptions Options => _options;
 
     public BigFileSystem(string rootDirectory)
+        : this(rootDirectory, BigFileSystemOptions.BaseGame)
     {
-        _rootDirectory = new BigDirectory();
-
-        SkudefReader.Read(rootDirectory, AddBigArchive);
     }
 
+    public BigFileSystem(string rootDirectory, BigFileSystemOptions options)
+    {
+        _options = options;
+        _rootDirectory = new BigDirectory();
+
+        SkudefReader.Read(rootDirectory, options.LoadOrder, AddBigArchive);
+    }
+
+    /// <summary>
+    /// Registers a single <c>.big</c> archive, in the same way the engine's
+    /// <c>ArchiveFileSystem::loadBigFilesFromDirectory</c> does: every entry claims its normalised
+    /// path in one shared tree, and an already-claimed path is only replaced when this layer
+    /// registers with <c>overwrite = TRUE</c>.
+    /// </summary>
     private void AddBigArchive(string path)
     {
+        var overwrite = _options.ConflictResolution == BigArchiveConflictResolution.LastWins;
+
         var bigArchive = AddDisposable(new BigArchive(path));
 
         foreach (var bigArchiveEntry in bigArchive.Entries)
@@ -29,8 +46,21 @@ public sealed class BigFileSystem : FileSystem
 
             var fileName = directoryParts[directoryParts.Length - 1];
 
-            bigDirectory.Files[fileName] = bigArchiveEntry;
+            // Engine equivalent: if (find(name) == end() || overwrite) { store }
+            if (overwrite || !bigDirectory.Files.ContainsKey(fileName))
+            {
+                bigDirectory.Files[fileName] = bigArchiveEntry;
+            }
         }
+    }
+
+    /// <summary>
+    /// The path of the <c>.big</c> archive that owns <paramref name="filePath"/>, or null if no
+    /// archive in this layer provides it. Diagnostics / conformance-test hook.
+    /// </summary>
+    public string? GetArchiveFilePath(string filePath)
+    {
+        return FindEntry(filePath)?.Archive.FilePath;
     }
 
     public override IEnumerable<FileSystemEntry> GetFilesInDirectory(
@@ -86,6 +116,15 @@ public sealed class BigFileSystem : FileSystem
 
     public override FileSystemEntry? GetFile(string filePath)
     {
+        var file = FindEntry(filePath);
+
+        return file != null
+            ? CreateFileSystemEntry(file)
+            : null;
+    }
+
+    private BigArchiveEntry? FindEntry(string filePath)
+    {
         var directoryParts = NormalizeFilePath(filePath).Split(Path.DirectorySeparatorChar);
 
         var bigDirectory = _rootDirectory;
@@ -99,12 +138,9 @@ public sealed class BigFileSystem : FileSystem
 
         var fileName = directoryParts[directoryParts.Length - 1];
 
-        if (!bigDirectory.Files.TryGetValue(fileName, out var file))
-        {
-            return null;
-        }
-
-        return CreateFileSystemEntry(file);
+        return bigDirectory.Files.TryGetValue(fileName, out var file)
+            ? file
+            : null;
     }
 
     private FileSystemEntry CreateFileSystemEntry(BigArchiveEntry entry)

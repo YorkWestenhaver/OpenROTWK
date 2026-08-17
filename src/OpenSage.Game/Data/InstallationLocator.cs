@@ -41,17 +41,28 @@ public sealed class GameInstallation
         _baseGameInstallation = baseGame;
     }
 
+    /// <summary>
+    /// Generals and Zero Hour keep OpenSAGE's existing (empirically tuned) archive ordering and
+    /// last-wins registration; every other SAGE title uses the engine-faithful first-wins model.
+    /// </summary>
+    private static BigFileSystemOptions BaseGameBigOptions(IGameDefinition game)
+    {
+        return game.Game is SageGame.CncGenerals or SageGame.CncGeneralsZeroHour
+            ? BigFileSystemOptions.GeneralsZeroHour
+            : BigFileSystemOptions.BaseGame;
+    }
+
     public FileSystem CreateFileSystem()
     {
         var result = new CompositeFileSystem(
             new DiskFileSystem(Path),
-            new BigFileSystem(Path));
+            new BigFileSystem(Path, BaseGameBigOptions(Game)));
 
         if (_baseGameInstallation != null)
         {
             result = new CompositeFileSystem(
                 result,
-                new BigFileSystem(_baseGameInstallation.Path));
+                new BigFileSystem(_baseGameInstallation.Path, BaseGameBigOptions(_baseGameInstallation.Game)));
         }
 
         return result;
