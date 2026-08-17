@@ -1,0 +1,49 @@
+// SIMCORE004 fixture: iteration whose order is implementation-defined.
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Fixture
+{
+    public class Ordering
+    {
+        public int Sum(Dictionary<int, int> map)
+        {
+            var total = 0;
+
+            foreach (var pair in map)                           // EXPECT: SIMCORE004
+            {
+                total += pair.Value;
+            }
+
+            foreach (var key in map.Keys)                       // EXPECT: SIMCORE004
+            {
+                total += key;
+            }
+
+            return total;
+        }
+
+        public List<int> Grouped(IEnumerable<int> source) =>
+            source.GroupBy(x => x).Select(g => g.Key).ToList();  // EXPECT: SIMCORE004
+
+        public int[] Unique(IEnumerable<int> source) => source.Distinct().ToArray();      // EXPECT: SIMCORE004
+
+        public Dictionary<int, int> Map(IEnumerable<int> s) => s.ToDictionary(x => x, x => x); // EXPECT: SIMCORE004
+
+        public IEnumerable<int> Sorted(HashSet<int> set) => set.OrderBy(x => x);          // EXPECT: SIMCORE004
+
+        // A total order over an already-ordered source is fine.
+        public IEnumerable<int> Fine(List<int> list) => list.OrderBy(x => x);
+
+        public int SumList(List<int> list)
+        {
+            var total = 0;
+            foreach (var value in list)
+            {
+                total += value;
+            }
+
+            return total;
+        }
+    }
+}

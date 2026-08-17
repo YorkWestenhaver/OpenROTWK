@@ -1,0 +1,23 @@
+// SIMCORE007 fixture: the tick loop is single-threaded, so neither asynchrony nor threading is
+// allowed. The async keyword and the Task/Thread types are caught independently.
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Fixture
+{
+    public class Concurrency
+    {
+        public async Task RunAsync()                            // EXPECT: SIMCORE007
+        {
+            await Task.Delay(1);                                // EXPECT: SIMCORE007
+        }
+
+        public void Spawn()
+        {
+            var thread = new Thread(() => { });                 // EXPECT: SIMCORE007
+            thread.Start();                                     // EXPECT: SIMCORE007
+        }
+
+        public int Sync(int a) => a + 1;
+    }
+}

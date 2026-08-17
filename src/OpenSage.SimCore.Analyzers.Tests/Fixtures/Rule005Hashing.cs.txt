@@ -1,0 +1,17 @@
+// SIMCORE005 fixture: hashes and enum orders that are not stable across processes. Note the
+// last member: value-type GetHashCode (long) is a fixed xor-fold and stays legal, which is what
+// lets SimCore's own struct overrides compile.
+using System;
+
+namespace Fixture
+{
+    public class Hashing
+    {
+        public int OfText(string text) => text.GetHashCode();           // EXPECT: SIMCORE005
+        public int OfObject(object value) => value.GetHashCode();       // EXPECT: SIMCORE005
+        public int Combined(long a, long b) => HashCode.Combine(a, b);  // EXPECT: SIMCORE005
+        public Array Members() => Enum.GetValues(typeof(DayOfWeek));    // EXPECT: SIMCORE005
+
+        public int OfRaw(long raw) => raw.GetHashCode();
+    }
+}

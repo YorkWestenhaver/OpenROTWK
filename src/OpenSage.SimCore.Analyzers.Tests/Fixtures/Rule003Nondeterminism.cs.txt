@@ -1,0 +1,22 @@
+// SIMCORE003 fixture: ambient nondeterministic sources. Both the type reference and the member
+// call are caught, so neither "new Random()" nor a Random handed in from elsewhere slips past.
+using System;
+using System.Diagnostics;
+
+namespace Fixture
+{
+    public class Ambient
+    {
+        public int Roll()
+        {
+            var rng = new Random(1234);                         // EXPECT: SIMCORE003
+            return rng.Next();                                  // EXPECT: SIMCORE003
+        }
+
+        public Guid Id() => Guid.NewGuid();                     // EXPECT: SIMCORE003
+        public long Now() => DateTime.UtcNow.Ticks;             // EXPECT: SIMCORE003
+        public int Uptime() => Environment.TickCount;           // EXPECT: SIMCORE003
+        public object Timer() => new Stopwatch();               // EXPECT: SIMCORE003
+        public int Cores() => Environment.ProcessorCount;       // EXPECT: SIMCORE003
+    }
+}

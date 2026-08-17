@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referenced as an ordinary library: these tests drive the analyzer directly rather than
+         letting the compiler host load it. -->
+    <ProjectReference Include="..\OpenSage.SimCore.Analyzers\OpenSage.SimCore.Analyzers.csproj" />
+    <ProjectReference Include="..\OpenSage.SimCore\OpenSage.SimCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Fixtures are .cs.txt so the test project itself does not try to compile the deliberate
+         violations; the harness feeds them to a private in-memory compilation instead. -->
+    <None Include="Fixtures\**\*.cs.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

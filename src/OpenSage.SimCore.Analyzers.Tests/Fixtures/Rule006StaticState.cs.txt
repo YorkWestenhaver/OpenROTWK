@@ -1,0 +1,16 @@
+// SIMCORE006 fixture: sim state must live in the game-state graph, never in a static field.
+namespace Fixture
+{
+    public class State
+    {
+        public static int Counter;                              // EXPECT: SIMCORE006
+        public static int First, Second;                        // EXPECT: SIMCORE006
+
+        public static readonly int Frozen = 1;
+        public const int Limit = 4;
+
+        private int _perInstance;
+
+        public int Bump() => ++_perInstance;
+    }
+}

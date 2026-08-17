@@ -1,0 +1,22 @@
+// SIMCORE010 fixture (warning): the §1.2-R2 overflow guard. Two squared magnitudes multiplied
+// together are a fourth power, which saturates Q31.32 at ~2.1e9; such products belong in
+// FixMath, where the comparison is done at 128 bits.
+using OpenSage.SimCore.Numerics;
+
+namespace Fixture
+{
+    public class Ranges
+    {
+        public Fix64 Product(Fix64 aSq, Fix64 bSq) => aSq * bSq;         // EXPECT: SIMCORE010
+        public Fix64 ViaMembers(Holder h) => h.LengthSquared * h.RangeSq; // EXPECT: SIMCORE010
+
+        public Fix64 Fine(Fix64 a, Fix64 b) => a * b;
+        public Fix64 AlsoFine(Fix64 aSq, Fix64 b) => aSq * b;
+    }
+
+    public class Holder
+    {
+        public Fix64 LengthSquared;
+        public Fix64 RangeSq;
+    }
+}

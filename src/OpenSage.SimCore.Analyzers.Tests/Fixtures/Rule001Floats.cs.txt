@@ -1,0 +1,22 @@
+// SIMCORE001 fixture: floating-point types in every syntax position named by the rule -
+// declaration, cast, local, literal, and the System.Single spelling.
+namespace Fixture
+{
+    public class Floats
+    {
+        public float Ratio;                                     // EXPECT: SIMCORE001
+        public double Angle;                                    // EXPECT: SIMCORE001
+
+        public long Truncate(long raw)
+        {
+            var scaled = (double)raw;                           // EXPECT: SIMCORE001
+            var literal = 0.5;                                  // EXPECT: SIMCORE001
+            var suffixed = 1.5f;                                // EXPECT: SIMCORE001
+            return (long)(scaled + literal + suffixed);
+        }
+
+        public System.Single Spelled() => 0f;                   // EXPECT: SIMCORE001
+
+        public long Integers(long a, long b) => a * b + 3;
+    }
+}

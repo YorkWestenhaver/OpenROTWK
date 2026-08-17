@@ -1,0 +1,29 @@
+// The negative control: idiomatic SimCore code that must produce no diagnostic at all.
+using System.Collections.Generic;
+using OpenSage.SimCore.Numerics;
+
+namespace Fixture
+{
+    public class Clean
+    {
+        private readonly SortedList<int, Fix64> _byId = new SortedList<int, Fix64>();
+
+        public static readonly Fix64 Epsilon = Fix64.FromRaw(1);
+
+        public Fix64 Total()
+        {
+            var sum = Fix64.Zero;
+
+            foreach (var entry in _byId)
+            {
+                sum += entry.Value;
+            }
+
+            return sum;
+        }
+
+        public Fix64 Scale(Fix64 value, int factor) => value * Fix64.FromRaw(factor);
+
+        public int Clamp(int value, int low, int high) => FixMath.Clamp(value, low, high);
+    }
+}

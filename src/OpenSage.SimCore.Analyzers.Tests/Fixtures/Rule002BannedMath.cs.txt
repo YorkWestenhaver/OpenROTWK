@@ -1,0 +1,17 @@
+// SIMCORE002 fixture: System.Math is banned wholesale (the zero-exception rule - even the
+// integer helpers have FixMath equivalents), as is everything under System.Numerics.
+using System;
+using System.Numerics;
+
+namespace Fixture
+{
+    public class Maths
+    {
+        public long Larger(long a, long b) => Math.Max(a, b);   // EXPECT: SIMCORE002
+        public long Magnitude(long v) => Math.Abs(v);           // EXPECT: SIMCORE002
+        public object Vector() => new Vector3();                // EXPECT: SIMCORE002
+        public int Rounded() => MathF.Sign(1);                  // EXPECT: SIMCORE002
+
+        public long Fine(long a, long b) => a > b ? a : b;
+    }
+}
