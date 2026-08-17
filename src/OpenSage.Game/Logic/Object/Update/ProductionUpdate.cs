@@ -465,7 +465,7 @@ public sealed class ProductionUpdate : UpdateModule
 
     internal void QueueProduction(ObjectDefinition objectDefinition)
     {
-        var job = new ProductionJob(objectDefinition, objectDefinition.BuildTime / GameObject.ProductionModifier, _nextJobId++,
+        var job = new ProductionJob(objectDefinition, objectDefinition.BuildTime / (float)GameObject.ProductionModifier, _nextJobId++,
             _moduleData.QuantityModifiers.TryGetValue(objectDefinition.Name, out var quantity) ? quantity : 1);
         _productionQueue.Add(job);
 
@@ -484,7 +484,7 @@ public sealed class ProductionUpdate : UpdateModule
 
     internal void SpawnPayload(ObjectDefinition objectDefinition, LogicFrameSpan buildTime)
     {
-        var job = new ProductionJob(objectDefinition, buildTime / GameObject.ProductionModifier, _nextJobId++);
+        var job = new ProductionJob(objectDefinition, buildTime / (float)GameObject.ProductionModifier, _nextJobId++);
         _productionQueue.Insert(1, job);
     }
 

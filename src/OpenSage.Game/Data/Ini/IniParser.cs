@@ -519,13 +519,13 @@ internal sealed partial class IniParser
 
     public float ParseFrictionPerSec() => ParsePerSecondFloat();
 
-    public LogicFrameSpan ParseTimeMillisecondsToLogicFrames() => LogicFrameSpan.FromMilliseconds(ParseFloat(), SageGame);
+    public LogicFrameSpan ParseTimeMillisecondsToLogicFrames() => LogicFrameSpan.FromMilliseconds(ParseFloat(), SageGame.MsPerLogicFrame());
 
     public float ParseTimeMillisecondsToLogicFramesFloat() => ParseFloat() / SageGame.MsPerLogicFrame();
 
-    public LogicFrameSpan ParseTimeSecondsToLogicFrames() => LogicFrameSpan.FromSeconds(ParseFloat(), SageGame);
+    public LogicFrameSpan ParseTimeSecondsToLogicFrames() => LogicFrameSpan.FromSeconds(ParseFloat(), SageGame.LogicFramesPerSecond());
 
-    public LogicFrameSpan ScanTimeMillisecondsToLogicFrames(in IniToken token) => LogicFrameSpan.FromMilliseconds(ScanFloat(token), SageGame);
+    public LogicFrameSpan ScanTimeMillisecondsToLogicFrames(in IniToken token) => LogicFrameSpan.FromMilliseconds(ScanFloat(token), SageGame.MsPerLogicFrame());
 
     public float ParseAngularVelocityToLogicFrames() => ParseFloat() * MathUtility.DegreesToRadiansRatio / SageGame.LogicFramesPerSecond();
 

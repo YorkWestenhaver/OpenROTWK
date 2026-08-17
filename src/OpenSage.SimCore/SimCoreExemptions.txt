@@ -15,3 +15,8 @@ Numerics/Fix64.Sqrt.cs
 # was split out of Fix64.Parse.cs into a file of its own. The exemption now covers exactly one
 # method instead of both integer-only F4 parse boundaries, which stay fully policed.
 Numerics/Fix64.Display.cs
+
+# Step-4 (LogicFrame move): float conveniences the unmigrated OpenSage.Game float sim still
+# calls on LogicFrameSpan. Legacy-only; each member is deleted in the landing merge that
+# deletes its float callers (F11). New sim code never uses them.
+Ticking/LogicFrameSpan.FloatCompat.cs

@@ -195,7 +195,7 @@ public class ActiveBody : BodyModule
                 {
                     // Damage amount is millisecond time we set the status given in
                     // DamageStatusType.
-                    var framesToStatusFor = LogicFrameSpan.FromMilliseconds(amount, GameEngine.SageGame);
+                    var framesToStatusFor = LogicFrameSpan.FromMilliseconds(amount, GameEngine.MsPerLogicFrame);
                     obj.DoStatusDamage(damageInput.DamageStatusType, framesToStatusFor);
                     alreadyHandled = true;
                     allowModifier = false;

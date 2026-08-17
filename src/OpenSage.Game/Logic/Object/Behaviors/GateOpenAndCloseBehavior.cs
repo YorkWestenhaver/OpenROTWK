@@ -70,7 +70,7 @@ public class GateOpenAndCloseBehavior : UpdateModule
                 GameObject.ModelConditionFlags.Set(ModelConditionFlag.Door1Closing, false);
                 GameObject.ModelConditionFlags.Set(ModelConditionFlag.Door1Opening, true);
                 _toggleFinishedTime = currentFrame + _moduleData.ResetTime;
-                _pathingToggleTime = currentFrame + (_moduleData.ResetTime * _moduleData.PercentOpenForPathing);
+                _pathingToggleTime = currentFrame + (_moduleData.ResetTime * (float)_moduleData.PercentOpenForPathing);
 
                 _openingSoundLoop = audioSystem.PlayAudioEvent(GameObject, _moduleData.SoundOpeningGateLoop?.Value, true);
                 _finishedSoundTime = currentFrame + _moduleData.TimeBeforePlayingOpenSound;
@@ -108,7 +108,7 @@ public class GateOpenAndCloseBehavior : UpdateModule
                 GameObject.ModelConditionFlags.Set(ModelConditionFlag.Door1Opening, false);
                 GameObject.ModelConditionFlags.Set(ModelConditionFlag.Door1Closing, true);
                 _toggleFinishedTime = currentFrame + _moduleData.ResetTime;
-                _pathingToggleTime = currentFrame + (_moduleData.ResetTime * _moduleData.PercentOpenForPathing);
+                _pathingToggleTime = currentFrame + (_moduleData.ResetTime * (float)_moduleData.PercentOpenForPathing);
 
                 _closingSoundLoop = audioSystem.PlayAudioEvent(GameObject, _moduleData.SoundClosingGateLoop?.Value, true);
                 _finishedSoundTime = currentFrame + _moduleData.TimeBeforePlayingClosedSound;

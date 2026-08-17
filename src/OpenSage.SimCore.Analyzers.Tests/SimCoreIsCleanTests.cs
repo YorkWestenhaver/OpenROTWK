@@ -82,7 +82,15 @@ namespace OpenSage.SimCore.Analyzers.Tests
                 .ToArray();
 
             Assert.Equal(
-                new[] { "Fix64.Display.cs", "Fix64.Division.cs", "Fix64.Sqrt.cs" },
+                new[]
+                {
+                    "Fix64.Display.cs",
+                    "Fix64.Division.cs",
+                    "Fix64.Sqrt.cs",
+                    // Step 4 (LogicFrame move): float legacy conveniences still called by the
+                    // unmigrated OpenSage.Game float sim; deleted with their callers per F11.
+                    "LogicFrameSpan.FloatCompat.cs",
+                },
                 files);
         }
 
