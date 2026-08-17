@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenSage.Core\OpenSage.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="SimCoreExemptions.txt" />
+    <InternalsVisibleTo Include="OpenSage.SimCore.Tests" />
+  </ItemGroup>
+
+</Project>
