@@ -4,11 +4,47 @@ on:
   push:
     branches:
     - master
+    - simcore-scaffolding
     tags:
     - v*
   pull_request:
 
 jobs:
+  # Scaffolding step-5 gate (api-freeze-v1 §6): the same scripted scenario run twice must
+  # produce a byte-identical per-channel CRC stream and deep dump. The matrix varies the GC
+  # and JIT-tiering configuration so run-to-run nondeterminism from the runtime itself would
+  # surface here first (the OPEN-10 rolling CI job).
+  determinism:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        runtime-config:
+        - name: workstation-gc-tiered
+          gcServer: '0'
+          tieredCompilation: '1'
+        - name: server-gc-fulljit
+          gcServer: '1'
+          tieredCompilation: '0'
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      DOTNET_gcServer: ${{ matrix.runtime-config.gcServer }}
+      DOTNET_TieredCompilation: ${{ matrix.runtime-config.tieredCompilation }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Install .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '8.x'
+
+    - name: Run-twice determinism suite
+      run: dotnet test src/OpenSage.SimCore.Tests --configuration Release --filter Category=Determinism
+
   build:
     strategy:
       fail-fast: false
