@@ -1,0 +1,21 @@
+# SimCore banned-API registry (design-simcore-scaffolding §2.2, api-freeze-v1 F10).
+#
+# Format:  SymbolId ; SIMCOREnnn ; reason
+#   SymbolId : N:Namespace | T:Namespace.Type | M:Namespace.Type.Member
+#   SIMCOREnnn : 002 (banned maths surface, default), 003 (nondeterministic source),
+#                005 (unstable hash / ordering), 007 (asynchrony or threading)
+#   reason   : free text, shown in the diagnostic message
+#
+# This file is ADDITIVE. The analyzer assembly carries a built-in seed list covering
+# System.Math / System.MathF / System.Numerics / System.Random / Guid.NewGuid /
+# DateTime.*Now / Environment.TickCount* / Stopwatch / System.HashCode / Enum.GetValues /
+# Task / Thread / Parallel, so the wall stands even where this file is not wired up.
+#
+# This is where the OPEN-10 nondeterminism inventory lands as it grows: add a line here
+# rather than editing the analyzer.
+
+M:System.Environment.ProcessorCount;SIMCORE003;machine-dependent; cannot influence sim state
+M:System.Environment.WorkingSet;SIMCORE003;machine-dependent; cannot influence sim state
+T:System.Threading.Tasks.TaskFactory;SIMCORE007;the tick loop is single-threaded
+T:System.Threading.Interlocked;SIMCORE007;the tick loop is single-threaded
+T:System.Threading.Volatile;SIMCORE007;the tick loop is single-threaded

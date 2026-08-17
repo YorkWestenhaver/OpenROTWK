@@ -3,6 +3,10 @@
     <RootNamespace>OpenSage</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>preview</LangVersion>
+    <!-- Attachment mode 2 of design-simcore-scaffolding §2.3: the SIMCORE rules apply only to
+         files under a directory listed in SimCoreScopedDirs.txt, or declaring a [SimState] type.
+         The scoped-dirs list is the migration progress meter. -->
+    <SimCoreAnalyzerMode>scoped</SimCoreAnalyzerMode>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,12 +40,18 @@
     <ProjectReference Include="..\OpenSage.IO\OpenSage.IO.csproj" />
     <ProjectReference Include="..\OpenSage.Mathematics\OpenSage.Mathematics.csproj" />
     <ProjectReference Include="..\OpenSage.Rendering\OpenSage.Rendering.csproj" />
+    <ProjectReference Include="..\OpenSage.SimCore.Analyzers\OpenSage.SimCore.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Veldrid.ImageSharp\Veldrid.ImageSharp.csproj" />
     <ProjectReference Include="..\Veldrid.ImGui\Veldrid.ImGui.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Content\Fonts\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="SimCoreAnalyzerMode" />
+    <AdditionalFiles Include="SimCoreScopedDirs.txt" />
   </ItemGroup>
 
   <ItemGroup>

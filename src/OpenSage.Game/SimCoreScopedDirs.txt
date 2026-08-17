@@ -1,0 +1,14 @@
+# SimCore scoped-analysis registry for OpenSage.Game (design-simcore-scaffolding §2.3).
+#
+# OpenSage.Game cannot go float-free wholesale, so the SIMCORE001-010 rule set runs here in
+# opt-in scope. A file is analyzed when either:
+#   * its path lies under one of the project-relative directories listed below, or
+#   * it declares a type carrying the [SimState] attribute (matched by name, no reference needed).
+#
+# As a system migrates to fixed-point sim state (api-freeze-v1 §6.2), its directory is added
+# here. THIS LIST IS THE MIGRATION PROGRESS METER - it is expected to grow one entry at a time,
+# and each entry is a promise that everything under it compiles clean under the full rule set.
+#
+# One entry per line, project-relative, '/' separated; '#' starts a comment.
+#
+# (empty: no OpenSage.Game directory has migrated yet as of build-order step 2)

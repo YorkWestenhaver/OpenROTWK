@@ -2,15 +2,23 @@
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
+    <!-- Attachment mode 1 of design-simcore-scaffolding §2.2: the whole assembly is sim code. -->
+    <SimCoreAnalyzerMode>full</SimCoreAnalyzerMode>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OpenSage.Core\OpenSage.Core.csproj" />
+    <ProjectReference Include="..\OpenSage.SimCore.Analyzers\OpenSage.SimCore.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="SimCoreExemptions.txt" />
+    <CompilerVisibleProperty Include="SimCoreAnalyzerMode" />
+    <AdditionalFiles Include="SimCoreExemptions.txt" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
     <InternalsVisibleTo Include="OpenSage.SimCore.Tests" />
+    <InternalsVisibleTo Include="OpenSage.SimCore.Analyzers.Tests" />
   </ItemGroup>
 
 </Project>
