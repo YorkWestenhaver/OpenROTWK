@@ -272,6 +272,20 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         return damageOutput;
     }
 
+    /// <summary>
+    /// Fix64 healing entry for ported modules (float boundary: Body is unmigrated substrate,
+    /// so the quantized amount is widened to float exactly once, here, not in [SimState]
+    /// module code). Collapses into the Fix64 pipeline when BodyModule ports.
+    /// </summary>
+    public DamageInfoOutput AttemptHealing(SimCore.Numerics.Fix64 amount, GameObject source)
+        => AttemptHealing(amount.ToFloatForDisplay(), source);
+
+    /// <summary>
+    /// Float-free "is damaged" view for ported modules (same boundary rationale as the
+    /// Fix64 AttemptHealing overload).
+    /// </summary>
+    public bool HealthBelowMax => _body != null && _body.Health < _body.MaxHealth;
+
     public DamageInfoOutput AttemptHealing(float amount, GameObject source)
     {
         return _body?.AttemptDamage(new DamageInfoInput(source)
@@ -492,6 +506,9 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
         void AddBehavior(string tag, BehaviorModule behavior)
         {
+            // (ObjectId, ModuleIndex) is the module's deterministic identity everywhere:
+            // update-queue tie-breaks, the CRC walk, deep-dump labels (api-freeze-v1 §3).
+            behavior.ModuleIndex = behaviors.Count;
             behaviors.Add(behavior);
             AddModule(tag, behavior);
         }

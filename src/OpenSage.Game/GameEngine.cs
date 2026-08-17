@@ -58,6 +58,14 @@ public sealed class GameEngine : IGameEngine
     // TODO: This is temporary until Scene3D and GameEngine are merged.
     public IScene3D Scene3D { get; }
 
+    private SimContext _simContext;
+
+    /// <summary>
+    /// Lazy so it is born after GameLogic exists and after the match seed reached
+    /// GameLogic.Random (Game.StartGame); first touch is the first ported module's creation.
+    /// </summary>
+    public ISimContext SimContext => _simContext ??= new SimContext(this);
+
     internal GameEngine(
         AssetLoadContext assetLoadContext,
         AudioSystem audioSystem,

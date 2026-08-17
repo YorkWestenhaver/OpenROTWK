@@ -37,4 +37,11 @@ public interface IGameEngine
     AI AI { get; }
     IQuadtree<GameObject> Quadtree { get; }
     IScene3D Scene3D { get; }
+
+    /// <summary>
+    /// The module-facing sim context (api-freeze-v1 §3, seam S8): the only door a PORTED
+    /// behavior module has to the rest of the sim. Owned one-per-engine so the logic RNG
+    /// stream and draw count (S3) are match-scoped.
+    /// </summary>
+    ISimContext SimContext { get; }
 }

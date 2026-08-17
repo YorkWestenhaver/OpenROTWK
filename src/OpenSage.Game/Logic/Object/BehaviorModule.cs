@@ -29,10 +29,53 @@ public abstract class ObjectModule : ModuleBase
 
 public abstract class BehaviorModule : ObjectModule
 {
+    /// <summary>
+    /// Stable index of this module within its owner's behavior list (INI declaration order
+    /// after inheritance resolution). Part of the deterministic identity
+    /// (ObjectId, ModuleIndex) used for update-queue tie-breaks, the CRC walk, and
+    /// deep-dump labels (api-freeze-v1 §3 item 1).
+    /// </summary>
+    public int ModuleIndex { get; internal set; } = -1;
+
+    /// <summary>
+    /// The only door to the rest of the sim for a PORTED module (api-freeze-v1 §3).
+    /// Null for legacy modules constructed through the IGameEngine ctor; the porting task
+    /// that migrates a module switches it to the ISimContext ctor and stops touching
+    /// <see cref="ObjectModule.GameEngine"/>.
+    /// </summary>
+    protected ISimContext Context { get; }
+
     protected BehaviorModule(GameObject gameObject, IGameEngine gameEngine)
         : base(gameObject, gameEngine)
     {
     }
+
+    /// <summary>
+    /// The frozen contract ctor (api-freeze-v1 §3 item 1). During migration the engine
+    /// bridge is recovered from the context so the legacy base plumbing keeps working;
+    /// the bridge disappears when ObjectModule itself migrates (F11).
+    /// </summary>
+    private protected BehaviorModule(GameObject gameObject, ISimContext context)
+        : base(gameObject, ((SimContext)context).Engine)
+    {
+        Context = context;
+    }
+
+    /// <summary>
+    /// The single serialization walk: save/load + CRC + deep-dump + conformance
+    /// (api-freeze-v1 S4, design-module-api §3). Every mutable sim field appears here
+    /// exactly once. Virtual-throwing rather than abstract only while unported legacy
+    /// modules remain (F11); the walk never reaches a module with
+    /// <see cref="HasSimXfer"/> false.
+    /// </summary>
+    public virtual void Xfer(SimCore.Sync.IXfer xfer)
+        => throw new ModuleNotPortedException(GetType());
+
+    /// <summary>
+    /// Migration marker: true once this module implements the contract Xfer walk and may
+    /// enter the Objects CRC channel. Deleted when Xfer becomes abstract (F11).
+    /// </summary>
+    internal virtual bool HasSimXfer => false;
 
     internal override void Load(StatePersister reader)
     {

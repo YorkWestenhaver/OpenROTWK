@@ -41,6 +41,23 @@ public abstract class UpdateModule : BehaviorModule, IUpdateModule
         _nextUpdateFrame.UpdateOrder = UpdateOrder;
     }
 
+    /// <summary>The frozen contract ctor for ported modules (api-freeze-v1 §3 item 2).</summary>
+    private protected UpdateModule(GameObject gameObject, ISimContext context)
+        : base(gameObject, context)
+    {
+        _nextUpdateFrame.UpdateOrder = UpdateOrder;
+    }
+
+    /// <summary>
+    /// Engine-owned scheduling state for the per-object Xfer walk (api-freeze-v1 S6): the
+    /// next-wake frame is xfered by the walk, never by modules.
+    /// </summary>
+    internal LogicFrame NextWakeFrameForWalk
+    {
+        get => _nextUpdateFrame.Frame;
+        set => NextCallFrame = value;
+    }
+
     void IUpdateModule.Update()
     {
         if (GameEngine.GameLogic.CurrentFrame < _nextUpdateFrame.Frame)

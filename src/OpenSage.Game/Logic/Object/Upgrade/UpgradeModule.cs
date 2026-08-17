@@ -134,6 +134,18 @@ internal sealed class UpgradeLogic : IPersistableObject
         reader.PersistBoolean(ref _triggered);
     }
 
+    /// <summary>
+    /// The contract walk for the shared upgrade mux (design-module-api §6): the triggered
+    /// flag is lifecycle state, Tolerance.Exact by construction (XferBool is always exact).
+    /// Ported owners call this from their own Xfer; the legacy Persist above keeps serving
+    /// retail-save loading until the save system migrates.
+    /// </summary>
+    public void Xfer(SimCore.Sync.IXfer xfer)
+    {
+        xfer.XferVersion(1);
+        xfer.XferBool("UpgradeTriggered", ref _triggered);
+    }
+
     internal void DrawInspector()
     {
         ImGui.Checkbox("Triggered", ref _triggered);
