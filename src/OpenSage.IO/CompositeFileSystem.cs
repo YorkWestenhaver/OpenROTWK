@@ -33,7 +33,11 @@ public sealed class CompositeFileSystem : FileSystem
         string searchPattern = "*",
         SearchOption searchOption = SearchOption.TopDirectoryOnly)
     {
-        var paths = new HashSet<string>();
+        // The engine's path identity is case- and separator-insensitive (paths are lowercased and
+        // '/'-to-'\'-normalised on both insert and lookup), so a file provided by a higher-priority
+        // layer must shadow the lower-priority one even when the two spell it differently - as a
+        // mod's loose 'data/ini/weapon.ini' and an archive's 'Data\INI\Weapon.ini' do.
+        var paths = new HashSet<string>(PathComparer);
 
         foreach (var fileSystem in _fileSystems)
         {
