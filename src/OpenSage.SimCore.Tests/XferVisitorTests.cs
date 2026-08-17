@@ -243,7 +243,7 @@ public class XferVisitorTests
 
         var dump = text.ToString();
         Assert.StartsWith(DeepCrcWriter.HeaderLine, dump);
-        Assert.Contains("R 9 0 ModuleTag_02 FakeState Health Q", dump);
+        Assert.Contains("R 9 0 ModuleTag_02 FakeState Health Q fix64", dump);
         // LE image of 42.5 in Q31.32: raw 0x0000002A80000000 -> bytes 00 00 00 80 2a 00 00 00.
         Assert.Contains("00000080 2a000000".Replace(" ", ""), dump);
     }

@@ -22,7 +22,7 @@ namespace OpenSage.SimCore.Sync
 
         public override XferMode Mode => XferMode.Save;
 
-        protected override void Consume(string name, Tolerance tol, ReadOnlySpan<byte> bytes)
+        protected override void Consume(string name, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> bytes)
         {
             _stream.Write(bytes);
         }

@@ -24,10 +24,10 @@ namespace OpenSage.SimCore.Sync
         /// walk over the same state yields.</summary>
         public uint Value => _crc.Value;
 
-        protected override void Consume(string name, Tolerance tol, ReadOnlySpan<byte> bytes)
+        protected override void Consume(string name, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> bytes)
         {
             _crc.Fold(bytes);
-            _writer.Record(CurrentModule, name, tol, bytes);
+            _writer.Record(CurrentModule, name, tol, kind, bytes);
         }
     }
 }

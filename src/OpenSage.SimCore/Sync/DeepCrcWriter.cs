@@ -3,13 +3,18 @@
 // tolerance / raw bytes. The dump doubles as the conformance harness's comparator input, and
 // `ddiff` (bfme2-workbench/tools/ddiff.py) prints the first divergent record of two dumps.
 //
-// Format "opensage-deepdump v1", line-oriented, ASCII, invariant, deterministic:
-//   # opensage-deepdump v1        header
+// Format "opensage-deepdump v2", line-oriented, ASCII, invariant, deterministic:
+//   # opensage-deepdump v2        header
 //   F <frame>                     begin checkpoint frame
 //   C <ordinal> <channelName>     begin channel
-//   R <objectId> <moduleIndex> <tag> <class> <field> <tolLetter> <hexBytes>
+//   R <objectId> <moduleIndex> <tag> <class> <field> <tolLetter> <type> <hexBytes>
 //   E <ordinal> <crc8hex>         end channel, with the channel's folded CRC
+//   V <frame> <combined8hex> <crc8hex>...   checkpoint vector (one entry per CrcChannel ordinal)
 // Identity strings have spaces replaced by '_' so every record stays one whitespace-split line.
+// v2 (harness glue, build-order step 6) adds the <type> token on R records -- the harness
+// deep-dump schema (bfme2-harness/ddump/v1) types every field record so the comparator's
+// tolerance arithmetic knows signedness and component count -- and the V vector line, which
+// carries the CrcCheckpointMessage's channel vector for the harness's crcVector record.
 
 using System;
 using System.IO;
@@ -19,7 +24,7 @@ namespace OpenSage.SimCore.Sync
 {
     public sealed class DeepCrcWriter : IDisposable
     {
-        public const string HeaderLine = "# opensage-deepdump v1";
+        public const string HeaderLine = "# opensage-deepdump v2";
 
         private readonly TextWriter _writer;
         private readonly bool _leaveOpen;
@@ -59,7 +64,7 @@ namespace OpenSage.SimCore.Sync
             _writer.Write('\n');
         }
 
-        public void Record(in XferModuleId module, string fieldName, Tolerance tol, ReadOnlySpan<byte> rawBytes)
+        public void Record(in XferModuleId module, string fieldName, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> rawBytes)
         {
             _line.Clear();
             _line.Append("R ");
@@ -75,12 +80,35 @@ namespace OpenSage.SimCore.Sync
             _line.Append(' ');
             _line.Append(TolLetter(tol));
             _line.Append(' ');
+            _line.Append(XferValueKinds.TokenOf(kind));
+            _line.Append(' ');
             for (var i = 0; i < rawBytes.Length; i++)
             {
                 AppendHexByte(rawBytes[i]);
             }
             _line.Append('\n');
             _writer.Write(_line);
+        }
+
+        /// <summary>
+        /// Writes the checkpoint vector line: the frame, the combined CRC, and one entry per
+        /// CrcChannel ordinal (excluded/inactive/unregistered channels hold 0, matching the
+        /// checkpoint message's positional-zero ruling). The harness decodes this into its
+        /// crcVector record.
+        /// </summary>
+        public void CrcVector(uint frame, uint combined, System.Collections.Generic.IReadOnlyList<uint> channelCrcs)
+        {
+            ArgumentNullException.ThrowIfNull(channelCrcs);
+            _writer.Write("V ");
+            WriteUInt(frame);
+            _writer.Write(' ');
+            WriteHex8(combined);
+            for (var i = 0; i < channelCrcs.Count; i++)
+            {
+                _writer.Write(' ');
+                WriteHex8(channelCrcs[i]);
+            }
+            _writer.Write('\n');
         }
 
         public void Flush() => _writer.Flush();

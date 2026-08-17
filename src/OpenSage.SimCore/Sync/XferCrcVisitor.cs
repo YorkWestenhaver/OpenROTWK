@@ -16,7 +16,7 @@ namespace OpenSage.SimCore.Sync
         /// <summary>The accumulator after the walk so far.</summary>
         public uint Value => _crc.Value;
 
-        protected override void Consume(string name, Tolerance tol, ReadOnlySpan<byte> bytes)
+        protected override void Consume(string name, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> bytes)
         {
             _crc.Fold(bytes);
         }
