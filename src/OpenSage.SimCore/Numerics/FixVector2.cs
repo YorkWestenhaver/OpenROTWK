@@ -52,7 +52,7 @@ namespace OpenSage.SimCore.Numerics
 
         public override bool Equals(object? obj) => obj is FixVector2 other && Equals(other);
 
-        public override int GetHashCode() => HashCode.Combine(X, Y);
+        public override int GetHashCode() => DeterministicHash.Combine(X.RawValue, Y.RawValue);
 
         public static bool operator ==(in FixVector2 a, in FixVector2 b) => a.Equals(b);
 

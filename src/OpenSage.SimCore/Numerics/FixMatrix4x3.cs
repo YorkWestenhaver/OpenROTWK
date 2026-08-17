@@ -93,12 +93,20 @@ namespace OpenSage.SimCore.Numerics
 
         public override int GetHashCode()
         {
-            var hash = new HashCode();
-            hash.Add(M11); hash.Add(M12); hash.Add(M13);
-            hash.Add(M21); hash.Add(M22); hash.Add(M23);
-            hash.Add(M31); hash.Add(M32); hash.Add(M33);
-            hash.Add(M41); hash.Add(M42); hash.Add(M43);
-            return hash.ToHashCode();
+            var hash = DeterministicHash.Begin();
+            hash = DeterministicHash.Add(hash, M11.RawValue);
+            hash = DeterministicHash.Add(hash, M12.RawValue);
+            hash = DeterministicHash.Add(hash, M13.RawValue);
+            hash = DeterministicHash.Add(hash, M21.RawValue);
+            hash = DeterministicHash.Add(hash, M22.RawValue);
+            hash = DeterministicHash.Add(hash, M23.RawValue);
+            hash = DeterministicHash.Add(hash, M31.RawValue);
+            hash = DeterministicHash.Add(hash, M32.RawValue);
+            hash = DeterministicHash.Add(hash, M33.RawValue);
+            hash = DeterministicHash.Add(hash, M41.RawValue);
+            hash = DeterministicHash.Add(hash, M42.RawValue);
+            hash = DeterministicHash.Add(hash, M43.RawValue);
+            return DeterministicHash.Finish(hash);
         }
 
         public static bool operator ==(in FixMatrix4x3 a, in FixMatrix4x3 b) => a.Equals(b);
