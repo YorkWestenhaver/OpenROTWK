@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using OpenSage.Mathematics;
 using Veldrid;
@@ -112,12 +111,19 @@ partial class IniParser
         {
             lock (CachedEnumMap)
             {
-                stringToValueMap = Enum.GetValues(enumType)
-                    .Cast<Enum>()
-                    .Distinct()
-                    .SelectMany(x => GetIniNames(enumType, x).Select(y => new { Name = y, Value = x }))
-                    .Where(x => x.Name != null)
-                    .ToDictionary(x => x.Name, x => x.Value, StringComparer.OrdinalIgnoreCase);
+                // Enumerate fields rather than values: two enum members can share the same
+                // underlying value (e.g. ObjectStatus.Masked and ObjectStatus.InsideGarrison),
+                // and enumerating values would drop the [IniEnum] names of all but one of them.
+                stringToValueMap = new Dictionary<string, Enum>(StringComparer.OrdinalIgnoreCase);
+                foreach (var field in GetEnumFields(enumType))
+                {
+                    var value = (Enum)field.GetValue(null);
+                    foreach (var name in GetIniNames(field))
+                    {
+                        // First declaration wins, matching the previous behaviour.
+                        stringToValueMap.TryAdd(name, value);
+                    }
+                }
 
                 // It might have been added by another thread.
                 if (!CachedEnumMap.ContainsKey(enumType))
@@ -137,12 +143,17 @@ partial class IniParser
         {
             lock (CachedEnumMapReverse)
             {
-                valueToStringMap = Enum.GetValues(enumType)
-                    .Cast<Enum>()
-                    .Distinct()
-                    .SelectMany(x => GetIniNames(enumType, x).Select(y => new { Name = y, Value = x }))
-                    .Where(x => x.Name != null)
-                    .ToDictionary(x => x.Value, x => x.Name);
+                valueToStringMap = new Dictionary<Enum, string>();
+                foreach (var field in GetEnumFields(enumType))
+                {
+                    var value = (Enum)field.GetValue(null);
+                    foreach (var name in GetIniNames(field))
+                    {
+                        // Members sharing an underlying value map back to the
+                        // first declared member's first INI name.
+                        valueToStringMap.TryAdd(value, name);
+                    }
+                }
 
                 // It might have been added by another thread.
                 if (!CachedEnumMapReverse.ContainsKey(enumType))
@@ -354,10 +365,15 @@ partial class IniParser
         return true;
     }
 
-    private static string[] GetIniNames(Type enumType, Enum value)
+    private static IEnumerable<FieldInfo> GetEnumFields(Type enumType)
     {
-        var field = enumType.GetTypeInfo().GetDeclaredField(value.ToString());
+        // Field declaration order, so ties between members sharing a value are broken deterministically.
+        return enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
+    }
+
+    private static string[] GetIniNames(FieldInfo field)
+    {
         var iniEnumAttribute = field.GetCustomAttribute<IniEnumAttribute>();
-        return iniEnumAttribute?.Names ?? new string[0];
+        return iniEnumAttribute?.Names ?? Array.Empty<string>();
     }
 }
