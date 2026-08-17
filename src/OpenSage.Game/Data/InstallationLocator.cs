@@ -22,6 +22,8 @@ public sealed class RegistryKeyPath(string key, string valueName, string append 
 
 public sealed class GameInstallation
 {
+    private static readonly Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     public static IEnumerable<GameInstallation> FindAll(IEnumerable<IGameDefinition> gameDefinitions)
     {
         return InstallationLocators
@@ -32,13 +34,26 @@ public sealed class GameInstallation
     public IGameDefinition Game { get; }
     public string Path { get; }
 
+    /// <summary>
+    /// The engine's <c>-mod</c> argument: either a directory (loose files plus its <c>*.BIG</c>
+    /// archives) or a single <c>.big</c> archive. Null when no mod is active.
+    /// </summary>
+    public string ModPath { get; }
+
     private readonly GameInstallation _baseGameInstallation;
 
-    public GameInstallation(IGameDefinition game, string path, GameInstallation baseGame = null)
+    public GameInstallation(IGameDefinition game, string path, GameInstallation baseGame = null, string modPath = null)
     {
         Game = game;
         Path = path;
+        ModPath = modPath;
         _baseGameInstallation = baseGame;
+    }
+
+    /// <summary>The same installation with a <c>-mod</c> overlay applied.</summary>
+    public GameInstallation WithMod(string modPath)
+    {
+        return new GameInstallation(Game, Path, _baseGameInstallation, modPath);
     }
 
     /// <summary>
@@ -52,20 +67,78 @@ public sealed class GameInstallation
             : BigFileSystemOptions.BaseGame;
     }
 
+    /// <summary>
+    /// The engine keeps one "mod or loose install" flag. It is set by a <c>-mod</c> argument, and
+    /// also when <c>shaders.big</c> is absent from the game directory (a developer / loose install).
+    /// While the flag is set, loose files are probed <em>before</em> the archives; while it is
+    /// clear — a stock retail install — the archives win and the loose file is only a fallback.
+    /// </summary>
+    private bool IsModFlagSet
+    {
+        get
+        {
+            if (ModPath != null)
+            {
+                return true;
+            }
+
+            try
+            {
+                return !Directory
+                    .EnumerateFiles(Path, "shaders.big", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive })
+                    .Any();
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+    }
+
     public FileSystem CreateFileSystem()
     {
-        var result = new CompositeFileSystem(
-            new DiskFileSystem(Path),
-            new BigFileSystem(Path, BaseGameBigOptions(Game)));
+        var looseLayers = new List<FileSystem>();
+        var archiveLayers = new List<FileSystem>();
+
+        // -mod layers sit above everything. Both of the engine's mod archive paths register with
+        // overwrite = TRUE, i.e. last-wins within the mod layer.
+        if (ModPath != null)
+        {
+            if (Directory.Exists(ModPath))
+            {
+                looseLayers.Add(new DiskFileSystem(ModPath));
+                archiveLayers.Add(BigFileSystem.FromArchives(
+                    BigFileSystem.EnumerateModArchives(ModPath),
+                    BigFileSystemOptions.ModOverlay));
+            }
+            else if (File.Exists(ModPath))
+            {
+                archiveLayers.Add(BigFileSystem.FromArchives(
+                    new[] { ModPath },
+                    BigFileSystemOptions.ModOverlay));
+            }
+            else
+            {
+                Logger.Warn($"-mod path does not exist: {ModPath}");
+            }
+        }
+
+        archiveLayers.Add(new BigFileSystem(Path, BaseGameBigOptions(Game)));
 
         if (_baseGameInstallation != null)
         {
-            result = new CompositeFileSystem(
-                result,
-                new BigFileSystem(_baseGameInstallation.Path, BaseGameBigOptions(_baseGameInstallation.Game)));
+            archiveLayers.Add(new BigFileSystem(_baseGameInstallation.Path, BaseGameBigOptions(_baseGameInstallation.Game)));
         }
 
-        return result;
+        var gameDirectory = new DiskFileSystem(Path);
+
+        // Exactly one loose-file attempt happens, and the mod flag decides which side of the
+        // archives it sits on.
+        var layers = IsModFlagSet
+            ? looseLayers.Append(gameDirectory).Concat(archiveLayers)
+            : looseLayers.Concat(archiveLayers).Append(gameDirectory);
+
+        return new CompositeFileSystem(layers.ToArray());
     }
 }
 

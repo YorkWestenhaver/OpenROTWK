@@ -23,6 +23,36 @@ public sealed class BigFileSystem : FileSystem
     }
 
     /// <summary>
+    /// A layer built from an explicit, already-ordered list of archives — the shape the engine's
+    /// <c>loadMods</c> produces, which registers <c>m_modBIG</c> and then every archive of
+    /// <c>m_modDir</c>.
+    /// </summary>
+    public static BigFileSystem FromArchives(IEnumerable<string> archivePaths, BigFileSystemOptions options)
+    {
+        return new BigFileSystem(archivePaths, options);
+    }
+
+    private BigFileSystem(IEnumerable<string> archivePaths, BigFileSystemOptions options)
+    {
+        _options = options;
+        _rootDirectory = new BigDirectory();
+
+        foreach (var archivePath in archivePaths)
+        {
+            AddBigArchive(archivePath);
+        }
+    }
+
+    /// <summary>
+    /// The archives of a <c>-mod</c> directory, in registration order. The engine's mask is
+    /// literally <c>*.BIG</c>, matched case-insensitively by Win32.
+    /// </summary>
+    public static IEnumerable<string> EnumerateModArchives(string modDirectory)
+    {
+        return SkudefReader.GetBigFiles(modDirectory, BigArchiveLoadOrder.Sage);
+    }
+
+    /// <summary>
     /// Registers a single <c>.big</c> archive, in the same way the engine's
     /// <c>ArchiveFileSystem::loadBigFilesFromDirectory</c> does: every entry claims its normalised
     /// path in one shared tree, and an already-claimed path is only replaced when this layer
