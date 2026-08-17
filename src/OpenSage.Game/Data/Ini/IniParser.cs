@@ -1164,19 +1164,22 @@ internal sealed partial class IniParser
                 // Store the whole body: many mod macros expand to more than one
                 // token (e.g. object filters), and truncating them to the first
                 // token silently corrupts the data at every use site.
+                //
+                // The body is stored verbatim, including macro functions like
+                // '#ADD( X 1 )'. They are evaluated lazily at each use site
+                // (via GetNextTokenOptional), because their arguments may be
+                // macros that are only defined later in the file.
                 var macroBody = new List<IniToken>();
-
-                var firstBodyToken = _tokenReader.NextToken(Separators) ?? throw new IniParseException($"Missing macro expansion", token.Value.Position);
-                if (ResolveFunc(firstBodyToken.Text, out var resolved))
-                {
-                    firstBodyToken = resolved.Value;
-                }
-                macroBody.Add(firstBodyToken);
 
                 IniToken? bodyToken;
                 while ((bodyToken = _tokenReader.NextToken(Separators)) != null)
                 {
                     macroBody.Add(bodyToken.Value);
+                }
+
+                if (macroBody.Count == 0)
+                {
+                    throw new IniParseException($"Missing macro expansion", token.Value.Position);
                 }
 
                 // Overwrite any existing macro. This is necessary for BFME2 RotWk.
