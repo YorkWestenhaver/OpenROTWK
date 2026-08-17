@@ -717,6 +717,89 @@ internal sealed partial class IniParser
         return _assetStore.ObjectDefinitions.GetByName("DefaultThingTemplate");
     }
 
+    public ObjectDefinition? GetObjectDefinitionByName(string name)
+    {
+        return _assetStore.ObjectDefinitions.GetByName(name);
+    }
+
+    /// <summary>
+    /// Captures the raw source of the current ChildObject/ObjectReskin block
+    /// (whose header has just been consumed) for re-parsing once its parent
+    /// object has been defined. The block is consumed with a throwaway object
+    /// so the reader ends up positioned after the block's 'End'.
+    /// </summary>
+    public void DeferChildObjectBlock(string name, string parentName, bool isReskin)
+    {
+        // The header line has been fully read, so the reader's source index
+        // points at the start of the block body.
+        var startIndex = _tokenReader.SourceTextIndex;
+        var startLine = _tokenReader.CurrentPosition.Line + 1;
+
+        ParseBlock(ObjectDefinition.FieldParseTable, new ObjectDefinition());
+
+        var endIndex = _tokenReader.SourceTextIndex;
+        var blockSource = _tokenReader.Source.Substring(startIndex, endIndex - startIndex);
+
+        _dataContext.PendingChildObjects.Add(new PendingChildObject(
+            name,
+            parentName,
+            isReskin,
+            blockSource,
+            CurrentPosition.File,
+            startLine,
+            _directory.Peek()));
+    }
+
+    /// <summary>
+    /// Re-parses any deferred ChildObject/ObjectReskin blocks whose parents
+    /// have since been defined. Runs to a fixpoint so chains of deferred
+    /// children resolve in one pass.
+    /// </summary>
+    private void ResolvePendingChildObjects()
+    {
+        var pending = _dataContext.PendingChildObjects;
+
+        var progress = true;
+        while (progress && pending.Count > 0)
+        {
+            progress = false;
+
+            for (var i = 0; i < pending.Count; i++)
+            {
+                var pendingChild = pending[i];
+
+                var parent = _assetStore.ObjectDefinitions.GetByName(pendingChild.ParentName);
+                if (parent == null)
+                {
+                    continue;
+                }
+
+                pending.RemoveAt(i--);
+                progress = true;
+
+                try
+                {
+                    var blockParser = new IniParser(
+                        pendingChild.BlockSource,
+                        pendingChild.FilePath,
+                        pendingChild.Directory,
+                        _fileSystem,
+                        _assetStore,
+                        SageGame,
+                        _dataContext,
+                        _encoding);
+
+                    var definition = ObjectDefinition.ParseDeferredChildObject(blockParser, pendingChild.Name, parent);
+                    _assetStore.ObjectDefinitions.Add(definition);
+                }
+                catch (Exception ex)
+                {
+                    RecordParseError(ex, new IniTokenPosition(pendingChild.FilePath, pendingChild.StartLine, 1));
+                }
+            }
+        }
+    }
+
     public LazyAssetReference<ObjectDefinition>? ParseObjectReference(string? label = null)
     {
         var name = label ?? ParseAssetReference();
@@ -1186,6 +1269,11 @@ internal sealed partial class IniParser
                 skipGoToNextLine = SkipToNextTopLevelBlock();
             }
         }
+
+        // Objects defined in this file may be the missing parents of
+        // ChildObject/ObjectReskin blocks deferred earlier (in this file or a
+        // previously parsed one).
+        ResolvePendingChildObjects();
     }
 
     private void ParseTopLevelItem(in IniToken token)

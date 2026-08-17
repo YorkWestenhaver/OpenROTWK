@@ -31,24 +31,43 @@ public class ObjectDefinition : BaseAsset
 
     internal static ObjectDefinition ParseReskin(IniParser parser)
     {
+        return ParseChildObjectImpl(parser, isReskin: true);
+    }
+
+    internal static ObjectDefinition ParseChildObject(IniParser parser)
+    {
+        return ParseChildObjectImpl(parser, isReskin: false);
+    }
+
+    private static ObjectDefinition ParseChildObjectImpl(IniParser parser, bool isReskin)
+    {
         var name = parser.ParseIdentifier();
+        var parentName = parser.ParseAssetReference();
 
-        var reskinClone = parser.ParseObjectReference().Value.Clone();
+        var parent = parser.GetObjectDefinitionByName(parentName);
+        if (parent == null)
+        {
+            // SAGE data routinely forward-references parents (defined later in
+            // the same file, or in a file parsed later). Capture the block and
+            // re-parse it once the parent has been defined.
+            parser.DeferChildObjectBlock(name, parentName, isReskin);
+            return null;
+        }
 
-        var result = parser.ParseBlock(FieldParseTable, resultObject: reskinClone);
+        var result = parser.ParseBlock(FieldParseTable, resultObject: parent.Clone());
 
         result.SetNameAndInstanceId("GameObject", name);
 
         return result;
     }
 
-    internal static ObjectDefinition ParseChildObject(IniParser parser)
+    /// <summary>
+    /// Parses a deferred ChildObject/ObjectReskin block (captured by
+    /// <see cref="IniParser.DeferChildObjectBlock"/>) now that its parent exists.
+    /// </summary>
+    internal static ObjectDefinition ParseDeferredChildObject(IniParser parser, string name, ObjectDefinition parent)
     {
-        var name = parser.ParseIdentifier();
-
-        var parentClone = parser.ParseObjectReference().Value.Clone();
-
-        var result = parser.ParseBlock(FieldParseTable, resultObject: parentClone);
+        var result = parser.ParseBlock(FieldParseTable, resultObject: parent.Clone());
 
         result.SetNameAndInstanceId("GameObject", name);
 

@@ -16,6 +16,18 @@ internal sealed class TokenReader
     public bool EndOfFile { get; private set; }
 
     /// <summary>
+    /// The whole source text this reader is scanning.
+    /// </summary>
+    public string Source => _source;
+
+    /// <summary>
+    /// The index into <see cref="Source"/> of the start of the next line
+    /// (the current line's text has already been consumed from the source).
+    /// Used to capture the raw text of a block for deferred re-parsing.
+    /// </summary>
+    public int SourceTextIndex => _sourceTextIndex;
+
+    /// <summary>
     /// True if the current line starts with whitespace. Used by error recovery
     /// to distinguish (conventionally indented) block content from top-level blocks.
     /// </summary>

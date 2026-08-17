@@ -56,7 +56,19 @@ partial class IniParser
         { "Bridge", (parser, assetStore) => assetStore.BridgeTemplates.Add(BridgeTemplate.Parse(parser)) },
         { "Campaign", (parser, assetStore) => assetStore.CampaignTemplates.Add(CampaignTemplate.Parse(parser)) },
         { "ChallengeGenerals", (parser, assetStore) => ChallengeGenerals.Parse(parser, assetStore.ChallengeGenerals.Current) },
-        { "ChildObject", (parser, assetStore) => assetStore.ObjectDefinitions.Add(ObjectDefinition.ParseChildObject(parser)) },
+        {
+            "ChildObject",
+            (parser, assetStore) =>
+            {
+                // Null when the parent isn't defined yet; the block was
+                // captured for deferred parsing and will be added later.
+                var childObject = ObjectDefinition.ParseChildObject(parser);
+                if (childObject != null)
+                {
+                    assetStore.ObjectDefinitions.Add(childObject);
+                }
+            }
+        },
         { "CloudEffect", (parser, assetStore) => assetStore.Environment.Current.CloudEffect = CloudEffect.Parse(parser) },
         { "CommandButton", (parser, assetStore) => assetStore.CommandButtons.Add(CommandButton.Parse(parser)) },
         { "CommandMap", (parser, assetStore) => assetStore.CommandMaps.Add(CommandMap.Parse(parser)) },
@@ -130,7 +142,19 @@ partial class IniParser
         { "MusicTrack", (parser, assetStore) => assetStore.MusicTracks.Add(MusicTrack.Parse(parser)) },
         { "NewEvaEvent", (parser, assetStore) => assetStore.EvaEvents.Add(EvaEvent.Parse(parser)) },
         { "Object", (parser, assetStore) => assetStore.ObjectDefinitions.Add(ObjectDefinition.Parse(parser)) },
-        { "ObjectReskin", (parser, assetStore) => assetStore.ObjectDefinitions.Add(ObjectDefinition.ParseReskin(parser)) },
+        {
+            "ObjectReskin",
+            (parser, assetStore) =>
+            {
+                // Null when the reskinned object isn't defined yet; the block
+                // was captured for deferred parsing and will be added later.
+                var reskin = ObjectDefinition.ParseReskin(parser);
+                if (reskin != null)
+                {
+                    assetStore.ObjectDefinitions.Add(reskin);
+                }
+            }
+        },
         { "ObjectCreationList", (parser, assetStore) => assetStore.ObjectCreationLists.Add(ObjectCreationList.Parse(parser)) },
         { "OnlineChatColors", (parser, assetStore) => OnlineChatColors.Parse(parser, assetStore.OnlineChatColors.Current) },
         { "ParticleSystem", (parser, assetStore) => assetStore.FXParticleSystemTemplates.Add(ParticleSystemTemplate.Parse(parser).ToFXParticleSystemTemplate()) },
