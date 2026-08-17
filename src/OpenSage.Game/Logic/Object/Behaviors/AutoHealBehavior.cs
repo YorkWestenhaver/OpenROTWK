@@ -1,139 +1,254 @@
-﻿using OpenSage.Data.Ini;
+// AutoHealBehavior - THE Round-4 pilot port (api-freeze-v1 §5: the canonical template).
+//
+// Behavioral reference: generals-gpl GeneralsMD AutoHealBehavior.cpp/.h (GPL semantics
+// reference only; this is fresh code against the frozen contract). Behavior facts used:
+//   - state is exactly { soonestHealFrame, stopped } (+ the upgrade mux triggered flag);
+//     the radius particle system is client-side and becomes an ISimEvents output here.
+//   - ctor: initially-active triggers the self-upgrade and staggers the first pulse with a
+//     logic-RNG draw in [1, healingDelay] frames so a crowd does not pulse on one frame.
+//   - onDamage (radius==0, upgrade active, not stopped): a nonzero StartHealingDelay
+//     re-arms the wake that far out; otherwise damage force-wakes only when the heal timer
+//     has already expired (frame > soonestHealFrame).
+//   - update(): stopped or un-upgraded or dead => sleep forever. Whole-player path heals
+//     every same-player, on-map, alive, kindof-matching object (skip-self honored).
+//     Radius==0 path heals self while below max health, else sleeps forever (woken by
+//     damage). Radius>0 path heals allied, alive, kindof-matching objects in range under
+//     the sole-benefactor rule; SingleBurst makes that path fire once and sleep forever.
+//   - every pulse re-arms soonestHealFrame = now + healingDelay.
+// BFME2-only INI additions (ButtonTriggered, HealOnlyOthers, HealOnlyIfNotInCombat,
+// AffectsContained, NonStackable, RespawnNearbyHordeMembers, HealOnlyIfNotUnderAttack) have
+// no GPL reference and no Ghidra behavioral spec yet: they are parsed (audited vocabulary)
+// but deliberately not acted on - see pilot-autoheal.md, "behavior-fact gaps".
+//
+// Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's
+// conformance class at its declaration site (§4).
+
+using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
+using OpenSage.SimCore;
+using OpenSage.SimCore.Numerics;
+using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
 
-// It looks from the .sav files that this actually inherits from UpdateModule,
-// not UpgradeModule (but in the xsds it inherits from UpgradeModule).
+[SimState]
 public sealed class AutoHealBehavior : UpdateModule, IUpgradeableModule, IDamageModule
 {
-    private readonly AutoHealBehaviorModuleData _moduleData;
+    private readonly AutoHealBehaviorModuleData _data;
     private readonly UpgradeLogic _upgradeLogic;
-    /// <summary>
-    /// This is a guess as to what this frame is for, and may not be correct.
-    /// </summary>
-    private LogicFrame _endOfStartHealingDelay;
 
-    public AutoHealBehavior(GameObject gameObject, IGameEngine gameEngine, AutoHealBehaviorModuleData moduleData)
-        : base(gameObject, gameEngine)
+    // ---- mutable sim state (the whole inventory; every field is in Xfer) ----
+
+    /// <summary>Earliest frame the next pulse may fire; re-armed by every pulse.</summary>
+    private LogicFrame _soonestHealFrame;
+
+    /// <summary>Externally stopped (e.g. by a special power); never restarts itself.</summary>
+    private bool _stopped;
+
+    public AutoHealBehavior(GameObject gameObject, ISimContext context, AutoHealBehaviorModuleData data)
+        : base(gameObject, context)
     {
-        _moduleData = moduleData;
+        _data = data;
+
         SetWakeFrame(UpdateSleepTime.Forever);
-        _upgradeLogic = new UpgradeLogic(moduleData.UpgradeData, OnUpgrade);
+
+        // The mux fires OnUpgradeTriggered from its ctor when StartsActive.
+        _upgradeLogic = new UpgradeLogic(data.UpgradeData, OnUpgradeTriggered);
+
+        if (data.UpgradeData.StartsActive)
+        {
+            // Random phasing of the first pulse (GPL ctor): [1, healingDelay] frames, drawn
+            // from the context's logic stream (S3) so the stagger is lockstep-identical.
+            var delayFrames = (int)_data.HealingDelay.Value;
+            if (delayFrames > 1)
+            {
+                var stagger = Context.GameLogicRandom.Next(1, delayFrames);
+                SetWakeFrame(UpdateSleepTime.Frames(new LogicFrameSpan((uint)stagger)));
+            }
+            else
+            {
+                SetWakeFrame(UpdateSleepTime.None);
+            }
+        }
     }
 
     public bool CanUpgrade(UpgradeSet existingUpgrades) => _upgradeLogic.CanUpgrade(existingUpgrades);
 
     public void TryUpgrade(UpgradeSet completedUpgrades) => _upgradeLogic.TryUpgrade(completedUpgrades);
 
-    private void OnUpgrade()
+    private void OnUpgradeTriggered()
     {
-        // todo: if unit is max health and this is a self-heal behavior, even if upgrade was triggered, nextupdateframe is still maxvalue
+        // GPL upgradeImplementation(): wake as soon as possible.
         SetWakeFrame(UpdateSleepTime.None);
     }
 
-    /// <summary>
-    /// Increments the frame after which healing is allowed. If <code>_moduleData.StartHealingDelay</code> is 0, this is a no-op.
-    /// </summary>
+    /// <summary>External stop (GPL stopHealing): permanent until save/load says otherwise.</summary>
+    public void StopHealing()
+    {
+        _stopped = true;
+        _soonestHealFrame = new LogicFrame(UpdateSleepTime.SleepForever);
+        SetWakeFrame(UpdateSleepTime.Forever);
+    }
+
     public void OnDamage(in DamageInfo damageData)
     {
-        // this seems to only apply if the unit is capable of healing itself
-        // make sure the upgrade is triggered before resetting any frames
-        if (_moduleData.StartHealingDelay != LogicFrameSpan.Zero && _upgradeLogic.Triggered)
+        if (_stopped)
         {
-            var currentFrame = GameEngine.GameLogic.CurrentFrame;
-            _endOfStartHealingDelay = currentFrame + _moduleData.StartHealingDelay;
-            SetWakeFrame(UpdateSleepTime.Frames(_moduleData.StartHealingDelay));
+            return;
+        }
+
+        // GPL onDamage: the re-arm applies only to the self-heal shape.
+        if (_upgradeLogic.Triggered && _data.Radius == Fix64.Zero)
+        {
+            if (_data.StartHealingDelay != LogicFrameSpan.Zero)
+            {
+                // Getting damaged resets the healing process.
+                SetWakeFrame(UpdateSleepTime.Frames(_data.StartHealingDelay));
+            }
+            else if (Context.CurrentFrame > _soonestHealFrame)
+            {
+                // Force an immediate wake only when already past the heal timer; otherwise
+                // we would heal on the timer AND at every damage input.
+                SetWakeFrame(UpdateSleepTime.None);
+            }
         }
     }
 
     public override UpdateSleepTime Update()
     {
-        if (GameEngine.GameLogic.CurrentFrame < _endOfStartHealingDelay)
+        if (_stopped)
         {
-            // TODO(Port): Use correct value.
-            return UpdateSleepTime.None;
+            return UpdateSleepTime.Forever;
         }
 
-        if (_moduleData.Radius == 0)
+        if (!_upgradeLogic.Triggered || GameObject.IsEffectivelyDead)
         {
-            if (_moduleData.AffectsWholePlayer)
+            return UpdateSleepTime.Forever;
+        }
+
+        if (_data.AffectsWholePlayer)
+        {
+            // Whole-player path: every object the owning player controls, blessed
+            // ascending-ObjectId iteration (never spatial or hash order).
+            foreach (var candidate in Context.GameLogic.ObjectsAscendingId)
             {
-                // USA hospital has this behavior
-                foreach (var candidate in GameEngine.GameLogic.Objects)
+                if (candidate.IsEffectivelyDead ||
+                    candidate.Owner != GameObject.Owner ||
+                    candidate.IsOffMap ||
+                    (_data.SkipSelfForHealing && candidate == GameObject) ||
+                    !MatchesKindOfFilters(candidate) ||
+                    !candidate.HealthBelowMax)
                 {
-                    if (ObjectIsOwnedBySamePlayer(candidate) && CanHealUnit(candidate))
-                    {
-                        HealUnit(candidate);
-                    }
+                    continue;
                 }
-            }
-            else
-            {
-                // we only heal ourselves - china mines and GLA junk repair have this behavior
-                // todo: unclear how to show healing icon for this behavior
-                HealUnit(GameObject);
+
+                PulseHealObject(candidate);
             }
 
-            // TODO(Port): Use correct value.
-            return UpdateSleepTime.None;
+            return UpdateSleepTime.Frames(_data.HealingDelay);
         }
 
-        foreach (var candidate in GameEngine.Quadtree.FindNearby(GameObject, GameObject.Transform, _moduleData.Radius))
+        if (_data.Radius == Fix64.Zero)
         {
-            if (_moduleData.SkipSelfForHealing && candidate == GameObject) continue;
-            if (!CanHealUnit(candidate)) continue;
+            // Original system: just heal self, sleep forever at full health (damage wakes us).
+            if (GameObject.HealthBelowMax)
+            {
+                PulseHealObject(GameObject);
+                return UpdateSleepTime.Frames(_data.HealingDelay);
+            }
 
-            HealUnit(candidate);
+            return UpdateSleepTime.Forever;
         }
 
-        // TODO(Port): Use correct value.
-        return UpdateSleepTime.None;
-    }
-
-    // todo: lots of duplicated logic between this and propagandatowerbehavior
-    private bool CanHealUnit(GameObject gameObject)
-    {
-        return _moduleData.ForbiddenKindOf?.Intersects(gameObject.Definition.KindOf) != true &&
-               _moduleData.KindOf?.Intersects(gameObject.Definition.KindOf) != false &&
-               ObjectIsOnSameTeam(gameObject) && // todo: does autohealbehavior affect teammates?
-               ObjectNotInContainer(gameObject) &&
-               ObjectNotBeingHealedByAnybodyElse(gameObject); // don't heal units that are being healed by something else
-    }
-
-    private bool ObjectNotInContainer(GameObject gameObject)
-    {
-        return gameObject.ContainerId.IsInvalid; // todo: I believe this should only apply when the container is an enclosing container
-    }
-
-    private bool ObjectNotBeingHealedByAnybodyElse(GameObject gameObject)
-    {
-        return gameObject.HealedByObjectId.IsInvalid || gameObject.HealedByObjectId == GameObject.Id;
-    }
-
-    private bool ObjectIsOnSameTeam(GameObject gameObject)
-    {
-        return ObjectIsOwnedBySamePlayer(gameObject) ||
-               gameObject.Owner.Allies.Contains(GameObject.Owner); // I _think_ this is correct
-    }
-
-    private bool ObjectIsOwnedBySamePlayer(GameObject gameObject)
-    {
-        return gameObject.Owner == GameObject.Owner;
-    }
-
-    private void HealUnit(GameObject gameObject)
-    {
-        if (gameObject.BodyModule.DamageState != BodyDamageType.Pristine)
+        // Expanded system: heal allies in radius under the sole-benefactor rule.
+        foreach (var candidate in Context.Partition.QueryObjectsInRadius(GameObject, _data.Radius))
         {
-            gameObject.AttemptHealing(_moduleData.HealingAmount, GameObject);
-            if (gameObject != GameObject)
+            if (candidate.IsEffectivelyDead ||
+                !IsAlliedWith(candidate) ||
+                candidate.IsOffMap != GameObject.IsOffMap ||
+                !candidate.HealthBelowMax ||
+                !MatchesKindOfFilters(candidate) ||
+                (_data.SkipSelfForHealing && candidate == GameObject))
             {
-                gameObject.SetBeingHealed(GameObject, _moduleData.HealingDelay);
+                continue;
+            }
+
+            PulseHealObject(candidate);
+        }
+
+        return _data.SingleBurst
+            ? UpdateSleepTime.Forever
+            : UpdateSleepTime.Frames(_data.HealingDelay);
+    }
+
+    private bool MatchesKindOfFilters(GameObject candidate)
+    {
+        // GPL defaults: KindOf = all bits (null table entry = match everything),
+        // ForbiddenKindOf = empty (null = forbid nothing).
+        return _data.KindOf?.Intersects(candidate.Definition.KindOf) != false &&
+               _data.ForbiddenKindOf?.Intersects(candidate.Definition.KindOf) != true;
+    }
+
+    private bool IsAlliedWith(GameObject candidate)
+    {
+        return candidate.Owner == GameObject.Owner ||
+               candidate.Owner.Allies.Contains(GameObject.Owner);
+    }
+
+    private void PulseHealObject(GameObject target)
+    {
+        if (_stopped)
+        {
+            return;
+        }
+
+        if (_data.Radius == Fix64.Zero)
+        {
+            target.AttemptHealing(_data.HealingAmount, GameObject);
+        }
+        else
+        {
+            // Sole-benefactor rule (GPL attemptHealingFromSoleBenefactor): only one healer
+            // may claim a target per window.
+            if (target.HealedByObjectId.IsValid && target.HealedByObjectId != GameObject.Id)
+            {
+                return;
+            }
+
+            target.AttemptHealing(_data.HealingAmount, GameObject);
+            if (target != GameObject)
+            {
+                target.SetBeingHealed(GameObject, _data.HealingDelay);
             }
         }
+
+        if (_data.UnitHealPulseFX != null)
+        {
+            // Output event only - never a sim input (S8).
+            Context.Events.FireFXAtObject(_data.UnitHealPulseFX, target.Id);
+        }
+
+        // In case OnDamage tries to wake us early.
+        _soonestHealFrame = Context.CurrentFrame + _data.HealingDelay;
     }
 
+    // ---- the single walk (§3/§4): save/load + CRC + deep-dump + conformance ----
+    // Field order = declaration order = OUR choice (F9), never the original's.
+
+    internal override bool HasSimXfer => true;
+
+    public override void Xfer(IXfer xfer)
+    {
+        xfer.XferVersion(1);
+        _upgradeLogic.Xfer(xfer);                                                 // ch.1: Exact
+        xfer.XferFrame("SoonestHealFrame", ref _soonestHealFrame, Tolerance.Quantum);  // ch.2 timer
+        xfer.XferBool("Stopped", ref _stopped);                                   // ch.1: Exact
+    }
+
+    // ---- legacy retail-save reader (outside the contract, F9): kept until the save
+    // system migrates onto the Xfer walk. Layout from the original .sav stream:
+    // base, upgrade mux, 4-byte client particle-system id (discarded), soonest-heal
+    // frame, stopped flag. ----
     internal override void Load(StatePersister reader)
     {
         reader.PersistVersion(1);
@@ -146,12 +261,16 @@ public sealed class AutoHealBehavior : UpdateModule, IUpgradeableModule, IDamage
 
         reader.SkipUnknownBytes(4);
 
-        reader.PersistLogicFrame(ref _endOfStartHealingDelay);
+        reader.PersistLogicFrame(ref _soonestHealFrame);
 
-        reader.SkipUnknownBytes(1);
+        reader.PersistBoolean(ref _stopped);
     }
 }
 
+// ============================================================================
+// PARSE SIDE - immutable flyweight, quantized at load (design-module-api §2.2).
+// ============================================================================
+[SimDataAudited]
 public sealed class AutoHealBehaviorModuleData : UpdateModuleData
 {
     internal static AutoHealBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
@@ -160,13 +279,13 @@ public sealed class AutoHealBehaviorModuleData : UpdateModuleData
         new IniParseTableChild<AutoHealBehaviorModuleData, UpgradeLogicData>(x => x.UpgradeData, UpgradeLogicData.FieldParseTable)
         .Concat(new IniParseTable<AutoHealBehaviorModuleData>
         {
-            { "HealingAmount", (parser, x) => x.HealingAmount = parser.ParseFloat() },
-            { "HealingDelay", (parser, x) => x.HealingDelay = parser.ParseTimeMillisecondsToLogicFrames() },
+            { "HealingAmount", (parser, x) => x.HealingAmount = parser.ParseFix64() },
+            { "HealingDelay", (parser, x) => x.HealingDelay = parser.ParseDurationLogicFrames() },
             { "AffectsWholePlayer", (parser, x) => x.AffectsWholePlayer = parser.ParseBoolean() },
             { "KindOf", (parser, x) => x.KindOf = parser.ParseEnumBitArray<ObjectKinds>() },
             { "ForbiddenKindOf", (parser, x) => x.ForbiddenKindOf = parser.ParseEnumBitArray<ObjectKinds>() },
-            { "StartHealingDelay", (parser, x) => x.StartHealingDelay = parser.ParseTimeMillisecondsToLogicFrames() },
-            { "Radius", (parser, x) => x.Radius = parser.ParseFloat() },
+            { "StartHealingDelay", (parser, x) => x.StartHealingDelay = parser.ParseDurationLogicFrames() },
+            { "Radius", (parser, x) => x.Radius = parser.ParseFix64() },
             { "SingleBurst", (parser, x) => x.SingleBurst = parser.ParseBoolean() },
             { "SkipSelfForHealing", (parser, x) => x.SkipSelfForHealing = parser.ParseBoolean() },
             { "HealOnlyIfNotInCombat", (parser, x) => x.HealOnlyIfNotInCombat = parser.ParseBoolean() },
@@ -183,44 +302,28 @@ public sealed class AutoHealBehaviorModuleData : UpdateModuleData
 
     public UpgradeLogicData UpgradeData { get; } = new();
 
-    /// <summary>
-    /// Amount to heal with each <see cref="HealingDelay"/>.
-    /// </summary>
-    public float HealingAmount { get; private set; }
+    /// <summary>Hit points restored per pulse (quantized Q31.32).</summary>
+    public Fix64 HealingAmount { get; private set; }
 
-    /// <summary>
-    /// Time to wait between successive <see cref="HealingAmount"/> applications.
-    /// </summary>
+    /// <summary>Frames between pulses (ms in INI, ceil-quantized at parse, S5).</summary>
     public LogicFrameSpan HealingDelay { get; private set; }
 
-    /// <summary>
-    /// Whether healing should affect the entire player (e.g. true for TechHospital).
-    /// </summary>
+    /// <summary>Whether healing affects every object of the owning player.</summary>
     public bool AffectsWholePlayer { get; private set; }
 
-    /// <summary>
-    /// Object kinds which should be healed by this unit.
-    /// </summary>
+    /// <summary>Kinds eligible for healing; null = all kinds (GPL default: all bits set).</summary>
     public BitArray<ObjectKinds> KindOf { get; private set; }
 
-    /// <summary>
-    /// Object kinds which should not be healed by this unit.
-    /// </summary>
+    /// <summary>Kinds never healed; null = none forbidden.</summary>
     public BitArray<ObjectKinds> ForbiddenKindOf { get; private set; }
 
-    /// <summary>
-    /// Time to wait after taking damage before beginning healing.
-    /// </summary>
+    /// <summary>Frames after taking damage before self-healing restarts.</summary>
     public LogicFrameSpan StartHealingDelay { get; private set; }
 
-    /// <summary>
-    /// Radius around gameobject where units should be healed.
-    /// </summary>
-    public float Radius { get; private set; }
+    /// <summary>Heal-area radius; zero = self only (quantized Q31.32).</summary>
+    public Fix64 Radius { get; private set; }
 
-    /// <summary>
-    /// Whether healing should be applied all at once (e.g. true for Emergency Repair Special Power).
-    /// </summary>
+    /// <summary>Whether the radius path fires once and sleeps forever.</summary>
     public bool SingleBurst { get; private set; }
 
     [AddedIn(SageGame.CncGeneralsZeroHour)]
@@ -250,6 +353,7 @@ public sealed class AutoHealBehaviorModuleData : UpdateModuleData
     [AddedIn(SageGame.Bfme2)]
     public string RespawnFXList { get; private set; }
 
+    /// <summary>Milliseconds (time-as-int, F3); unconsumed until the respawn fact is pinned.</summary>
     [AddedIn(SageGame.Bfme2)]
     public int RespawnMinimumDelay { get; private set; }
 
@@ -258,6 +362,6 @@ public sealed class AutoHealBehaviorModuleData : UpdateModuleData
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new AutoHealBehavior(gameObject, gameEngine, this);
+        return new AutoHealBehavior(gameObject, gameEngine.SimContext, this);
     }
 }
