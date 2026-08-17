@@ -167,7 +167,16 @@ public interface IGame
     MappedImage GetMappedImage(string name);
     void Exit();
 
-    // TODO: Move this somewhere where it could be configured for specific games;
-    // e.g. for a replay we might want to use SageRandom.
-    IRandom CreateRandom() => new SystemRandom();
+    /// <summary>
+    /// The engine's one blessed source of randomness. Defaults to the deterministic SAGE
+    /// generator (api-freeze-v1 F5, build-order step 3): <c>SystemRandom</c> was seeded from
+    /// nothing reproducible, so replays and lockstep peers could not agree.
+    /// <para>
+    /// Every stream the engine runs comes from here and each gets its own instance, so client and
+    /// audio draws can never shift the logic stream. Seeds: the logic stream takes the match seed
+    /// (wired with the order pipeline, build-order step 4); client and audio streams derive
+    /// locally, since their values are lockstep-irrelevant and never CRC'd.
+    /// </para>
+    /// </summary>
+    IRandom CreateRandom(uint seed = 0) => new SageRandom(seed);
 }

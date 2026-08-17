@@ -65,6 +65,9 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         _game = game;
         _objectDefinitionLookupTable = new ObjectDefinitionLookupTable(game.AssetStore.ObjectDefinitions);
 
+        // The logic stream (api-freeze-v1 F5). Seed 0 until the game-start message's match seed is
+        // wired through the order pipeline (build-order step 4); every peer therefore agrees today
+        // because they all start from the same constant.
         Random = game.CreateRandom();
     }
 

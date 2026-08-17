@@ -202,10 +202,15 @@ public sealed class RandomNumber : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        // TODO: fix this
+        // ActionScript random(max) is [0, max). IRandom.Next is inclusive on both ends, and the
+        // draw comes from the window's own SAGE stream rather than an ambient System.Random
+        // (api-freeze-v1 F5).
         var max = context.Pop().ToInteger();
 
-        var rnd = new Random();
-        context.Push(Value.FromInteger(rnd.Next(0, max)));
+        var value = max > 0
+            ? context.Apt.Random.Next(0, max - 1)
+            : 0;
+
+        context.Push(Value.FromInteger(value));
     }
 }

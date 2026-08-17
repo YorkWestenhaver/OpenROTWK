@@ -471,10 +471,14 @@ public sealed class LuaScriptEngine : GameSystem
         return conditionFlag != 0 && _currentDrawModule.GameObject.ModelConditionFlags.Get(conditionFlag);
     }
 
-    public double GetRandomNumber()  //attention for multiplayer sync
+    /// <summary>
+    /// Script-visible random number in [0, 1). Draws from the logic stream (api-freeze-v1 F5) -
+    /// script results are simulation inputs, so the ambient <c>System.Random</c> this used to
+    /// allocate per call was a guaranteed multiplayer desync.
+    /// </summary>
+    public double GetRandomNumber()
     {
-        var random = new Random();
-        return random.NextDouble();
+        return Game.GameLogic.Random.NextSingle(0.0f, 1.0f);
     }
 
     public int GetFrame()

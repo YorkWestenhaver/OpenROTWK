@@ -16,6 +16,9 @@ internal sealed class GameClient : DisposableBase, IPersistableObject
 
     internal uint NextDrawableId = 1;
 
+    /// <summary>Locally derived seed for the client stream; see the constructor.</summary>
+    private const uint ClientStreamSeed = 0xC11E0000;
+
     public readonly IRandom Random;
 
     public GameClient(IGame game)
@@ -23,7 +26,9 @@ internal sealed class GameClient : DisposableBase, IPersistableObject
         _game = game;
         _objectDefinitionLookupTable = new ObjectDefinitionLookupTable(game.AssetStore.ObjectDefinitions);
 
-        Random = game.CreateRandom();
+        // The client stream (api-freeze-v1 F5): separate instance, locally derived seed, never
+        // CRC'd. Its draws must never be able to shift the logic stream.
+        Random = game.CreateRandom(ClientStreamSeed);
     }
 
     public Drawable CreateDrawable(ObjectDefinition objectDefinition, GameObject gameObject)

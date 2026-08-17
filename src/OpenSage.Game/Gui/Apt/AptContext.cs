@@ -2,6 +2,7 @@
 using OpenSage.Data.Apt;
 using OpenSage.Data.Apt.Characters;
 using OpenSage.Gui.Apt.ActionScript;
+using OpenSage.Mathematics;
 using Veldrid;
 
 namespace OpenSage.Gui.Apt;
@@ -19,6 +20,13 @@ public sealed class AptContext
     //Time per frame in milliseconds
     public uint MillisecondsPerFrame => Window.AptFile.Movie.MillisecondsPerFrame;
     public SpriteItem Root { get; set; }
+
+    /// <summary>
+    /// The ActionScript random source. A per-window SAGE stream, not an ambient
+    /// <c>System.Random</c>: APT is client-side and never CRC'd (api-freeze-v1 F5), but its draws
+    /// still have to be reproducible so replays and screenshots of the UI are stable.
+    /// </summary>
+    public IRandom Random { get; } = new SageRandom();
 
     public AptContext(AptWindow window)
     {

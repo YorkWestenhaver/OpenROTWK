@@ -159,7 +159,9 @@ public sealed class Game : DisposableBase, IGame
 
     private List<PlayerSetting> ParseReplayMetaToPlayerSettings(ReplaySlot[] slots)
     {
-        var random = new Random();
+        // Player settings feed the simulation, so this cannot come from an ambient System.Random
+        // (api-freeze-v1 F5): a replay has to reproduce the same colour assignment every time.
+        var random = ((IGame)this).CreateRandom();
 
         // TODO: set the correct factions & colors
         var pSettings = new List<PlayerSetting>();
@@ -190,8 +192,8 @@ public sealed class Game : DisposableBase, IGame
                 var maxFactionIndex = AssetStore.PlayerTemplates.Count;
                 var minFactionIndex = 2; // 0 and 1 are civilian and observer
 
-                var diff = maxFactionIndex - minFactionIndex;
-                factionIndex = minFactionIndex + (random.Next() % diff);
+                // IRandom.Next is inclusive on both ends.
+                factionIndex = random.Next(minFactionIndex, maxFactionIndex - 1);
             }
 
             var faction = AssetStore.PlayerTemplates.GetByIndex(factionIndex).Side;

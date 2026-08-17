@@ -4,6 +4,7 @@ using System.Numerics;
 using OpenSage.Graphics.Cameras;
 using OpenSage.IO;
 using OpenSage.Logic.Object;
+using OpenSage.Mathematics;
 using SharpAudio;
 using SharpAudio.Codec;
 using SharpAudio.Codec.Wave;
@@ -14,6 +15,9 @@ public sealed class AudioSystem : GameSystem
 {
     private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
+    /// <summary>Locally derived seed for the audio stream; see <see cref="_random"/>.</summary>
+    private const uint AudioStreamSeed = 0xA0D10000;
+
     private readonly List<AudioSource> _sources;
     private readonly Dictionary<string, AudioBuffer> _cached;
     private readonly AudioEngine _engine;
@@ -21,7 +25,11 @@ public sealed class AudioSystem : GameSystem
     private readonly Audio3DEngine _3dengine;
     private readonly Dictionary<AudioVolumeSlider, Submixer> _mixers;
 
-    private readonly Random _random;
+    /// <summary>
+    /// The audio stream (api-freeze-v1 F5): one of the three structurally separate SAGE streams,
+    /// free-running, never CRC'd, and never consumed by simulation code.
+    /// </summary>
+    private readonly IRandom _random;
 
     private readonly Dictionary<string, int> _musicTrackFinishedCounts = new Dictionary<string, int>();
 
@@ -39,8 +47,9 @@ public sealed class AudioSystem : GameSystem
 
         CreateSubmixers();
 
-        // TODO: Sync RNG seed from replay?
-        _random = new Random();
+        // Locally derived seed: audio draws are lockstep-irrelevant, so this stream only has to be
+        // reproducible within a run, not agreed between peers.
+        _random = game.CreateRandom(AudioStreamSeed);
     }
 
     internal override void OnSceneChanged()
@@ -135,7 +144,8 @@ public sealed class AudioSystem : GameSystem
         }
 
         // TOOD: Check control flag before choosing at random.
-        var sound = ev.Sounds[_random.Next(ev.Sounds.Length)];
+        // IRandom.Next is inclusive on both ends, unlike System.Random.Next(int).
+        var sound = ev.Sounds[_random.Next(0, ev.Sounds.Length - 1)];
         return sound.AudioFile.Value?.Entry;
     }
 
