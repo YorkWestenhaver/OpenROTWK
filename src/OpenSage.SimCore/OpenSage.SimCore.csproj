@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
+    <!-- BitArray512 (step-5 move) keeps its pointer-based bit addressing. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Attachment mode 1 of design-simcore-scaffolding §2.2: the whole assembly is sim code. -->
     <SimCoreAnalyzerMode>full</SimCoreAnalyzerMode>
   </PropertyGroup>

@@ -9,4 +9,11 @@
     <InternalsVisibleTo Include="OpenSage.Mathematics.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Step-5 BitArray512 move: the canonical type now lives in SimCore (api-freeze-v1 S4).
+         The reference direction is legal by construction - float-bearing assemblies may see
+         the substrate; SimCore never sees them. -->
+    <ProjectReference Include="..\OpenSage.SimCore\OpenSage.SimCore.csproj" />
+  </ItemGroup>
+
 </Project>

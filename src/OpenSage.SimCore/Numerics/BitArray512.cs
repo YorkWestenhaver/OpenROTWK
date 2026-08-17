@@ -1,9 +1,16 @@
-﻿using System;
-using System.Numerics;
+﻿// Moved from OpenSage.Mathematics in scaffolding step 5: the frozen IXfer surface
+// (api-freeze-v1 S4) takes `ref BitArray512`, and SimCore may not reference the float-bearing
+// OpenSage.Mathematics assembly, so the type itself is sim substrate. It is pure integer bit
+// storage; the move swapped its three banned-surface calls (BitOperations.PopCount, Math.Max,
+// HashCode.Combine) for in-assembly deterministic equivalents and changed nothing else.
+// Consumers keep compiling via `global using BitArray512 = ...` bridge aliases, the step-4
+// LogicFrame pattern.
+
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace OpenSage.Mathematics;
+namespace OpenSage.SimCore.Numerics;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct BitArray512
@@ -203,19 +210,33 @@ public struct BitArray512
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int CountSetBits()
     {
-        return BitOperations.PopCount(_a0) +
-               BitOperations.PopCount(_a1) +
-               BitOperations.PopCount(_a2) +
-               BitOperations.PopCount(_a3) +
-               BitOperations.PopCount(_a4) +
-               BitOperations.PopCount(_a5) +
-               BitOperations.PopCount(_a6) +
-               BitOperations.PopCount(_a7);
+        return PopCount(_a0) +
+               PopCount(_a1) +
+               PopCount(_a2) +
+               PopCount(_a3) +
+               PopCount(_a4) +
+               PopCount(_a5) +
+               PopCount(_a6) +
+               PopCount(_a7);
+    }
+
+    /// <summary>
+    /// SWAR population count. System.Numerics is on the SimCore banned surface (SIMCORE002),
+    /// so the count is computed in plain integer arithmetic; it is branch-free and
+    /// bit-identical on every architecture.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int PopCount(ulong v)
+    {
+        v -= (v >> 1) & 0x5555555555555555ul;
+        v = (v & 0x3333333333333333ul) + ((v >> 2) & 0x3333333333333333ul);
+        v = (v + (v >> 4)) & 0x0F0F0F0F0F0F0F0Ful;
+        return (int)((v * 0x0101010101010101ul) >> 56);
     }
 
     public BitArray512 And(in BitArray512 other)
     {
-        return new BitArray512(Math.Max(Length, other.Length))
+        return new BitArray512(FixMath.Max(Length, other.Length))
         {
             _a0 = _a0 & other._a0,
             _a1 = _a1 & other._a1,
@@ -231,7 +252,7 @@ public struct BitArray512
 
     public BitArray512 Or(in BitArray512 other)
     {
-        return new BitArray512(Math.Max(Length, other.Length))
+        return new BitArray512(FixMath.Max(Length, other.Length))
         {
             _a0 = _a0 | other._a0,
             _a1 = _a1 | other._a1,
@@ -261,6 +282,54 @@ public struct BitArray512
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(_a0, _a1, _a2, _a3, _a4, _a5, _a6, _a7);
+        // System.HashCode is randomized per process (SIMCORE005); chain the words through the
+        // assembly's deterministic FNV-1a fold instead.
+        var h = DeterministicHash.Begin();
+        h = DeterministicHash.Add(h, (long)_a0);
+        h = DeterministicHash.Add(h, (long)_a1);
+        h = DeterministicHash.Add(h, (long)_a2);
+        h = DeterministicHash.Add(h, (long)_a3);
+        h = DeterministicHash.Add(h, (long)_a4);
+        h = DeterministicHash.Add(h, (long)_a5);
+        h = DeterministicHash.Add(h, (long)_a6);
+        h = DeterministicHash.Add(h, (long)_a7);
+        h = DeterministicHash.Add(h, Length);
+        return DeterministicHash.Finish(h);
+    }
+
+    /// <summary>
+    /// Copies the raw 64-byte word image into <paramref name="destination"/> (8 ulongs,
+    /// low word first). Internal serialization hook for the Sync xfer visitors.
+    /// </summary>
+    internal readonly void CopyWordsTo(Span<ulong> destination)
+    {
+        destination[0] = _a0;
+        destination[1] = _a1;
+        destination[2] = _a2;
+        destination[3] = _a3;
+        destination[4] = _a4;
+        destination[5] = _a5;
+        destination[6] = _a6;
+        destination[7] = _a7;
+    }
+
+    /// <summary>
+    /// Rebuilds a value from its raw word image; inverse of <see cref="CopyWordsTo"/>.
+    /// Internal deserialization hook for the Sync xfer visitors.
+    /// </summary>
+    internal static BitArray512 FromWords(int length, ReadOnlySpan<ulong> words)
+    {
+        return new BitArray512(length)
+        {
+            _a0 = words[0],
+            _a1 = words[1],
+            _a2 = words[2],
+            _a3 = words[3],
+            _a4 = words[4],
+            _a5 = words[5],
+            _a6 = words[6],
+            _a7 = words[7],
+            _setBits = -1,
+        };
     }
 }
