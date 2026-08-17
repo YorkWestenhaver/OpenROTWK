@@ -81,11 +81,24 @@ public sealed class SageRandom : IRandom
     public uint Seed => _baseSeed;
 
     public SageRandom()
+        : this(0)
+    {
+    }
+
+    public SageRandom(uint seed)
     {
         _seed = new uint[6];
 
-        Initialize(0);
+        Initialize(seed);
     }
+
+    /// <summary>
+    /// The bare 32-bit draw. Test-visible so the shared SAGE vector file
+    /// (src/TestVectors/SageRandomVectors.txt) can pin this port bit-for-bit against
+    /// OpenSage.SimCore's LogicRandom - api-freeze-v1 F5/S3 requires the two to be identical
+    /// generators. Not part of <see cref="IRandom"/>: client code draws through Next/NextSingle.
+    /// </summary>
+    internal uint NextRawValue() => GetRandomValue();
 
     public void Initialize(uint seed)
     {

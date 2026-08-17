@@ -13,4 +13,13 @@
     <ProjectReference Include="..\OpenSage.SimCore\OpenSage.SimCore.csproj" />
   </ItemGroup>
 
+  <!-- Shared SAGE-RNG vectors: the same file and reader are linked into
+       OpenSage.Mathematics.Tests (api-freeze-v1 F5/S3). -->
+  <ItemGroup>
+    <Compile Include="..\TestVectors\SageRandomVectorFile.cs" Link="TestVectors\SageRandomVectorFile.cs" />
+    <Content Include="..\TestVectors\SageRandomVectors.txt" Link="SageRandomVectors.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
