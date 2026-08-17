@@ -41,19 +41,25 @@ internal sealed partial class IniParser
 
     public const string EndToken = "END";
 
-    // Guards against cyclic macro definitions (e.g. '#define A B' + '#define B A',
-    // or a self-referential multi-token body like '#define A 1 A'). The budget is
-    // per source line: a cycle that yields one token per GetNextTokenOptional call
-    // would otherwise stream tokens forever without tripping any per-call limit.
+    // Safety net against runaway macro expansion. Self- and mutual recursion are
+    // already prevented structurally (a macro is never re-expanded inside its own
+    // expansion — see _pendingMacroTokens), so this should never trip in practice.
     private const int MaximumMacroExpansionsPerLine = 1000;
 
     private int _macroExpansionsThisLine;
 
     private TokenReader _tokenReader;
 
-    // Tokens produced by expanding a multi-token '#define' body, still to be consumed.
-    // Macro expansion never crosses a line boundary, so this is cleared on GoToNextLine.
-    private readonly LinkedList<IniToken> _pendingMacroTokens = new LinkedList<IniToken>();
+    // A token produced by expanding a '#define' body, still to be consumed.
+    // ActiveMacros carries the names of all macros whose expansions this token
+    // is nested inside; those names are not expanded again for this token
+    // (C-preprocessor-style: real data defines macros named after filter
+    // keywords, e.g. '#define ALL ALL +X -Y', which must not recurse).
+    private readonly record struct PendingMacroToken(IniToken Token, HashSet<string> ActiveMacros);
+
+    // Pending expansion tokens. Macro expansion never crosses a line boundary,
+    // so this is cleared on GoToNextLine.
+    private readonly LinkedList<PendingMacroToken> _pendingMacroTokens = new LinkedList<PendingMacroToken>();
 
     private readonly Stack<string> _directory;
     private readonly IniDataContext _dataContext;
@@ -1006,10 +1012,13 @@ internal sealed partial class IniParser
         while (true)
         {
             IniToken? result;
+            HashSet<string>? activeMacros = null;
             if (_pendingMacroTokens.Count > 0)
             {
-                result = _pendingMacroTokens.First!.Value;
+                var pending = _pendingMacroTokens.First!.Value;
                 _pendingMacroTokens.RemoveFirst();
+                result = pending.Token;
+                activeMacros = pending.ActiveMacros;
             }
             else
             {
@@ -1021,18 +1030,26 @@ internal sealed partial class IniParser
                 return null;
             }
 
-            if (_dataContext.Defines.TryGetValue(result.Value.Text.ToUpper(), out var macroExpansion))
+            var macroName = result.Value.Text.ToUpper();
+            if (_dataContext.Defines.TryGetValue(macroName, out var macroExpansion)
+                && (activeMacros == null || !activeMacros.Contains(macroName)))
             {
                 if (++_macroExpansionsThisLine > MaximumMacroExpansionsPerLine)
                 {
-                    throw new IniParseException($"Exceeded maximum macro expansion depth while expanding '{result.Value.Text}'", result.Value.Position);
+                    throw new IniParseException($"Exceeded maximum macro expansion budget while expanding '{result.Value.Text}'", result.Value.Position);
                 }
+
+                // Body tokens are painted with the macros they are nested inside,
+                // so none of those names are expanded again within this expansion.
+                var nestedMacros = activeMacros == null
+                    ? new HashSet<string> { macroName }
+                    : new HashSet<string>(activeMacros) { macroName };
 
                 // Prepend the body tokens so they are consumed next, ahead of
                 // any tokens queued by an enclosing expansion.
                 for (var i = macroExpansion.Tokens.Count - 1; i >= 0; i--)
                 {
-                    _pendingMacroTokens.AddFirst(macroExpansion.Tokens[i]);
+                    _pendingMacroTokens.AddFirst(new PendingMacroToken(macroExpansion.Tokens[i], nestedMacros));
                 }
 
                 continue;
@@ -1051,7 +1068,7 @@ internal sealed partial class IniParser
     {
         if (_pendingMacroTokens.Count > 0)
         {
-            return _pendingMacroTokens.First!.Value;
+            return _pendingMacroTokens.First!.Value.Token;
         }
 
         return _tokenReader.PeekToken(separators ?? Separators);

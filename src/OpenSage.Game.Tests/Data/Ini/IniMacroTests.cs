@@ -64,24 +64,27 @@ public class IniMacroTests
     }
 
     [Fact]
-    public void SelfReferentialMultiTokenDefineThrowsInsteadOfStreamingForever()
+    public void MacroIsNotReExpandedInsideItsOwnExpansion()
     {
         var context = new IniParseTestContext();
 
-        // 'A' expands to '1 A': a consumer that reads tokens until exhaustion
-        // (filters, arrays) would otherwise receive an infinite token stream —
-        // each expansion happens in a separate GetNextTokenOptional call, so
-        // only a per-line expansion budget can catch it.
-        context.ParseFileText("#define A 1 A\n");
+        // Live mod data defines macros named after object-filter keywords whose
+        // bodies contain that same keyword (e.g. '#define ALL ALL +X -Y').
+        // C-preprocessor semantics: within a macro's expansion, its own name is
+        // a literal token, so this must not recurse.
+        context.ParseFileText("#define ALL ALL +INFANTRY\n");
 
-        var parser = context.CreateParser("A");
+        var parser = context.CreateParser("ALL -STRUCTURE");
         parser.GoToNextLine();
+        var filter = ObjectFilter.Parse(parser);
 
-        Assert.Throws<IniParseException>(() => parser.ParseFloatArray());
+        Assert.True(filter.Rules.Get(ObjectFilterRule.All));
+        Assert.True(filter.Include.Get(ObjectKinds.Infantry));
+        Assert.True(filter.Exclude.Get(ObjectKinds.Structure));
     }
 
     [Fact]
-    public void CyclicDefinesThrowInsteadOfLooping()
+    public void CyclicDefinesTerminateInsteadOfLooping()
     {
         var context = new IniParseTestContext();
 
@@ -91,6 +94,9 @@ public class IniMacroTests
         var parser = context.CreateParser("A");
         parser.GoToNextLine();
 
-        Assert.Throws<IniParseException>(() => parser.ParseFloat());
+        // A -> B -> A(literal): the cycle terminates and the literal token is
+        // surfaced ('A' here, which is not a number).
+        var token = parser.GetNextTokenOptional();
+        Assert.Equal("A", token!.Value.Text);
     }
 }
