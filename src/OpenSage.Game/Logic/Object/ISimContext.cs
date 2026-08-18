@@ -47,6 +47,20 @@ public interface IGameLogic
     GameObject GetObjectById(ObjectId id);
 
     /// <summary>
+    /// Spawns a new object of <paramref name="definition"/> owned by <paramref name="owner"/>,
+    /// standing where <paramref name="at"/> stands (same position and pathfind layer) and facing
+    /// <paramref name="orientation"/> radians. Returns null when the definition is null.
+    /// <para>
+    /// The spawn-at-a-donor shape (rather than a raw position) is deliberate: position and
+    /// orientation are float substrate until the transform subsystem migrates, so the ONE
+    /// crossing lives behind this seam in <c>SimContext</c> and never in module code. Modules
+    /// that need to place an object somewhere other than a donor's feet must wait for the
+    /// FixVector3 transform port - that is a finding, not a cast.
+    /// </para>
+    /// </summary>
+    GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, Fix64 orientation);
+
+    /// <summary>
     /// Live objects in ascending ObjectId order - the one blessed whole-world iteration
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>

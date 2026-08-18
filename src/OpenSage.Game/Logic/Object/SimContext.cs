@@ -12,6 +12,7 @@
 // migrates onto the context. Recorded as a pilot finding.
 
 using System.Collections.Generic;
+using System.Numerics;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Rng;
 
@@ -56,6 +57,25 @@ internal sealed class SimContext : ISimContext
         public GameLogicAdapter(IGameEngine engine) => _engine = engine;
 
         public GameObject GetObjectById(ObjectId id) => _engine.GameLogic.GetObjectById(id);
+
+        public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, Fix64 orientation)
+        {
+            var created = _engine.GameLogic.CreateObject(definition, owner);
+            if (created is null)
+            {
+                return null;
+            }
+
+            // Float boundary: object transforms are unmigrated substrate. The quantized angle
+            // is turned into a rotation exactly once, here, and the donor's translation is
+            // copied verbatim (no arithmetic, so no rounding of its own).
+            created.UpdateTransform(
+                at.Transform.Translation,
+                Quaternion.CreateFromAxisAngle(Vector3.UnitZ, orientation.ToFloatForDisplay()));
+            created.Layer = at.Layer;
+            created.UpdateColliders();
+            return created;
+        }
 
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
