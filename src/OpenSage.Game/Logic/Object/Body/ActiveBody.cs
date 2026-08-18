@@ -17,12 +17,10 @@ public class ActiveBody : BodyModule
     private readonly ActiveBodyModuleData _moduleData;
     private readonly List<uint> _particleSystemIds = [];
 
-    private float _currentHealth;
-    private float _currentSubdualDamage;
-    private float _previousHealth;
-    private float _maxHealth;
-    private float _initialHealth;
-    private BodyDamageType _currentDamageState;
+    // S1: canonical health state is the Fix64 BodyDamageCore; every float below is a
+    // display/legacy view over it (D-7 boundary - this file keeps the float side
+    // effects, the core keeps the arithmetic).
+    private readonly BodyDamageCore _core = new();
     private LogicFrame _nextDamageFXFrame;
     private DamageType? _lastDamageFXDone;
     private DamageInfo _lastDamageInfo;
@@ -43,17 +41,33 @@ public class ActiveBody : BodyModule
     {
         _moduleData = moduleData;
 
-        _currentDamageState = BodyDamageType.Pristine;
-
-        _currentHealth = _previousHealth = _initialHealth = moduleData.InitialHealth;
-        _maxHealth = moduleData.MaxHealth;
+        // ModuleData healths are float until the Body ModuleData audit; quantize once here.
+        _core.Initialize(
+            CombatLegacyBridge.QuantizeFloat(moduleData.MaxHealth),
+            CombatLegacyBridge.QuantizeFloat(moduleData.InitialHealth),
+            Thresholds);
 
         // Force an initially-valid armor setup.
         ValidateArmorAndDamageFX();
 
-        // Start us in the right state.
-        SetCorrectDamageState();
+        // Start us in the right state (rubble side effects, effectively-dead flag).
+        ApplyDamageStateSideEffects();
     }
+
+    /// <summary>Quantized GameData damage-state thresholds (constant after parse).</summary>
+    private DamageStateThresholds Thresholds
+    {
+        get
+        {
+            var gameData = GameEngine.AssetStore.GameData.Current;
+            return new DamageStateThresholds(
+                CombatLegacyBridge.QuantizeFloat(gameData.UnitDamagedThreshold),
+                CombatLegacyBridge.QuantizeFloat(gameData.UnitReallyDamagedThreshold));
+        }
+    }
+
+    /// <summary>Canonical Fix64 health ledger (the S1 system's read surface).</summary>
+    public BodyDamageCore DamageCore => _core;
 
     public override DamageInfoOutput AttemptDamage(in DamageInfoInput damageInput)
     {
@@ -78,7 +92,11 @@ public class ActiveBody : BodyModule
         var alreadyHandled = false;
         var allowModifier = true;
 
-        var amount = _currentArmor.AdjustDamage(damageInput.DamageType, damageInput.Amount);
+        // The Fix64 chain: quantize the (still float-typed) request once, then armor,
+        // scalar and health all resolve in Q31.32.
+        var amount = _currentArmor.AdjustDamage(
+            damageInput.DamageType,
+            CombatLegacyBridge.QuantizeFloat(damageInput.Amount));
 
         switch (damageInput.DamageType)
         {
@@ -195,7 +213,7 @@ public class ActiveBody : BodyModule
                 {
                     // Damage amount is millisecond time we set the status given in
                     // DamageStatusType.
-                    var framesToStatusFor = LogicFrameSpan.FromMilliseconds(amount, GameEngine.MsPerLogicFrame);
+                    var framesToStatusFor = LogicFrameSpan.FromMilliseconds(amount.ToFloatForDisplay(), GameEngine.MsPerLogicFrame);
                     obj.DoStatusDamage(damageInput.DamageStatusType, framesToStatusFor);
                     alreadyHandled = true;
                     allowModifier = false;
@@ -211,7 +229,7 @@ public class ActiveBody : BodyModule
             }
 
             var wasSubdued = IsSubdued;
-            InternalAddSubdualDamage(amount);
+            _core.AddSubdualDamage(amount, CombatLegacyBridge.QuantizeFloat(_moduleData.SubdualDamageCap));
             var nowSubdued = IsSubdued;
 
             alreadyHandled = true;
@@ -222,7 +240,7 @@ public class ActiveBody : BodyModule
                 OnSubdualChange(nowSubdued);
             }
 
-            obj.NotifySubdualDamage(amount);
+            obj.NotifySubdualDamage(amount.ToFloatForDisplay());
         }
 
         if (allowModifier && damageInput.DamageType != DamageType.Unresistable)
@@ -230,29 +248,25 @@ public class ActiveBody : BodyModule
             // Apply the damage scalar (extra bonuses, like strategy center
             // defensive battle plan). And remember not to adjust unresistable
             // damage, just like the armor code can't.
-            amount *= DamageScalar;
+            amount *= DamageScalarFix64;
         }
 
         // Sanity check the damage value. We can't apply negative damage.
-        if (amount > 0.0f || damageInput.Kill)
+        if (amount > SimCore.Numerics.Fix64.Zero || damageInput.Kill)
         {
-            var oldState = _currentDamageState;
+            var oldState = _core.DamageState;
 
-            // If the object is going to die, make sure we damage all remaining health.
-            if (damageInput.Kill)
-            {
-                amount = _currentHealth;
-            }
-
+            // The arithmetic half (kill override, clamp, damage-state recompute) lives
+            // in the Fix64 core; the visual/dead side effects follow here.
+            var combatOutput = _core.ApplyDamage(amount, damageInput.Kill, !alreadyHandled, Thresholds, out _);
             if (!alreadyHandled)
             {
-                // Do the damage simplistic damage subtraction.
-                InternalChangeHealth(-amount);
+                ApplyHealthChangeSideEffects(oldState);
             }
 
             // Record the actual damage done from this, and when it happened.
-            damageOutput.ActualDamageDealt = amount;
-            damageOutput.ActualDamageClipped = _previousHealth - _currentHealth;
+            LastCombatOutput = combatOutput;
+            damageOutput = CombatLegacyBridge.ToLegacyOutput(combatOutput);
 
             // Then store the whole DamageInfo for easy lookup.
             var currentDamageInfo = new DamageInfo
@@ -300,7 +314,7 @@ public class ActiveBody : BodyModule
             }
 
             // If our health has gone down, then run the damage module callback.
-            if (_currentHealth < _previousHealth)
+            if (_core.CurrentHealth < _core.PreviousHealth)
             {
                 foreach (var module in obj.FindBehaviors<IDamageModule>())
                 {
@@ -308,43 +322,47 @@ public class ActiveBody : BodyModule
                 }
             }
 
-            if (_currentDamageState != oldState)
+            if (_core.DamageState != oldState)
             {
                 foreach (var module in obj.FindBehaviors<IDamageModule>())
                 {
                     module.OnBodyDamageStateChange(
                         currentDamageInfo,
                         oldState,
-                        _currentDamageState);
+                        _core.DamageState);
                 }
 
                 // Original comment:
                 // @todo: This really feels like it should be in the TransitionFX lists.
-                switch (_currentDamageState)
+                // (Null-conditional: headless hosts carry no audio system; audio is a
+                // client-bound output, never a sim input.)
+                switch (_core.DamageState)
                 {
                     case BodyDamageType.Damaged:
-                        GameEngine.AudioSystem.PlayAudioEvent(
+                        GameEngine.AudioSystem?.PlayAudioEvent(
                             obj,
                             obj.Definition.SoundOnDamaged?.Value);
                         break;
 
                     case BodyDamageType.ReallyDamaged:
-                        GameEngine.AudioSystem.PlayAudioEvent(
+                        GameEngine.AudioSystem?.PlayAudioEvent(
                             obj,
                             obj.Definition.SoundOnReallyDamaged?.Value);
                         break;
                 }
             }
 
-            // Should we play our fear sound?
-            if ((_previousHealth / _maxHealth) > YellowDamagePercent
-                && (_currentHealth / _maxHealth) < YellowDamagePercent
-                && _currentHealth > 0)
+            // Should we play our fear sound? (Client-bound audio decision; float views.)
+            if ((PreviousHealth / MaxHealth) > YellowDamagePercent
+                && (Health / MaxHealth) < YellowDamagePercent
+                && _core.CurrentHealth > SimCore.Numerics.Fix64.Zero)
             {
-                // 25% chance to play.
+                // 25% chance to play. (The draw happens unconditionally - it is
+                // sim-relevant RNG consumption, GPL shape - only the playback is
+                // client-side and headless-null-safe.)
                 if (GameEngine.GameLogic.Random.Next(0, 99) < 25)
                 {
-                    GameEngine.AudioSystem.PlayAudioEvent(
+                    GameEngine.AudioSystem?.PlayAudioEvent(
                         obj.Translation,
                         // TODO(Port): Set PlayerIndex on sound.
                         // fearSound.setPlayerIndex( obj->getControllingPlayer()->getPlayerIndex() );
@@ -353,7 +371,8 @@ public class ActiveBody : BodyModule
             }
 
             // Check to see if we died.
-            if (_currentHealth <= 0 && _previousHealth > 0)
+            if (_core.CurrentHealth <= SimCore.Numerics.Fix64.Zero
+                && _core.PreviousHealth > SimCore.Numerics.Fix64.Zero)
             {
                 // Give our killer credit for killing us, if there is one.
                 damager?.ScoreTheKill(obj);
@@ -413,19 +432,20 @@ public class ActiveBody : BodyModule
 
         var amount = _currentArmor.AdjustDamage(
             damageInput.DamageType,
-            damageInput.Amount);
+            CombatLegacyBridge.QuantizeFloat(damageInput.Amount));
 
         // Sanity check the damage value. Can't apply negative healing.
-        if (amount > 0.0f)
+        if (amount > SimCore.Numerics.Fix64.Zero)
         {
-            var oldState = _currentDamageState;
+            var oldState = _core.DamageState;
 
-            // Do the damage simplistic damage ADDITION.
-            InternalChangeHealth(amount);
+            // Do the damage simplistic damage ADDITION (Fix64 core).
+            var combatOutput = _core.ApplyHealing(amount, Thresholds, out _);
+            ApplyHealthChangeSideEffects(oldState);
 
             // Record the actual damage done from this, and when it happened.
-            damageOutput.ActualDamageDealt = amount;
-            damageOutput.ActualDamageClipped = _previousHealth - _currentHealth;
+            LastCombatOutput = combatOutput;
+            damageOutput = CombatLegacyBridge.ToLegacyOutput(combatOutput);
 
             // Then copy the whole DamageInfo struct for easy lookup.
             var currentDamageInfo = new DamageInfo
@@ -437,7 +457,7 @@ public class ActiveBody : BodyModule
             _lastHealingFrame = GameEngine.GameLogic.CurrentFrame;
 
             // If our health has gone UP, then run the damage module callback.
-            if (_currentHealth > _previousHealth)
+            if (_core.CurrentHealth > _core.PreviousHealth)
             {
                 foreach (var module in obj.FindBehaviors<IDamageModule>())
                 {
@@ -445,14 +465,14 @@ public class ActiveBody : BodyModule
                 }
             }
 
-            if (_currentDamageState != oldState)
+            if (_core.DamageState != oldState)
             {
                 foreach (var module in obj.FindBehaviors<IDamageModule>())
                 {
                     module.OnBodyDamageStateChange(
                         currentDamageInfo,
                         oldState,
-                        _currentDamageState);
+                        _core.DamageState);
                 }
             }
         }
@@ -499,12 +519,12 @@ public class ActiveBody : BodyModule
 
         return _currentArmor.AdjustDamage(
             damageInput.DamageType,
-            damageInput.Amount);
+            CombatLegacyBridge.QuantizeFloat(damageInput.Amount)).ToFloatForDisplay();
     }
 
-    public override float Health => _currentHealth;
+    public override float Health => _core.CurrentHealth.ToFloatForDisplay();
 
-    public override float MaxHealth => _maxHealth;
+    public override float MaxHealth => _core.MaxHealth.ToFloatForDisplay();
 
     /// <summary>
     /// Simple setting of the health value. It does _not_ track any transition
@@ -512,55 +532,12 @@ public class ActiveBody : BodyModule
     /// </summary>
     public override void SetMaxHealth(float maxHealth, MaxHealthChangeType healthChangeType)
     {
-        var prevMaxHealth = _maxHealth;
-        _maxHealth = maxHealth;
-        _initialHealth = maxHealth;
-
-        switch (healthChangeType)
-        {
-            case MaxHealthChangeType.PreserveRatio:
-                // 400/500 (80%) + 100 becomes 480/600 (80%)
-                // 200/500 (40%) - 100 becomes 160/400 (40%)
-                var ratio = _currentHealth / prevMaxHealth;
-                var newHealth = maxHealth * ratio;
-                InternalChangeHealth(newHealth - _currentHealth);
-                break;
-
-            case MaxHealthChangeType.AddCurrentHealthToo:
-                // Add the same amount that we are adding to the max health.
-                // This could kill you if max health is reduced
-                // (if we ever have that ability to add buffer health like in D&D)
-                // 400/500 (80%) + 100 becomes 500/600 (83%)
-                // 200/500 (40%) - 100 becomes 100/400 (25%)
-                InternalChangeHealth(maxHealth - prevMaxHealth);
-                break;
-
-            case MaxHealthChangeType.SameCurrentHealth:
-                // Do nothing
-                break;
-
-            case MaxHealthChangeType.FullyHeal:
-                // Set current to the new Max.
-                // 400/500 (80%) + 100 becomes 600/600 (100%)
-                // 200/500 (40%) - 100 becomes 400/400 (100%)
-                InternalChangeHealth(_maxHealth - _currentHealth);
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(healthChangeType));
-        }
-
-        // When max health is getting clipped to a lower value, if our current health
-        // value is now outside of the max health range we will set it back down to the
-        // new cap. Note that we are _not_ going through any healing or damage methods here
-        // and are doing a direct set.
-        if (_currentHealth > maxHealth)
-        {
-            InternalChangeHealth(maxHealth - _currentHealth);
-        }
+        var oldState = _core.DamageState;
+        _core.SetMaxHealth(CombatLegacyBridge.QuantizeFloat(maxHealth), healthChangeType, Thresholds);
+        ApplyHealthChangeSideEffects(oldState);
     }
 
-    public override float InitialHealth => _initialHealth;
+    public override float InitialHealth => _core.InitialHealth.ToFloatForDisplay();
 
     /// <summary>
     /// Simple setting of the initial health value. It does _not_ track any transition
@@ -568,44 +545,43 @@ public class ActiveBody : BodyModule
     /// </summary>
     public override void SetInitialHealth(int initialPercent)
     {
-        // Save the current health as the previous health.
-        _previousHealth = _currentHealth;
-
-        var factor = initialPercent / 100.0f;
-        var newHealth = factor * _initialHealth;
-
-        // Change the health to the requested percentage.
-        InternalChangeHealth(newHealth - _currentHealth);
+        var oldState = _core.DamageState;
+        _core.SetInitialHealthPercent(initialPercent, Thresholds);
+        ApplyHealthChangeSideEffects(oldState);
     }
 
-    public override float PreviousHealth => _previousHealth;
+    public override float PreviousHealth => _core.PreviousHealth.ToFloatForDisplay();
 
     public override LogicFrameSpan SubdualDamageHealRate => _moduleData.SubdualDamageHealRate;
 
-    public override bool HasAnySubdualDamage => _currentSubdualDamage > 0;
+    public override bool HasAnySubdualDamage => _core.CurrentSubdualDamage > SimCore.Numerics.Fix64.Zero;
 
-    public override float CurrentSubdualDamageAmount => _currentSubdualDamage;
+    public override float CurrentSubdualDamageAmount => _core.CurrentSubdualDamage.ToFloatForDisplay();
 
     public override BodyDamageType DamageState
     {
-        get => _currentDamageState;
+        get => _core.DamageState;
         set
         {
+            var thresholds = Thresholds;
             var ratio = value switch
             {
-                BodyDamageType.Pristine => 1.0f,
-                BodyDamageType.Damaged => GameEngine.AssetStore.GameData.Current.UnitDamagedThreshold,
-                BodyDamageType.ReallyDamaged => GameEngine.AssetStore.GameData.Current.UnitReallyDamagedThreshold,
-                BodyDamageType.Rubble => 0.0f,
+                BodyDamageType.Pristine => SimCore.Numerics.Fix64.One,
+                BodyDamageType.Damaged => thresholds.Damaged,
+                BodyDamageType.ReallyDamaged => thresholds.ReallyDamaged,
+                BodyDamageType.Rubble => SimCore.Numerics.Fix64.Zero,
                 _ => throw new ArgumentOutOfRangeException(nameof(value))
             };
 
-            var desiredHealth = Math.Max(
-                _maxHealth * ratio - 1, // -1 because < not <= in CalculateDamageState
-                0.0f);
+            // GPL setDamageState: desired = max * ratio - 1 (-1 because < not <= in
+            // CalculateDamageState), floored at zero.
+            var desiredHealth = _core.MaxHealth * ratio - SimCore.Numerics.Fix64.One;
+            if (desiredHealth < SimCore.Numerics.Fix64.Zero)
+            {
+                desiredHealth = SimCore.Numerics.Fix64.Zero;
+            }
 
-            InternalChangeHealth(desiredHealth - _currentHealth);
-            SetCorrectDamageState();
+            InternalChangeHealth(desiredHealth - _core.CurrentHealth);
         }
     }
 
@@ -670,7 +646,7 @@ public class ActiveBody : BodyModule
         var mult = newBonus / oldBonus;
 
         // change the max
-        SetMaxHealth(_maxHealth * mult, MaxHealthChangeType.PreserveRatio);
+        SetMaxHealth(MaxHealth * mult, MaxHealthChangeType.PreserveRatio);
 
         switch (newLevel)
         {
@@ -745,36 +721,41 @@ public class ActiveBody : BodyModule
 
     public override void InternalChangeHealth(float delta)
     {
-        // Save the current health as the previous health.
-        _previousHealth = _currentHealth;
+        InternalChangeHealth(CombatLegacyBridge.QuantizeFloat(delta));
+    }
 
-        // Change the health by the delta. It can be positive or negative.
-        _currentHealth += delta;
+    /// <summary>The canonical Fix64 health change (GPL internalChangeHealth).</summary>
+    public void InternalChangeHealth(SimCore.Numerics.Fix64 delta)
+    {
+        var oldState = _core.DamageState;
+        _core.ChangeHealth(delta, Thresholds);
+        ApplyHealthChangeSideEffects(oldState);
+    }
 
-        // Clamp the new health.
-        _currentHealth = Math.Clamp(_currentHealth, 0.0f, _maxHealth);
+    /// <summary>
+    /// The float-substrate side effects the original ran inside
+    /// internalChangeHealth/setCorrectDamageState: rubble geometry/pathfind work,
+    /// visual-condition re-evaluation on a state change, and the effectively-dead flag.
+    /// The arithmetic itself lives in <see cref="BodyDamageCore"/>.
+    /// </summary>
+    private void ApplyHealthChangeSideEffects(BodyDamageType oldState)
+    {
+        ApplyDamageStateSideEffects();
 
-        // Recalculate the damage state.
-        var oldState = _currentDamageState;
-        SetCorrectDamageState();
-
-        // If our state has changed...
-        if (_currentDamageState != oldState)
+        // If our state has changed, show a visual change in the model for the damage
+        // state. We do not show visual changes for damage states when things are under
+        // construction, because we just don't have all the art states for that during
+        // buildup animation.
+        if (_core.DamageState != oldState
+            && !GameObject.TestStatus(ObjectStatus.UnderConstruction))
         {
-            // ... show a visual change in the model for the damage state. We
-            // do not show visual changes for damage states when things are
-            // under construction, because we just don't have all the art
-            // states for that during buildup animation.
-            if (!GameObject.TestStatus(ObjectStatus.UnderConstruction))
-            {
-                EvaluateVisualCondition();
-            }
+            EvaluateVisualCondition();
         }
 
         // Mark the bit according to our health. If our AI is dead but our
         // health improves, it will still re-flag this bit in the AIDeadState
         // every frame.
-        GameObject.IsEffectivelyDead = _currentHealth <= 0;
+        GameObject.IsEffectivelyDead = _core.CurrentHealth <= SimCore.Numerics.Fix64.Zero;
     }
 
     public override bool IsIndestructible
@@ -807,7 +788,7 @@ public class ActiveBody : BodyModule
 
     public override void EvaluateVisualCondition()
     {
-        GameObject.Drawable?.ReactToBodyDamageStateChange(_currentDamageState);
+        GameObject.Drawable?.ReactToBodyDamageStateChange(_core.DamageState);
 
         // Destroy any particle systems that were attached to our body for the
         // old state and create new particle systems for the new state.
@@ -821,15 +802,17 @@ public class ActiveBody : BodyModule
 
     private bool CanBeSubdued => _moduleData.SubdualDamageCap > 0;
 
-    private bool IsSubdued => _maxHealth <= _currentSubdualDamage;
+    private bool IsSubdued => _core.IsSubdued;
 
-    private void SetCorrectDamageState()
+    /// <summary>
+    /// The rubble half of GPL setCorrectDamageState (the state computation itself moved
+    /// into <see cref="BodyDamageCore"/>; these side effects run after every change).
+    /// </summary>
+    private void ApplyDamageStateSideEffects()
     {
-        _currentDamageState = CalculateDamageState(_currentHealth, _maxHealth);
-
         // Original comment:
         // @todo srj -- bleah, this is an icky way to do it. oh well.
-        if (_currentDamageState == BodyDamageType.Rubble
+        if (_core.DamageState == BodyDamageType.Rubble
             && GameObject.IsKindOf(ObjectKinds.Structure))
         {
             var rubbleHeight = GameObject.Definition.StructureRubbleHeight;
@@ -886,12 +869,6 @@ public class ActiveBody : BodyModule
             source,
             GameObject,
             GameEngine);
-    }
-
-    private void InternalAddSubdualDamage(float delta)
-    {
-        _currentSubdualDamage += delta;
-        _currentSubdualDamage = Math.Min(_currentSubdualDamage, _moduleData.SubdualDamageCap);
     }
 
     private void OnSubdualChange(bool isNowSubdued)
@@ -963,27 +940,21 @@ public class ActiveBody : BodyModule
         }
     }
 
-    private BodyDamageType CalculateDamageState(float health, float maxHealth)
-    {
-        var ratio = health / maxHealth;
+    // ---- the contract Xfer walk (S1): the Fix64 combat state participates in
+    // save/load + CRC + deep-dump. Field order = declaration order, ours (F9). The
+    // armor-set condition flags still ride ONLY the legacy persist (no generic-BitArray
+    // IXfer surface yet - filed as a finding). ----
 
-        var gameData = GameEngine.AssetStore.GameData.Current;
-        if (ratio > gameData.UnitDamagedThreshold)
-        {
-            return BodyDamageType.Pristine;
-        }
-        else if (ratio > gameData.UnitReallyDamagedThreshold)
-        {
-            return BodyDamageType.Damaged;
-        }
-        else if (ratio > 0.0f)
-        {
-            return BodyDamageType.ReallyDamaged;
-        }
-        else
-        {
-            return BodyDamageType.Rubble;
-        }
+    internal override bool HasSimXfer => true;
+
+    public override void Xfer(SimCore.Sync.IXfer xfer)
+    {
+        xfer.XferVersion(1);
+        XferBodyBase(xfer);                       // DamageScalar (Quantum)
+        _core.Xfer(xfer);                         // health ledger + damage state
+        xfer.XferBool("FrontCrushed", ref _frontCrushed);
+        xfer.XferBool("BackCrushed", ref _backCrushed);
+        xfer.XferBool("Indestructible", ref _indestructible);
     }
 
     internal override void Load(StatePersister reader)
@@ -994,18 +965,39 @@ public class ActiveBody : BodyModule
         base.Load(reader);
         reader.EndObject();
 
-        reader.PersistSingle(ref _currentHealth);
+        // Retail .sav layout is float (F9-exempt legacy reader); quantize into the
+        // Fix64 core on read, widen on write.
+        var currentHealth = _core.CurrentHealth.ToFloatForDisplay();
+        var currentSubdualDamage = _core.CurrentSubdualDamage.ToFloatForDisplay();
+        var previousHealth = _core.PreviousHealth.ToFloatForDisplay();
+        var maxHealth = _core.MaxHealth.ToFloatForDisplay();
+        var initialHealth = _core.InitialHealth.ToFloatForDisplay();
+        var currentDamageState = _core.DamageState;
+
+        reader.PersistSingle(ref currentHealth);
 
         // ZH changed added this field, but didn't bump the version.
         if (reader.SageGame >= SageGame.CncGeneralsZeroHour)
         {
-            reader.PersistSingle(ref _currentSubdualDamage);
+            reader.PersistSingle(ref currentSubdualDamage);
         }
 
-        reader.PersistSingle(ref _previousHealth);
-        reader.PersistSingle(ref _maxHealth);
-        reader.PersistSingle(ref _initialHealth);
-        reader.PersistEnum(ref _currentDamageState);
+        reader.PersistSingle(ref previousHealth);
+        reader.PersistSingle(ref maxHealth);
+        reader.PersistSingle(ref initialHealth);
+        reader.PersistEnum(ref currentDamageState);
+
+        if (reader.Mode == StatePersistMode.Read)
+        {
+            _core.LoadState(
+                CombatLegacyBridge.QuantizeFloat(currentHealth),
+                CombatLegacyBridge.QuantizeFloat(currentSubdualDamage),
+                CombatLegacyBridge.QuantizeFloat(previousHealth),
+                CombatLegacyBridge.QuantizeFloat(maxHealth),
+                CombatLegacyBridge.QuantizeFloat(initialHealth),
+                currentDamageState);
+        }
+
         reader.PersistLogicFrame(ref _nextDamageFXFrame);
         reader.PersistEnumOptional(ref _lastDamageFXDone);
 
