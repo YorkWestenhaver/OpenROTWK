@@ -77,8 +77,12 @@ internal sealed class HeadlessSimGame : IGame
 
         Quadtree = new Quadtree<GameObject>(new RectangleF(-10000, -10000, 20000, 20000));
 
+        // ObjectCreationListManager is a stateless dispatcher over parsed OCL nuggets and
+        // touches no graphics, so the headless host owns a real one: without it every
+        // spawn-on-death module (CreateObjectDie, CreateCrateDie, EjectPilotDie) would
+        // NullReference the moment its Die fires.
         GameEngine = new GameEngine(
-            AssetStore.LoadContext, null, null, null, null, null, null,
+            AssetStore.LoadContext, null, null, new ObjectCreationListManager(), null, null, null,
             Quadtree, new HeadlessScene3D(this), this);
 
         AssetStore.PushScope();
