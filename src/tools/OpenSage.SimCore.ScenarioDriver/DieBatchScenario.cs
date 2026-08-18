@@ -234,6 +234,48 @@ Object DieBatchKeepObject
     DeathTypes = ALL -SUICIDED
   End
 End
+
+; --- UpgradeDie's slice (appended; see the extension recipe at the top of this file) ---
+; The producer/drone pair the GPL comment describes - ranger building scout drones: the
+; drone's death frees Upgrade_DieBatchDrone on the object that produced it. The upgrade set
+; itself is GameObject state and not part of any ported module's walk, so what the CRC walk
+; witnesses here is the death dispatch and the witness module vanishing with its object; the
+; upgrade-set effect is asserted in UpgradeDieContractTests.
+Upgrade Upgrade_DieBatchDrone
+  Type = OBJECT
+End
+
+Object DieBatchDroneProducer
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 400
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchDrone
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = UpgradeDie ModuleTag_Die
+    DeathTypes = ALL
+    UpgradeToRemove = Upgrade_DieBatchDrone BaseUpgradeTag_01
+  End
+  ; UpgradeDie frees an upgrade; it does not remove the corpse. DestroyDie alongside it is
+  ; what makes the death visible in the dump as the drone leaving the Objects channel.
+  Behavior = DestroyDie ModuleTag_Reap
+  End
+End
 ";
 
     /// <summary>
@@ -277,6 +319,8 @@ End
         // (The CrushDie branch numbered these 8 and 9; the integration merge renumbered.)
         ("DieBatchCrushVictim", false,  30f,   0f),  // 15 - CrushDie: back-end crush by 1
         ("DieBatchCrushVictim", false, -30f,   0f),  // 16 - CrushDie: front-end crush by 1
+        ("DieBatchDroneProducer", false, -30f, 30f), // 17 - holds Upgrade_DieBatchDrone
+        ("DieBatchDrone",       false, -34f, 30f),   // 18 - UpgradeDie: frees it by dying
     };
 
     private readonly HeadlessSimGame _game;
