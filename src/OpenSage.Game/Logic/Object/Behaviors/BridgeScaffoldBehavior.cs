@@ -5,6 +5,7 @@ namespace OpenSage.Logic.Object;
 /// <summary>
 /// Allows the object to surround the parent object like a scaffold.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class BridgeScaffoldBehaviorModuleData : BehaviorModuleData
 {
     internal static BridgeScaffoldBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

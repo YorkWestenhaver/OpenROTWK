@@ -8,6 +8,7 @@ namespace OpenSage.Logic.Object;
 /// relative to water level" while setting <see cref="Enabled"/> to <code>false</code> means 
 /// "float on water and bob about".
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class FloatUpdateModuleData : UpdateModuleData
 {
     internal static FloatUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

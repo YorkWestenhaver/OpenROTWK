@@ -7,6 +7,7 @@ namespace OpenSage.Logic.Object;
 /// <see cref="ModelConditionFlag.Door1Opening"/> and 
 /// <see cref="ModelConditionFlag.Door1Closing"/> condition states.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class CheckpointUpdateModuleData : UpdateModuleData
 {
     internal static CheckpointUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

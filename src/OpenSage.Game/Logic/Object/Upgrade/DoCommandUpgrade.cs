@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class DoCommandUpgradeModuleData : UpgradeModuleData
 {
     internal static DoCommandUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

@@ -235,6 +235,7 @@ public class TurretAIUpdate : UpdateModule
     }
 }
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class TurretAIUpdateModuleData : UpdateModuleData
 {
     internal static TurretAIUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

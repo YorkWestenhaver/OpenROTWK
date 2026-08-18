@@ -5,6 +5,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class SpellRechargeModifierUpgradeModuleData : UpgradeModuleData
 {
     internal static SpellRechargeModifierUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

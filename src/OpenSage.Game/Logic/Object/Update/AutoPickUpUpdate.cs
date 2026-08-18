@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class AutoPickUpUpdateModuleData : UpdateModuleData
 {
     internal static AutoPickUpUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

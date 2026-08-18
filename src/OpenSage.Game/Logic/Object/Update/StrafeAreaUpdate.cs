@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class StrafeAreaUpdateModuleData : UpdateModuleData
 {
     internal static StrafeAreaUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

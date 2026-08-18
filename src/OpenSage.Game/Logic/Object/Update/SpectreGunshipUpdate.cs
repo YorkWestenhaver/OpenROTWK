@@ -4,6 +4,7 @@ using OpenSage.Gui.InGame;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class SpectreGunshipUpdateModuleData : UpdateModuleData
 {
     internal static SpectreGunshipUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

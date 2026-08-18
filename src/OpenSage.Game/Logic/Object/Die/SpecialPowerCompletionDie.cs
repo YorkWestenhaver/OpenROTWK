@@ -2,6 +2,7 @@
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Die")]
 public sealed class SpecialPowerCompletionDieModuleData : DieModuleData
 {
     internal static SpecialPowerCompletionDieModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class LeafletDropBehaviorModuleData : BehaviorModuleData
 {
     internal static LeafletDropBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

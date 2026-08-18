@@ -4,6 +4,7 @@ using OpenSage.Data.Ini;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class CitadelSlaughterHordeContainModuleData : SlaughterHordeContainModuleData
 {
     internal static new CitadelSlaughterHordeContainModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

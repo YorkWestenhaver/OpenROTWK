@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Dynamically adjusts the "bomb" so it hits its designated target instead of missing it.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class SmartBombTargetHomingUpdateModuleData : UpdateModuleData
 {
     internal static SmartBombTargetHomingUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

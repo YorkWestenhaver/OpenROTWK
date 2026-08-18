@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class AnimationSteeringUpdateModuleData : UpdateModuleData
 {
     internal static AnimationSteeringUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

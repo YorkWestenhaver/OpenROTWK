@@ -2,6 +2,7 @@
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class FirestormDynamicGeometryInfoUpdateModuleData : UpdateModuleData
 {
     internal static FirestormDynamicGeometryInfoUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

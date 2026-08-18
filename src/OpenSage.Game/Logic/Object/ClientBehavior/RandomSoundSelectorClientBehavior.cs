@@ -5,6 +5,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: ClientBehavior")]
 public class RandomSoundSelectorClientBehaviorData : ClientBehaviorModuleData
 {
     internal static RandomSoundSelectorClientBehaviorData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

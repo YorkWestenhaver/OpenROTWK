@@ -4,6 +4,7 @@ using OpenSage.Data.Ini;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class AutoAbilityBehaviorModuleData : UpgradeModuleData
 {
     internal static AutoAbilityBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

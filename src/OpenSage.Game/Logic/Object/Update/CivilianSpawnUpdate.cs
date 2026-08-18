@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class CivilianSpawnUpdateModuleData : UpdateModuleData
 {
     internal static CivilianSpawnUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

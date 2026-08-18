@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class ReplaceObjectUpgradeModuleData : UpgradeModuleData
 {
     internal static ReplaceObjectUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

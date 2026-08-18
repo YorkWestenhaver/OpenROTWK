@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Temporarily triggers use of a specific WeaponBonus from GameData.ini.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class WeaponBonusUpdateModuleData : UpdateModuleData
 {
     internal static WeaponBonusUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class GrantStealthBehaviorModuleData : BehaviorModuleData
 {
     internal static GrantStealthBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

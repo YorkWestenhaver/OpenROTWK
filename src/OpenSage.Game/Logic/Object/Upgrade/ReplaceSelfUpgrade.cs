@@ -4,6 +4,7 @@ using OpenSage.Data.Ini;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class ReplaceSelfUpgradeModuleData : UpgradeModuleData
 {
     internal static ReplaceSelfUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

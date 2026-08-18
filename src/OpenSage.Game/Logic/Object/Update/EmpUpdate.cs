@@ -3,6 +3,7 @@ using OpenSage.Mathematics;
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class EmpUpdateModuleData : UpdateModuleData
 {
     internal static EmpUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

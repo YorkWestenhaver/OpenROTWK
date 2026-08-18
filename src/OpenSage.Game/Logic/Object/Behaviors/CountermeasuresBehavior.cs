@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class CountermeasuresBehaviorModuleData : BehaviorModuleData
 {
     internal static CountermeasuresBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

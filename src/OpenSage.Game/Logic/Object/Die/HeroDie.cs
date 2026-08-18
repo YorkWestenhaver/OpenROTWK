@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Die")]
 public sealed class HeroDieModuleData : DieModuleData
 {
     internal static HeroDieModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

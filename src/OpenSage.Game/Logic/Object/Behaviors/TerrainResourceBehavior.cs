@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class TerrainResourceBehaviorModuleData : UpgradeModuleData
 {
     internal static TerrainResourceBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

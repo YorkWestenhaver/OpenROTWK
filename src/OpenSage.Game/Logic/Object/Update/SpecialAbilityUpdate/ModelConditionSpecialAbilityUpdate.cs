@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class ModelConditionSpecialAbilityUpdateModuleData : UpdateModuleData
 {
     internal static ModelConditionSpecialAbilityUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

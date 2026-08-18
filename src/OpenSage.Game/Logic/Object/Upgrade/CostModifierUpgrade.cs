@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class CostModifierUpgradeModuleData : UpgradeModuleData
 {
     internal static CostModifierUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

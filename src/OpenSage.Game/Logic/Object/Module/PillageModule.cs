@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class PillageModuleData : BehaviorModuleData
 {
     internal static PillageModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

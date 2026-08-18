@@ -4,6 +4,7 @@ using OpenSage.Data.Ini;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class FlingPassengerSpecialAbilityUpdateModuleData : UpdateModuleData
 {
     internal static FlingPassengerSpecialAbilityUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

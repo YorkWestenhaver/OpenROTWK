@@ -7,6 +7,7 @@ namespace OpenSage.Logic.Object;
 /// kinds.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class FlightDeckBehaviorModuleData : BehaviorModuleData
 {
     internal static FlightDeckBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

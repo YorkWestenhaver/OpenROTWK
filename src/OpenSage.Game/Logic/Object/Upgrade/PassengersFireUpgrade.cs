@@ -7,6 +7,7 @@ namespace OpenSage.Logic.Object;
 /// for this module to work.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class PassengersFireUpgradeModuleData : UpgradeModuleData
 {
     internal static PassengersFireUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

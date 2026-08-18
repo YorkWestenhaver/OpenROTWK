@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class ShareExperienceBehaviorModuleData : UpdateModuleData
 {
     internal static ShareExperienceBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

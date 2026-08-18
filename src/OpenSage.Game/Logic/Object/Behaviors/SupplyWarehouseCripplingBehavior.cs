@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Forces object to dynamically restore itself.
 /// Triggered when object is REALLYDAMAGED, or at 30% of MaxHealth.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public sealed class SupplyWarehouseCripplingBehaviorModuleData : BehaviorModuleData
 {
     internal static SupplyWarehouseCripplingBehaviorModuleData Parse(IniParser parser)

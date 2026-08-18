@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Allows use of a radius decal cursor from Mouse.INI on the object's weapon when not 
 /// explicitly fired.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class RadiusDecalUpdateModuleData : UpdateModuleData
 {
     internal static RadiusDecalUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

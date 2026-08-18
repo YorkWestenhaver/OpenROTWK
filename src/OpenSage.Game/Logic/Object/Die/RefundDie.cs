@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Die")]
 public sealed class RefundDieModuleData : DieModuleData
 {
     internal static RefundDieModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

@@ -7,6 +7,7 @@ namespace OpenSage.Logic.Object;
 /// Switches to a model condition state via upgrades.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Upgrade")]
 public sealed class ModelConditionUpgradeModuleData : UpgradeModuleData
 {
     internal static ModelConditionUpgradeModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

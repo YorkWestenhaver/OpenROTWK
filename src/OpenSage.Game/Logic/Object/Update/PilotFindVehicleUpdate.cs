@@ -5,6 +5,7 @@ namespace OpenSage.Logic.Object;
 /// <summary>
 /// Instructs the pilot to go find a "friendly" vehicle to enter. AI only.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class PilotFindVehicleUpdateModuleData : UpdateModuleData
 {
     internal static PilotFindVehicleUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

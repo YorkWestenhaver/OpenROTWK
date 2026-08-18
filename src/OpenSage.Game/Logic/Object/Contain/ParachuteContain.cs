@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// <summary>
 /// Hardcoded to utilize PARA_MAN, PARA_ATTACH and PARA_COG bones on contained object.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Contain")]
 public sealed class ParachuteContainModuleData : ContainModuleData
 {
     internal static ParachuteContainModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

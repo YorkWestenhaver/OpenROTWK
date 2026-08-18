@@ -5,6 +5,7 @@ using OpenSage.Logic.Object;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public class OathbreakersFadeAwayBehaviorModuleData : BehaviorModuleData
 {
     internal static OathbreakersFadeAwayBehaviorModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

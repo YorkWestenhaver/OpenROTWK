@@ -2,6 +2,7 @@
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Collide")]
 public sealed class AODCrushCollideModuleData : CollideModuleData
 {
     internal static AODCrushCollideModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

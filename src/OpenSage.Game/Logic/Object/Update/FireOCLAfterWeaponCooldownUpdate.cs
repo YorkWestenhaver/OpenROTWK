@@ -2,6 +2,7 @@
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class FireOCLAfterWeaponCooldownUpdateModuleData : UpdateModuleData
 {
     internal static FireOCLAfterWeaponCooldownUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

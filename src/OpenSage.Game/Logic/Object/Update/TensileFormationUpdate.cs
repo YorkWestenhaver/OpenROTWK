@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Allows object to share dynamic formation. If not enabled, then damage to this object will 
 /// affect all nearby objects that have this module, otherwise damage only affects this object.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class TensileFormationUpdateModuleData : UpdateModuleData
 {
     internal static TensileFormationUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

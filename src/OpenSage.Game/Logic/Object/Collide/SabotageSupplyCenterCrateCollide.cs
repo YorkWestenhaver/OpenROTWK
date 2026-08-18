@@ -6,6 +6,7 @@ namespace OpenSage.Logic.Object;
 /// Hardcoded to play the SabotageBuilding sound definition when triggered.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[ParseOnly("Round-4 backlog; census: Collide")]
 public sealed class SabotageSupplyCenterCrateCollideModuleData : CrateCollideModuleData
 {
     internal static SabotageSupplyCenterCrateCollideModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

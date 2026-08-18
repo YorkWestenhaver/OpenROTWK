@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Create")]
 public sealed class InheritUpgradeCreateModuleData : CreateModuleData
 {
     internal static InheritUpgradeCreateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

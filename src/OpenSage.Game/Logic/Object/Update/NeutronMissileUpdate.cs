@@ -3,6 +3,7 @@ using OpenSage.Gui.InGame;
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class NeutronMissileUpdateModuleData : UpdateModuleData
 {
     internal static NeutronMissileUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

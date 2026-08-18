@@ -2,6 +2,7 @@
 
 namespace OpenSage.Logic.Object;
 
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class MobMemberSlavedUpdateModuleData : UpdateModuleData
 {
     internal static MobMemberSlavedUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

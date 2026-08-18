@@ -5,6 +5,7 @@ namespace OpenSage.Logic.Object;
 /// <summary>
 /// Allows the use of the DOOR_1_WAITING_OPEN, DOOR_1_CLOSING, DOOR_1_OPENING model condition states.
 /// </summary>
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class MissileLauncherBuildingUpdateModuleData : UpdateModuleData
 {
     internal static MissileLauncherBuildingUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

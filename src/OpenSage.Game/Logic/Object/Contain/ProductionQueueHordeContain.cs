@@ -5,6 +5,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Behavior")]
 public class ProductionQueueHordeContainModuleData : BehaviorModuleData
 {
     internal static ProductionQueueHordeContainModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

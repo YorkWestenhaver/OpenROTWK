@@ -4,6 +4,7 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
+[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class MonitorConditionUpdateModuleData : UpdateModuleData
 {
     internal static MonitorConditionUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

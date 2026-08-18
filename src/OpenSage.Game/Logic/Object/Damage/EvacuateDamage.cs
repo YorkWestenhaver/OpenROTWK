@@ -3,6 +3,7 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
+[ParseOnly("Round-4 backlog; census: Damage")]
 public sealed class EvacuateDamageModuleData : DamageModuleData
 {
     internal static EvacuateDamageModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
