@@ -108,7 +108,48 @@ Object DieBatchHealer
     SkipSelfForHealing = Yes
   End
 End
+
+Object DieBatchWave
+  KindOf = WAVEGUIDE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchDam
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 200
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = DamDie ModuleTag_Die
+    DeathTypes = NONE +FLOODED
+  End
+End
 ";
+
+    /// <summary>
+    /// Objects that start the scenario disabled with DISABLED_DEFAULT, by spawn index.
+    ///
+    /// DamDie's whole observable effect is clearing that bit on every WAVEGUIDE object, and
+    /// the original's dam maps ship their wave objects pre-placed and disabled - there is no
+    /// module that disables them, so the scenario has to stand them up that way, exactly as
+    /// the map file would. This is CRC-observable rather than cosmetic: GameLogic skips the
+    /// update of any module whose object has a disabled bit set (unless the module opts in
+    /// via DisabledTypesToProcess), so a disabled wave's AutoHealBehavior witness never
+    /// pulses. The frame DamDie releases the waves is the frame their witness state starts
+    /// moving in the Objects channel.
+    /// </summary>
+    private static readonly int[] InitiallyDisabledSpawnIndices = { 7, 8 };
 
     /// <summary>
     /// Spawn table - object ids are assigned in this order starting at 1, which is the
@@ -123,6 +164,10 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchWave",       false, -40f,  30f),   // 8 - DamDie: released wave (starts disabled)
+        ("DieBatchWave",       false, -40f,  45f),   // 9 - DamDie: released wave (starts disabled)
+        ("DieBatchDam",        false, -40f,   0f),   // 10 - DamDie: NORMAL death, filtered out
+        ("DieBatchDam",        false, -55f,   0f),   // 11 - DamDie: FLOODED death, waves released
     };
 
     private readonly HeadlessSimGame _game;
@@ -154,9 +199,16 @@ End
         var civilian = _game.CivilianPlayer;
         var neutral = _game.PlayerManager.Players[0];
 
-        foreach (var (definition, isNeutral, x, y) in Spawns)
+        var spawned = new GameObject[Spawns.Length];
+        for (var i = 0; i < Spawns.Length; i++)
         {
-            _game.SpawnObject(definition, isNeutral ? neutral : civilian, new Vector3(x, y, 0));
+            var (definition, isNeutral, x, y) = Spawns[i];
+            spawned[i] = _game.SpawnObject(definition, isNeutral ? neutral : civilian, new Vector3(x, y, 0));
+        }
+
+        foreach (var index in InitiallyDisabledSpawnIndices)
+        {
+            spawned[index].SetDisabled(DisabledType.Default);
         }
 
         var context = (SimContext)_game.GameEngine.SimContext;
