@@ -156,6 +156,16 @@ public interface ITerrainLogic
     /// architectures when terrain migrates to Fix64 (the D-7 boundary, same shape as radius).
     /// </summary>
     bool IsSignificantlyAboveTerrain(GameObject gameObject);
+
+    /// <summary>
+    /// Ground height at a 2D position, Fix64-valued (grown for the S2 locomotor system:
+    /// the integrator's ground clamp and the z-behaviors read it every frame).
+    /// NOTE (migration, D-7 shape): the heightmap sample is float substrate behind this
+    /// seam; the crossing quantizes through the F4 wire boundary, so it is same-binary
+    /// deterministic today and becomes bit-deterministic cross-arch when terrain
+    /// migrates. The headless test host's flat map returns exact constants already.
+    /// </summary>
+    Fix64 GetGroundHeight(in FixVector3 position);
 }
 
 /// <summary>Player roster view. Grows one member per porting need.</summary>
