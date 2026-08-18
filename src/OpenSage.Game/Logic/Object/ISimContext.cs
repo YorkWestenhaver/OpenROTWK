@@ -51,6 +51,17 @@ public interface IGameLogic
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>
     IEnumerable<GameObject> ObjectsAscendingId { get; }
+
+    /// <summary>
+    /// Spawns a live object from a template, owned by <paramref name="owner"/>, standing at
+    /// the position and orientation of <paramref name="at"/>. This is GPL's
+    /// <c>newObject</c> + <c>setPosition</c> + <c>setOrientation</c> triple fused into one
+    /// member deliberately: the transform is unmigrated float substrate, so the placement
+    /// stays behind this seam and never appears in [SimState] module code.
+    /// The new object's ObjectId is assigned by the engine's monotonic counter, so the
+    /// spawn is a deterministic function of the order in which modules request it.
+    /// </summary>
+    GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at);
 }
 
 /// <summary>
@@ -74,9 +85,15 @@ public interface ITerrainLogic
 {
 }
 
-/// <summary>Player roster view. Empty until the first player-consuming port.</summary>
+/// <summary>Player roster view. Grows one member per porting need.</summary>
 public interface IPlayerList
 {
+    /// <summary>
+    /// The neutral player (GPL <c>ThePlayerList-&gt;getNeutralPlayer()</c>), player index 0.
+    /// Several structure-death rules key off "is this object still owned by somebody",
+    /// which in SAGE is spelled "its controlling player is not the neutral player".
+    /// </summary>
+    Player NeutralPlayer { get; }
 }
 
 /// <summary>Immutable parsed-data view. Empty until the first asset-consuming port.</summary>

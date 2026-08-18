@@ -30,7 +30,7 @@ internal sealed class SimContext : ISimContext
         GameLogic = new GameLogicAdapter(engine);
         Partition = new PartitionAdapter(engine);
         Terrain = new TerrainAdapter();
-        Players = new PlayerListAdapter();
+        Players = new PlayerListAdapter(engine);
         Assets = new AssetStoreAdapter();
         Events = new SimEventsAdapter();
     }
@@ -60,6 +60,17 @@ internal sealed class SimContext : ISimContext
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
         public IEnumerable<GameObject> ObjectsAscendingId => _engine.GameLogic.Objects;
+
+        public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at)
+        {
+            // Float boundary: Transform/TransformMatrix are unmigrated substrate. A ported
+            // module names the template, the owner and the object to stand at; the matrix
+            // copy happens here so no float or System.Numerics type reaches [SimState] code.
+            var spawned = _engine.GameLogic.CreateObject(definition, owner);
+            spawned.SetTransformMatrix(at.TransformMatrix);
+            spawned.UpdateColliders();
+            return spawned;
+        }
     }
 
     private sealed class PartitionAdapter : IPartitionQuery
@@ -87,6 +98,11 @@ internal sealed class SimContext : ISimContext
 
     private sealed class PlayerListAdapter : IPlayerList
     {
+        private readonly IGameEngine _engine;
+
+        public PlayerListAdapter(IGameEngine engine) => _engine = engine;
+
+        public Player NeutralPlayer => _engine.Game.PlayerManager.NeutralPlayer;
     }
 
     private sealed class AssetStoreAdapter : IAssetStore
