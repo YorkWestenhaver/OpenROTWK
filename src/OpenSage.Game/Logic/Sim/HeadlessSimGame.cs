@@ -77,8 +77,11 @@ internal sealed class HeadlessSimGame : IGame
 
         Quadtree = new Quadtree<GameObject>(new RectangleF(-10000, -10000, 20000, 20000));
 
+        // A real ObjectCreationListManager: the Die batch's spawning classes (CreateObjectDie,
+        // CreateCrateDie, EjectPilotDie) reach it through ISimContext, and it is pure logic -
+        // it creates GameObjects through GameLogic, touching no graphics.
         GameEngine = new GameEngine(
-            AssetStore.LoadContext, null, null, null, null, null, null,
+            AssetStore.LoadContext, null, null, new ObjectCreationListManager(), null, null, null,
             Quadtree, new HeadlessScene3D(this), this);
 
         AssetStore.PushScope();
