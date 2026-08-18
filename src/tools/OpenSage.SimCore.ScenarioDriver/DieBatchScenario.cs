@@ -27,6 +27,13 @@
 // scaffolding for the batch's first task only: once real Die modules are in the walk the
 // witness has done its job, and the last task in the batch may drop it.
 //
+// OBJECT 14 (KeepObjectDie) is the one object here whose death does NOT remove it:
+// everything else that dies leaves the Objects channel, so "the walk got shorter" is the
+// batch's usual death signal, and a class whose whole contract is that the corpse stays
+// needs the opposite signal. Object 14 must still be in the channel, with its module still
+// walking, on every checkpoint after its death frame. (Its own branch numbered it 8; the
+// integration merge renumbered spawns.)
+//
 // Order vocabulary (schedule -> sim effects):
 //   MSG_DO_ATTACK_OBJECT (1061) args [ObjectId target, Integer amount]
 //       -> AttemptDamage, DamageType Explosion / DeathType Normal. Sub-lethal amounts are
@@ -186,6 +193,21 @@ Object DieBatchFXSilentCorpse
   Behavior = DestroyDie ModuleTag_Destroy
   End
 End
+
+Object DieBatchKeepObject
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = KeepObjectDie ModuleTag_IWantRubble
+    DeathTypes = ALL -SUICIDED
+  End
+End
 ";
 
     /// <summary>
@@ -221,6 +243,7 @@ End
         ("DieBatchDam",        false, -55f,   0f),   // 11 - DamDie: FLOODED death, waves released
         ("DieBatchFXCorpse",   false,  26f,   0f),   // 12 - FXListDie, mux active
         ("DieBatchFXSilentCorpse", false, 26f, 14f), // 13 - FXListDie, mux inactive
+        ("DieBatchKeepObject", false, -30f,  20f),   // 14 - dies NORMAL: the corpse STAYS
     };
 
     private readonly HeadlessSimGame _game;
