@@ -108,6 +108,50 @@ Object DieBatchHealer
     SkipSelfForHealing = Yes
   End
 End
+
+; --- RebuildHoleExposeDie (batch task 9). The only class in the batch whose death
+; ADDS an object to the world, so the hole carries the witness: a new ObjectId
+; entering the Objects channel walk mid-run is the thing this slice proves. The
+; rebuild worker respawn delay is 10 minutes so the hole's own update never reaches
+; its worker-spawning branch inside this scenario.
+Object DieBatchRebuildWorker
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+End
+
+Object DieBatchRebuildHole
+  KindOf = STRUCTURE REBUILD_HOLE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 10
+  End
+  Behavior = RebuildHoleBehavior ModuleTag_Hole
+    WorkerObjectName = DieBatchRebuildWorker
+    WorkerRespawnDelay = 600000
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 3
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchRebuildKeep
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 200
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 2
+    HealingDelay = 400
+  End
+  Behavior = RebuildHoleExposeDie ModuleTag_Die
+    HoleName = DieBatchRebuildHole
+    HoleMaxHealth = 120
+  End
+End
 ";
 
     /// <summary>
@@ -123,6 +167,7 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchRebuildKeep", false, -40f, 30f),   // 8 - RebuildHoleExposeDie: death ADDS an object
     };
 
     private readonly HeadlessSimGame _game;
