@@ -30,7 +30,7 @@ internal sealed class SimContext : ISimContext
             LogicRandom.CreateForSimContext(engine.GameLogic.Random.Seed));
         GameLogic = new GameLogicAdapter(engine);
         Partition = new PartitionAdapter(engine);
-        Terrain = new TerrainAdapter();
+        Terrain = new TerrainAdapter(engine);
         Players = new PlayerListAdapter();
         Assets = new AssetStoreAdapter();
         Events = new SimEventsAdapter(engine);
@@ -135,6 +135,17 @@ internal sealed class SimContext : ISimContext
 
     private sealed class TerrainAdapter : ITerrainLogic
     {
+        private readonly IGameEngine _engine;
+
+        public TerrainAdapter(IGameEngine engine) => _engine = engine;
+
+        public bool IsSignificantlyAboveTerrain(GameObject gameObject)
+        {
+            // Float boundary (D-7): height-above-terrain and the gravity constant are both
+            // unmigrated substrate. The comparison happens entirely on that side and only a
+            // bool crosses, so no float ever reaches the [SimState] caller.
+            return gameObject.IsSignificantlyAboveTerrain;
+        }
     }
 
     private sealed class PlayerListAdapter : IPlayerList
@@ -213,6 +224,12 @@ internal sealed class SimContext : ISimContext
 
             fxList = _engine.AssetStore.FXLists.GetByName(fxListName);
             return fxList is null ? null : subject;
+        }
+
+        public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId)
+        {
+            // Same story as FireFXAtObject: the client-bound event queue does not exist yet.
+            // Recording the call is what a ported module owes; playing it is the client's.
         }
     }
 }

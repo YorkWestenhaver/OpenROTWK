@@ -116,9 +116,19 @@ public interface IPartitionQuery
     IEnumerable<GameObject> QueryObjectsInRadius(GameObject center, Fix64 radius);
 }
 
-/// <summary>Fix64-valued terrain view. Empty until the first terrain-consuming port.</summary>
+/// <summary>Fix64-valued terrain view. Grows one member per porting need.</summary>
 public interface ITerrainLogic
 {
+    /// <summary>
+    /// The original's <c>Thing::isSignificantlyAboveTerrain</c>: true when the object is high
+    /// enough that it would take more than three logic frames to fall back to the ground
+    /// (height above terrain &gt; -9 * gravity). Exposed as a predicate rather than a height so
+    /// the comparison stays on one side of the seam.
+    /// NOTE (migration): the height and the gravity constant are still float substrate, so
+    /// this predicate is same-binary deterministic today and becomes bit-deterministic across
+    /// architectures when terrain migrates to Fix64 (the D-7 boundary, same shape as radius).
+    /// </summary>
+    bool IsSignificantlyAboveTerrain(GameObject gameObject);
 }
 
 /// <summary>Player roster view. Empty until the first player-consuming port.</summary>
@@ -158,4 +168,12 @@ public interface ISimEvents
     /// doFXPos): identity rotation, so the effect ignores which way the object was facing.
     /// </summary>
     void FireFXAtObjectPosition(string fxListName, ObjectId objectId);
+
+    /// <summary>
+    /// Request one of an object's UnitSpecificSounds entries by key (e.g. "VoiceEject",
+    /// "SoundEject") at that object's position. The key is resolved against the object's own
+    /// template client-side, so no audio asset ever crosses into sim code (S8: audio is
+    /// deliberately absent from the context; only the event is not).
+    /// </summary>
+    void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId);
 }
