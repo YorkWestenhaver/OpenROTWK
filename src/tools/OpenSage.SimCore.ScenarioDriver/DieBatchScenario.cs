@@ -135,6 +135,57 @@ Object DieBatchDam
     DeathTypes = NONE +FLOODED
   End
 End
+
+; --- FXListDie. The two objects below sit in OPPOSITE mux
+; states, which is the only state this class has: the first takes the class's
+; default (StartsActive true, so UpgradeTriggered = 1 in the walk), the second
+; declares StartsActive = No (UpgradeTriggered = 0). Their CRCs therefore differ
+; from each other from frame 0, and both leave the walk when they die - so the
+; walk sees a ported Die module's state, not only the witness's.
+Upgrade DieBatchDeathTrigger
+  Type = PLAYER
+End
+
+FXList DieBatchDeathFX
+End
+
+Object DieBatchFXCorpse
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = FXListDie ModuleTag_Die
+    DeathFX = DieBatchDeathFX
+  End
+  Behavior = DestroyDie ModuleTag_Destroy
+  End
+End
+
+Object DieBatchFXSilentCorpse
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = FXListDie ModuleTag_Die
+    StartsActive = No
+    TriggeredBy = DieBatchDeathTrigger
+    DeathTypes = NONE +BURNED
+    DeathFX = DieBatchDeathFX
+    OrientToObject = No
+  End
+  Behavior = DestroyDie ModuleTag_Destroy
+  End
+End
 ";
 
     /// <summary>
@@ -168,6 +219,8 @@ End
         ("DieBatchWave",       false, -40f,  45f),   // 9 - DamDie: released wave (starts disabled)
         ("DieBatchDam",        false, -40f,   0f),   // 10 - DamDie: NORMAL death, filtered out
         ("DieBatchDam",        false, -55f,   0f),   // 11 - DamDie: FLOODED death, waves released
+        ("DieBatchFXCorpse",   false,  26f,   0f),   // 12 - FXListDie, mux active
+        ("DieBatchFXSilentCorpse", false, 26f, 14f), // 13 - FXListDie, mux inactive
     };
 
     private readonly HeadlessSimGame _game;

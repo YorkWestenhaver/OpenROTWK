@@ -1235,6 +1235,17 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         return userHasEnoughMoney && canEnqueue && !hasQueuedUpgrade && !hasUpgrade && (!hasUpgradeBehaviors || upgradeModuleCanUpgrade);
     }
 
+    /// <summary>
+    /// Upgrades completed on this object UNIONED with those completed by its controlling
+    /// player - the set the original tests when a module asks "has a conflicting upgrade
+    /// happened?" (it reads the object mask and the player mask separately and fails on
+    /// either, which is the same predicate over this union).
+    /// </summary>
+    /// <remarks>
+    /// Returns a shared scratch set that the next call overwrites: read it, do not keep it.
+    /// </remarks>
+    internal UpgradeSet CompletedUpgradesIncludingPlayer => GetUpgradesCompleted();
+
     private UpgradeSet GetUpgradesCompleted()
     {
         _upgradesAll.Clear();
