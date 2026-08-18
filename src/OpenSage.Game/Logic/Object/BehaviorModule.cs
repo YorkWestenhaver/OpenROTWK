@@ -145,6 +145,9 @@ public abstract class BehaviorModuleData : ModuleData
         { "RunOffMapBehavior", RunOffMapBehaviorModuleData.Parse },
         { "ShareExperienceBehavior", ShareExperienceBehaviorModuleData.Parse },
         { "ShipSlowDeathBehavior", ShipSlowDeathBehaviorModuleData.Parse },
+        // S2 locomotor system driver (interim vocabulary until AIUpdate ports; see
+        // Locomotion/SimLocomotorUpdate.cs header).
+        { "SimLocomotorUpdate", Locomotion.SimLocomotorUpdateModuleData.Parse },
         { "SiegeDockingBehavior", SiegeDockingBehaviorModuleData.Parse },
         { "SlaveWatcherBehavior", SlaveWatcherBehaviorModuleData.Parse },
         { "SlowDeathBehavior", SlowDeathBehaviorModuleData.Parse },
