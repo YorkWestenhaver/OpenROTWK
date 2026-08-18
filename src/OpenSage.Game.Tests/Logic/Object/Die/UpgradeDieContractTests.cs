@@ -8,6 +8,7 @@
 // UpgradeToRemove syntaxes AotR actually writes (with and without the BFME2 module tag) are
 // on the tested path - a parse regression there fails these tests before it reaches gapmap.
 
+using System.IO;
 using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
@@ -255,6 +256,53 @@ End
 
         Assert.False(producer.HasUpgrade(Upgrade(game, "Upgrade_Drone")));
         Assert.True(producer.HasUpgrade(Upgrade(game, "Upgrade_OtherThing")));
+    }
+
+    [Fact]
+    public void Xfer_IsVersionOnly_AndStateInventoryIsEmpty()
+    {
+        // This is what stops the empty walk from being vacuous. The GPL state inventory is
+        // empty, so the saved stream must be exactly the version byte - and pinning its bytes
+        // means a field added later without a matching Xfer line becomes a FAILING TEST rather
+        // than a silent desync. (D-8: the shadow-copy check structurally cannot catch an
+        // omission; this assertion is what covers that blind spot for a stateless class.)
+        var game = NewGame();
+        var (_, drone) = SpawnPair(game);
+
+        Assert.Equal(new byte[] { 0x01 }, PortedModuleTestKit.Save(DieModuleOf(drone)));
+
+        // Two instances are indistinguishable, because there is nothing to distinguish.
+        var (_, other) = SpawnPair(game);
+        Assert.Equal(
+            PortedModuleTestKit.LiveCrc(DieModuleOf(drone)),
+            PortedModuleTestKit.LiveCrc(DieModuleOf(other)));
+    }
+
+    [Fact]
+    public void Xfer_RejectsAFutureVersion()
+    {
+        // A stream written by a newer build must not be silently misread as version 1.
+        var game = NewGame();
+        var (_, drone) = SpawnPair(game);
+
+        Assert.Throws<InvalidDataException>(
+            () => PortedModuleTestKit.Load(DieModuleOf(drone), new byte[] { 0x02 }));
+    }
+
+    [Fact]
+    public void PortConstructsThroughTheContractCtor()
+    {
+        // The port derives from the Die category base and reaches the sim through Context
+        // only (never ObjectModule.GameEngine), and it is in the CRC walk. Guards the redo
+        // onto the promoted base ctor: a regression to the legacy IGameEngine ctor would
+        // leave Context null and HasSimXfer false, and neither is visible in a behavior test.
+        var game = NewGame();
+        var (_, drone) = SpawnPair(game);
+        var module = DieModuleOf(drone);
+
+        Assert.IsAssignableFrom<DieModule>(module);
+        Assert.Contains(module, game.GameEngine.SimContext.GameLogic
+            .GetObjectById(drone.Id).BehaviorModules);
     }
 
     [Fact]
