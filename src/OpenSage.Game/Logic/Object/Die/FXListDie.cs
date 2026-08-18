@@ -161,8 +161,10 @@ public sealed class FXListDieModuleData : DieModuleData
     /// The full upgrade-mux vocabulary (TriggeredBy / ConflictsWith / RequiresAllTriggers /
     /// RequiresAllConflictingTriggers / StartsActive / ...), shared with every other mux.
     /// <c>StartsActive</c> is seeded TRUE because that is this class's documented default -
-    /// an FXListDie block that names no upgrade is active, which is all 181 blocks in the
-    /// AotR 9.3.1 corpus.
+    /// an FXListDie block that names no upgrade is active. In the AotR 9.3.1 corpus that is
+    /// EVERY block: of 173 FXListDie blocks, none sets StartsActive, TriggeredBy or
+    /// ConflictsWith, so the mux path below is reachable only from BFME2/ZH data and from our
+    /// own tests and driver scenario. Seeding it wrong would silence all 173.
     /// </summary>
     public UpgradeLogicData UpgradeData { get; } = new() { StartsActive = true };
 
@@ -171,8 +173,8 @@ public sealed class FXListDieModuleData : DieModuleData
 
     /// <summary>
     /// Whether the FX takes the dying object's orientation as well as its position.
-    /// Defaults TRUE (the reference's m_orientToObject); the nine AotR blocks that mention
-    /// it all set it to No.
+    /// Defaults TRUE (the reference's m_orientToObject); the three AotR 9.3.1 blocks that
+    /// mention it all set it to No, so both branches are corpus-reachable.
     /// </summary>
     public bool OrientToObject { get; private set; } = true;
 
