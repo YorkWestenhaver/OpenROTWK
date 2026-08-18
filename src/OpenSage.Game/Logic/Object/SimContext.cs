@@ -32,7 +32,7 @@ internal sealed class SimContext : ISimContext
         Terrain = new TerrainAdapter();
         Players = new PlayerListAdapter();
         Assets = new AssetStoreAdapter();
-        Events = new SimEventsAdapter();
+        Events = new SimEventsAdapter(engine);
     }
 
     /// <summary>The engine bridge for the BehaviorModule migration ctor. Engine-only.</summary>
@@ -47,7 +47,16 @@ internal sealed class SimContext : ISimContext
     public ITerrainLogic Terrain { get; }
     public IPlayerList Players { get; }
     public IAssetStore Assets { get; }
-    public ISimEvents Events { get; }
+
+    /// <summary>
+    /// The client-bound event sink. Settable because events are OUTPUTS with no determinism
+    /// obligation (S8): a host may redirect them without touching the simulation. The headless
+    /// test host uses this to observe that a module fired the event it was supposed to fire -
+    /// otherwise "fire-and-forget" would also mean "untestable".
+    /// </summary>
+    public ISimEvents Events { get; private set; }
+
+    internal void SetEventSink(ISimEvents events) => Events = events;
 
     private sealed class GameLogicAdapter : IGameLogic
     {
@@ -93,12 +102,74 @@ internal sealed class SimContext : ISimContext
     {
     }
 
+    /// <summary>
+    /// The output side of the seam: names come in, the client-side FX system runs. This is a
+    /// float-boundary adapter - it reads transforms and hands them to FXList, which is
+    /// unmigrated client code. Nothing here feeds back into sim state, so none of it carries a
+    /// determinism obligation (S8); a missing FX list is silently nothing, exactly as the
+    /// original's null check does it.
+    /// </summary>
     private sealed class SimEventsAdapter : ISimEvents
     {
-        public void FireFXAtObject(string fxListName, ObjectId objectId)
+        private readonly IGameEngine _engine;
+
+        public SimEventsAdapter(IGameEngine engine) => _engine = engine;
+
+        public void FireFXAtObject(string fxListName, ObjectId objectId) =>
+            FireFXAtObject(fxListName, objectId, ObjectId.Invalid);
+
+        public void FireFXAtObject(string fxListName, ObjectId objectId, ObjectId sourceObjectId)
         {
-            // Client-side FX dispatch is not wired yet; events are outputs with no
-            // determinism obligation (S8), so a no-op is contract-legal.
+            var subject = Resolve(fxListName, objectId, out var fxList);
+            if (subject is null)
+            {
+                return;
+            }
+
+            // sourceObjectId is the original's doFXObj SECONDARY object. OpenSAGE's
+            // FXListExecutionContext carries only one transform, so no nugget can consume a
+            // secondary yet; the id is accepted here (rather than being dropped at the module
+            // call site) so that adding the second transform later is a change to this file
+            // alone. Recorded as a finding, not invented into the context.
+            _ = sourceObjectId;
+
+            fxList.Execute(new FX.FXListExecutionContext(
+                subject.Rotation,
+                subject.Translation,
+                _engine));
+        }
+
+        public void FireFXAtObjectPosition(string fxListName, ObjectId objectId)
+        {
+            var subject = Resolve(fxListName, objectId, out var fxList);
+            if (subject is null)
+            {
+                return;
+            }
+
+            // Unoriented (doFXPos): identity rotation, the object's position only.
+            fxList.Execute(new FX.FXListExecutionContext(
+                System.Numerics.Quaternion.Identity,
+                subject.Translation,
+                _engine));
+        }
+
+        private GameObject Resolve(string fxListName, ObjectId objectId, out FX.FXList fxList)
+        {
+            fxList = null;
+            if (string.IsNullOrEmpty(fxListName))
+            {
+                return null;
+            }
+
+            var subject = _engine.GameLogic.GetObjectById(objectId);
+            if (subject is null)
+            {
+                return null;
+            }
+
+            fxList = _engine.AssetStore.FXLists.GetByName(fxListName);
+            return fxList is null ? null : subject;
         }
     }
 }

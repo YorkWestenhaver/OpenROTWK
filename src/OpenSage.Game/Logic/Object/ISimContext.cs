@@ -85,8 +85,30 @@ public interface IAssetStore
 }
 
 /// <summary>Fire-and-forget client-bound events (S8): outputs only, never sim inputs.</summary>
+/// <remarks>
+/// Every request names its subject by <see cref="ObjectId"/>, never by position: positions are
+/// float substrate, and a <c>[SimState]</c> module may not type one. The adapter reads the
+/// transform on the far side of the seam.
+/// </remarks>
 public interface ISimEvents
 {
-    /// <summary>Request the named FX list at an object's position (e.g. UnitHealPulseFX).</summary>
+    /// <summary>
+    /// Request the named FX list oriented to an object (e.g. UnitHealPulseFX): the FX takes
+    /// the object's position AND rotation.
+    /// </summary>
     void FireFXAtObject(string fxListName, ObjectId objectId);
+
+    /// <summary>
+    /// Request the named FX list oriented to an object, naming a secondary object as the
+    /// effect's source (the original's doFXObj primary/secondary pair - e.g. a death FX
+    /// oriented to the corpse and sourced at whatever killed it). An invalid
+    /// <paramref name="sourceObjectId"/> means "no source", which is legal.
+    /// </summary>
+    void FireFXAtObject(string fxListName, ObjectId objectId, ObjectId sourceObjectId);
+
+    /// <summary>
+    /// Request the named FX list at an object's position but UNORIENTED (the original's
+    /// doFXPos): identity rotation, so the effect ignores which way the object was facing.
+    /// </summary>
+    void FireFXAtObjectPosition(string fxListName, ObjectId objectId);
 }
