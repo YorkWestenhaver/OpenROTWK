@@ -172,6 +172,19 @@ internal sealed class SimContext : ISimContext
             // bool crosses, so no float ever reaches the [SimState] caller.
             return gameObject.IsSignificantlyAboveTerrain;
         }
+
+        public OpenSage.SimCore.Numerics.Fix64 GetGroundHeight(
+            in OpenSage.SimCore.Numerics.FixVector3 position)
+        {
+            // Float boundary (D-7, S2 locomotor): the heightmap sample is float substrate;
+            // the result crosses back through the F4 wire boundary so every peer quantizes
+            // identical float bits to identical Fix64.
+            var height = _engine.Game.TerrainLogic.GetGroundHeight(
+                position.X.ToFloatForDisplay(),
+                position.Y.ToFloatForDisplay());
+            return OpenSage.SimCore.Numerics.Fix64.FromWireFloat(
+                System.BitConverter.SingleToUInt32Bits(height));
+        }
     }
 
     private sealed class PlayerListAdapter : IPlayerList
