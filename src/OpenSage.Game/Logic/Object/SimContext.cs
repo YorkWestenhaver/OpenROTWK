@@ -60,6 +60,11 @@ internal sealed class SimContext : ISimContext
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
         public IEnumerable<GameObject> ObjectsAscendingId => _engine.GameLogic.Objects;
+
+        // Not a float boundary and not order-sensitive: GameLogic.DestroyObject only sets the
+        // Destroyed status and appends to the destroy list, which is drained in creation
+        // order at end of frame.
+        public void DestroyObject(GameObject gameObject) => _engine.GameLogic.DestroyObject(gameObject);
     }
 
     private sealed class PartitionAdapter : IPartitionQuery

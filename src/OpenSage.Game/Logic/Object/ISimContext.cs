@@ -51,6 +51,17 @@ public interface IGameLogic
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>
     IEnumerable<GameObject> ObjectsAscendingId { get; }
+
+    /// <summary>
+    /// Removes an object from the world: it is marked destroyed immediately and reaped from
+    /// the object list at the end of the frame, so a module that walks
+    /// <see cref="ObjectsAscendingId"/> later in the SAME frame still sees it (with
+    /// <c>IsDestroyed</c> true). Idempotent - destroying a destroyed object is a no-op, which
+    /// is what makes a second lethal blow harmless.
+    /// Grown for the DestroyDie port (the first destroy-requesting module); the member list
+    /// of <see cref="ISimContext"/> itself is unchanged and still frozen.
+    /// </summary>
+    void DestroyObject(GameObject gameObject);
 }
 
 /// <summary>
