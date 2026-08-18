@@ -1,4 +1,5 @@
 ﻿using OpenSage.Logic.Object;
+using OpenSage.SimCore.Numerics;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Body;
@@ -10,8 +11,8 @@ public class ActiveBodyTests : ModuleTest
     {
         var body = CreateBody(new ActiveBodyModuleData
         {
-            InitialHealth = 100.0f,
-            MaxHealth = 200.0f,
+            InitialHealth = new Fix64(100),
+            MaxHealth = new Fix64(200),
         });
 
         Assert.Equal(100.0f, body.Health);
