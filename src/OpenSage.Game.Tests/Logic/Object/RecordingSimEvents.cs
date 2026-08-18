@@ -43,6 +43,12 @@ internal sealed class RecordingSimEvents : ISimEvents
     public void FireFXAtObjectPosition(string fxListName, ObjectId objectId) =>
         Events.Add(new RecordedFX(fxListName, objectId, ObjectId.Invalid, FXOrientation.PositionOnly));
 
+    /// <summary>Unit-sound requests, in order (e.g. EjectPilotDie's VoiceEject).</summary>
+    public List<(string SoundKey, ObjectId ObjectId)> Sounds { get; } = new();
+
+    public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId) =>
+        Sounds.Add((unitSpecificSoundKey, objectId));
+
     /// <summary>Installs a fresh recorder on the headless host's context and returns it.</summary>
     public static RecordingSimEvents InstallOn(HeadlessSimGame game)
     {
