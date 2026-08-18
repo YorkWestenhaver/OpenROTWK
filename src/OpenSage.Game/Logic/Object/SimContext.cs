@@ -60,6 +60,24 @@ internal sealed class SimContext : ISimContext
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
         public IEnumerable<GameObject> ObjectsAscendingId => _engine.GameLogic.Objects;
+
+        public IReadOnlyList<GameObject> CreateFromObjectCreationList(
+            ObjectCreationList list,
+            GameObject primary,
+            GameObject secondary)
+        {
+            // Float boundary: object creation (offsets, dispositions, lifetimes) is
+            // unmigrated substrate, so the whole call happens on this side of the seam and
+            // the module only ever sees the resulting GameObjects. NOTE (finding
+            // F-CODIE-1): the nuggets' lifetime roll still draws GameLogic.Random, the
+            // legacy stream (D-6); the two streams collapse at F11.
+            if (list is null)
+            {
+                return [];
+            }
+
+            return _engine.ObjectCreationLists.Create(list, primary, _engine, secondary);
+        }
     }
 
     private sealed class PartitionAdapter : IPartitionQuery

@@ -51,6 +51,28 @@ public interface IGameLogic
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>
     IEnumerable<GameObject> ObjectsAscendingId { get; }
+
+    /// <summary>
+    /// Runs an ObjectCreationList and returns what it created, in creation order (GPL
+    /// <c>ObjectCreationList::create(ocl, primary, secondary)</c>, whose callers read the
+    /// FIRST created object). An empty list is returned for a null <paramref name="list"/>,
+    /// matching the original's null-OCL guard.
+    /// </summary>
+    /// <param name="primary">The object the list is created for (the dying object, for Die).</param>
+    /// <param name="secondary">
+    /// The original's second creator argument - for a Die module, the object that dealt the
+    /// killing damage. It may be null (no source, or the source already left the world).
+    /// </param>
+    /// <remarks>
+    /// This is the spawn half of the member the frozen ISimContext doc line promises
+    /// ("object lookup by ObjectId; spawn/destroy requests"). Object creation is still
+    /// unmigrated float substrate (positions, dispositions, lifetimes), so the crossing
+    /// lives in the SimContext adapter, never in [SimState] module code (D-7).
+    /// </remarks>
+    IReadOnlyList<GameObject> CreateFromObjectCreationList(
+        ObjectCreationList list,
+        GameObject primary,
+        GameObject secondary);
 }
 
 /// <summary>
