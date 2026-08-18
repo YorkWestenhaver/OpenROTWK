@@ -15,6 +15,18 @@ public abstract class DieModule : BehaviorModule, IDieModule
         _moduleData = moduleData;
     }
 
+    /// <summary>
+    /// The frozen contract ctor (api-freeze-v1 §3 item 1) for PORTED Die modules: the module
+    /// reaches the sim only through <see cref="BehaviorModule.Context"/>. The applicability
+    /// gate below is shared by ported and legacy subclasses alike, because it is parse-side
+    /// data (<see cref="DieLogicData"/>), not per-class behavior.
+    /// </summary>
+    protected DieModule(GameObject gameObject, ISimContext context, DieModuleData moduleData)
+        : base(gameObject, context)
+    {
+        _moduleData = moduleData;
+    }
+
     internal override void Load(StatePersister reader)
     {
         reader.PersistVersion(1);
