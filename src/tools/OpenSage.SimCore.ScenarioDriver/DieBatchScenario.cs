@@ -108,6 +108,57 @@ Object DieBatchHealer
     SkipSelfForHealing = Yes
   End
 End
+
+; --- FXListDie (Die batch class 1). The two objects below sit in OPPOSITE mux
+; states, which is the only state this class has: the first takes the class's
+; default (StartsActive true, so UpgradeTriggered = 1 in the walk), the second
+; declares StartsActive = No (UpgradeTriggered = 0). Their CRCs therefore differ
+; from each other from frame 0, and both leave the walk when they die - so the
+; walk sees a ported Die module's state, not only the witness's.
+Upgrade DieBatchDeathTrigger
+  Type = PLAYER
+End
+
+FXList DieBatchDeathFX
+End
+
+Object DieBatchFXCorpse
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = FXListDie ModuleTag_Die
+    DeathFX = DieBatchDeathFX
+  End
+  Behavior = DestroyDie ModuleTag_Destroy
+  End
+End
+
+Object DieBatchFXSilentCorpse
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = FXListDie ModuleTag_Die
+    StartsActive = No
+    TriggeredBy = DieBatchDeathTrigger
+    DeathTypes = NONE +BURNED
+    DeathFX = DieBatchDeathFX
+    OrientToObject = No
+  End
+  Behavior = DestroyDie ModuleTag_Destroy
+  End
+End
 ";
 
     /// <summary>
@@ -123,6 +174,8 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchFXCorpse",   false,  26f,   0f),   // 8 - FXListDie, mux active   (task: FXListDie)
+        ("DieBatchFXSilentCorpse", false, 26f, 14f), // 9 - FXListDie, mux inactive (task: FXListDie)
     };
 
     private readonly HeadlessSimGame _game;
