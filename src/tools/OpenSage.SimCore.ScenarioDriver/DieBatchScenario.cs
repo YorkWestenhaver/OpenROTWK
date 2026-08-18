@@ -391,6 +391,50 @@ Object DieBatchEjectVictim
     GroundCreationList = OCL_DieBatchEjectPilot
   End
 End
+
+; --- RebuildHoleExposeDie. Another class whose death
+; ADDS an object to the world, so the hole carries the witness: a new ObjectId
+; entering the Objects channel walk mid-run is the thing this slice proves. The
+; rebuild worker respawn delay is 10 minutes so the hole's own update never reaches
+; its worker-spawning branch inside this scenario.
+Object DieBatchRebuildWorker
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+End
+
+Object DieBatchRebuildHole
+  KindOf = STRUCTURE REBUILD_HOLE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 10
+  End
+  Behavior = RebuildHoleBehavior ModuleTag_Hole
+    WorkerObjectName = DieBatchRebuildWorker
+    WorkerRespawnDelay = 600000
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 3
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchRebuildKeep
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 200
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 2
+    HealingDelay = 400
+  End
+  Behavior = RebuildHoleExposeDie ModuleTag_Die
+    HoleName = DieBatchRebuildHole
+    HoleMaxHealth = 120
+  End
+End
 ";
 
     /// <summary>
@@ -441,6 +485,7 @@ End
                                                      //      pre-death health deficit with it
         ("DieBatchCrateDropper", false, -20f, 20f),  // 20 - CreateCrateDie: its death ADDS an object
         ("DieBatchEjectVictim", false, -30f, -20f),  // 21 - EjectPilotDie: killed, ejects DieBatchPilot
+        ("DieBatchRebuildKeep", false, -55f, 30f),   // 22 - RebuildHoleExposeDie: death ADDS an object
     };
 
     private readonly HeadlessSimGame _game;

@@ -353,6 +353,15 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         });
     }
 
+    /// <summary>
+    /// Fix64 max-health entry for ported modules (same boundary rationale as the Fix64
+    /// AttemptHealing overload): Body is unmigrated float substrate, so a quantized
+    /// INI-sourced max health is widened exactly once, here. Objects with no Body module
+    /// silently ignore it, as the virtual base <see cref="BodyModule.SetMaxHealth"/> does.
+    /// </summary>
+    public void SetMaxHealth(SimCore.Numerics.Fix64 maxHealth)
+        => _body?.SetMaxHealth(maxHealth.ToFloatForDisplay());
+
     public DamageInfoOutput AttemptHealing(float amount, GameObject source)
     {
         return _body?.AttemptDamage(new DamageInfoInput(source)

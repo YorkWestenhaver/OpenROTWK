@@ -7,9 +7,24 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic.Object;
 
 /// <summary>
+/// The cross-module seam GPL spells <c>RebuildHoleBehaviorInterface</c>: the only thing another
+/// module (in practice <see cref="RebuildHoleExposeDie"/>) is allowed to say to a rebuild hole.
+/// It exists as an interface so a ported [SimState] Die module depends on this one verb rather
+/// than on the concrete, still-unported <see cref="RebuildHoleUpdate"/> class and its internals.
+/// </summary>
+public interface IRebuildHoleBehavior
+{
+    /// <summary>
+    /// GPL <c>startRebuildProcess(originalTemplate, originalId)</c>: tells the hole which
+    /// structure it is rebuilding. Called exactly once, at the hole's creation frame.
+    /// </summary>
+    void StartRebuildProcess(GameObject originalStructure);
+}
+
+/// <summary>
 /// This is RebuildHoleBehavior in the inis, but appears to be an update module
 /// </summary>
-public sealed class RebuildHoleUpdate : UpdateModule, IDieModule
+public sealed class RebuildHoleUpdate : UpdateModule, IDieModule, IRebuildHoleBehavior
 {
     private readonly RebuildHoleUpdateModuleData _moduleData;
 
@@ -37,12 +52,23 @@ public sealed class RebuildHoleUpdate : UpdateModule, IDieModule
         ResetConstructionCounter();
     }
 
+    /// <summary>
+    /// The structure this hole is rebuilding, or <see cref="ObjectId.Invalid"/> before
+    /// <see cref="IRebuildHoleBehavior.StartRebuildProcess"/> has been called. Read-only
+    /// counterpart of the already-public <see cref="SetOriginalStructure"/>, so the handoff
+    /// is observable without reaching into this module's state.
+    /// </summary>
+    public ObjectId OriginalStructureId => _originalStructureId;
+
     // set on creation in RebuildHoleExposeDie
     public void SetOriginalStructure(GameObject originalStructure)
     {
         _originalStructureId = originalStructure.Id;
         _structureObjectName = originalStructure.Definition.Name;
     }
+
+    void IRebuildHoleBehavior.StartRebuildProcess(GameObject originalStructure)
+        => SetOriginalStructure(originalStructure);
 
     private void ResetConstructionCounter()
     {
