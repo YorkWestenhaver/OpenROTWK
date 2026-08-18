@@ -95,6 +95,9 @@ internal static class Program
             case "die-batch-v1":
                 scenario = new DieBatchScenario(seed);
                 break;
+            case "spcd-v1":
+                scenario = new SpecialPowerCompletionDieScenario(seed);
+                break;
             default:
                 Console.Error.WriteLine($"unknown scenario: {scenarioName}");
                 return 2;
