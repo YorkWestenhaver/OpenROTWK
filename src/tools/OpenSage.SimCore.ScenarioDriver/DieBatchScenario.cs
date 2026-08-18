@@ -44,6 +44,12 @@
 //          enum's value: 0 NORMAL, 1 NONE, 2 CRUSHED, 3 BURNED, 4 EXPLODED, 5 POISONED,
 //          6 TOPPLED, 7 FLOODED, 8 SUICIDED. This is what exercises a Die module's
 //          DeathTypes filter from the harness side.
+//   MSG_DO_FORCE_ATTACK_OBJECT (1062) args [ObjectId victim, ObjectId crusher]
+//       -> the CRUSH death: lethal DamageType.Crush / DeathType.Crushed carrying a real
+//          damage SOURCE, i.e. what PhysicsBehavior delivers when one object drives over
+//          another. Added by the CrushDie task, the one Die class that reads both the
+//          damage type and the source object, so it is the one verb in this vocabulary
+//          whose argument ORDER is significant: [victim, crusher], never "the first id".
 
 using System;
 using System.Numerics;
@@ -98,6 +104,26 @@ Object DieBatchSurvivor
     StartsActive = Yes
     HealingAmount = 4
     HealingDelay = 400
+  End
+End
+
+Object DieBatchCrushVictim
+  KindOf = INFANTRY
+  Geometry = CYLINDER
+  GeometryMajorRadius = 10
+  GeometryHeight = 10
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = CrushDie ModuleTag_Die
+    TotalCrushSound = CrushTotal
+    FrontEndCrushSound = CrushFront
+    FrontEndCrushSoundPercent = 50
   End
 End
 
@@ -244,6 +270,13 @@ End
         ("DieBatchFXCorpse",   false,  26f,   0f),   // 12 - FXListDie, mux active
         ("DieBatchFXSilentCorpse", false, 26f, 14f), // 13 - FXListDie, mux inactive
         ("DieBatchKeepObject", false, -30f,  20f),   // 14 - dies NORMAL: the corpse STAYS
+        // Both crush victims face +X (yaw 0) and have GeometryMajorRadius 10, so their crush
+        // points are centre, +5 and -5 along X. Object 1 sits at the origin and does the
+        // crushing, so 15 (at +30) is nearest its BACK point and 16 (at -30) its FRONT point:
+        // one spawn per crush-point branch, resolved by geometry rather than by a flag.
+        // (The CrushDie branch numbered these 8 and 9; the integration merge renumbered.)
+        ("DieBatchCrushVictim", false,  30f,   0f),  // 15 - CrushDie: back-end crush by 1
+        ("DieBatchCrushVictim", false, -30f,   0f),  // 16 - CrushDie: front-end crush by 1
     };
 
     private readonly HeadlessSimGame _game;
@@ -324,6 +357,27 @@ End
                 }
                 break;
             }
+            case GameMessageType.MSG_DO_FORCE_ATTACK_OBJECT:
+            {
+                // The CRUSH death: lethal DamageType.Crush carrying DeathType.Crushed and a
+                // real damage SOURCE, which is what PhysicsBehavior's collide path delivers
+                // when one object drives over another. CrushDie is the only Die class that
+                // reads both the damage type and the source object, so it needs a verb the
+                // others do not have; every other Die class keeps using MSG_DO_SPECIAL_POWER.
+                // Args are two ObjectIds and their ORDER is the meaning: [victim, crusher].
+                if (TryObjectIdAt(order, 0, out var victim) &&
+                    TryObjectIdAt(order, 1, out var crusher))
+                {
+                    victim.AttemptDamage(new DamageInfoInput(crusher)
+                    {
+                        DamageType = DamageType.Crush,
+                        DeathType = DeathType.Crushed,
+                        Amount = 0f,
+                        Kill = true,
+                    });
+                }
+                break;
+            }
             case GameMessageType.MSG_DO_SPECIAL_POWER:
             {
                 if (TryTarget(order, out var target))
@@ -349,37 +403,55 @@ End
     }
 
     private bool TryTarget(SimOrder order, out GameObject target)
+        => TryObjectIdAt(order, 0, out target);
+
+    /// <summary>
+    /// The n-th ObjectId argument. <see cref="TryTarget"/> is the index-0 case, which is every
+    /// verb whose object argument is simply "the target"; a verb whose meaning depends on
+    /// argument ORDER - such as the crush verb's [victim, crusher] - asks for a later index.
+    /// Both go through the same resolution so the DBP-2 diagnostic below covers all of them.
+    /// </summary>
+    private bool TryObjectIdAt(SimOrder order, int index, out GameObject gameObject)
     {
+        var seen = 0;
         foreach (var a in order.Arguments)
         {
-            if (a.Kind == SimOrderArgKind.ObjectId && a.ObjectId != 0)
+            if (a.Kind != SimOrderArgKind.ObjectId || a.ObjectId == 0)
             {
-                // Deliberately a scan rather than GameLogic.GetObjectById: that indexer is an
-                // unguarded List indexer, so a schedule naming an object this branch does not
-                // spawn dies with a bare IndexOutOfRangeException from inside the engine, which
-                // says nothing about the actual mistake. The shared die-batch-v1 schedule is
-                // APPEND-EXTENDED by each task in the batch, so a branch running it before
-                // adding its own Spawns row is a routine, expected error - it deserves a
-                // sentence, not a stack trace. (batch finding DBP-2.)
-                var wanted = new ObjectId(a.ObjectId);
-                foreach (var candidate in _game.GameLogic.Objects)
-                {
-                    if (candidate.Id == wanted)
-                    {
-                        target = candidate;
-                        return true;
-                    }
-                }
-
-                throw new InvalidOperationException(
-                    $"die-batch-v1 schedule targets object id {a.ObjectId}, but this build's " +
-                    $"Spawns table only creates {Spawns.Length} object(s) (ids 1..{Spawns.Length}). " +
-                    "The schedule in tools/harness/data/schedules/ is shared by the whole Die " +
-                    "batch and grows as tasks append spawns: either add your Spawns row, or run " +
-                    "die-batch-v1.base.sched.json, the snapshot that matches the base branch.");
+                continue;
             }
+
+            if (seen++ != index)
+            {
+                continue;
+            }
+
+            // Deliberately a scan rather than GameLogic.GetObjectById: that indexer is an
+            // unguarded List indexer, so a schedule naming an object this branch does not
+            // spawn dies with a bare IndexOutOfRangeException from inside the engine, which
+            // says nothing about the actual mistake. The shared die-batch-v1 schedule is
+            // APPEND-EXTENDED by each task in the batch, so a branch running it before
+            // adding its own Spawns row is a routine, expected error - it deserves a
+            // sentence, not a stack trace. (batch finding DBP-2.)
+            var wanted = new ObjectId(a.ObjectId);
+            foreach (var candidate in _game.GameLogic.Objects)
+            {
+                if (candidate.Id == wanted)
+                {
+                    gameObject = candidate;
+                    return true;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"die-batch-v1 schedule targets object id {a.ObjectId}, but this build's " +
+                $"Spawns table only creates {Spawns.Length} object(s) (ids 1..{Spawns.Length}). " +
+                "The schedule in tools/harness/data/schedules/ is shared by the whole Die " +
+                "batch and grows as tasks append spawns: either add your Spawns row, or run " +
+                "die-batch-v1.base.sched.json, the snapshot that matches the base branch.");
         }
-        target = null!;
+
+        gameObject = null!;
         return false;
     }
 
