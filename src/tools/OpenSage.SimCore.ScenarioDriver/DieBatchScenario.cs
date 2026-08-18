@@ -226,8 +226,29 @@ End
         {
             if (a.Kind == SimOrderArgKind.ObjectId && a.ObjectId != 0)
             {
-                target = _game.GameLogic.GetObjectById(new ObjectId(a.ObjectId));
-                return target is not null;
+                // Deliberately a scan rather than GameLogic.GetObjectById: that indexer is an
+                // unguarded List indexer, so a schedule naming an object this branch does not
+                // spawn dies with a bare IndexOutOfRangeException from inside the engine, which
+                // says nothing about the actual mistake. The shared die-batch-v1 schedule is
+                // APPEND-EXTENDED by each task in the batch, so a branch running it before
+                // adding its own Spawns row is a routine, expected error - it deserves a
+                // sentence, not a stack trace. (batch finding DBP-2.)
+                var wanted = new ObjectId(a.ObjectId);
+                foreach (var candidate in _game.GameLogic.Objects)
+                {
+                    if (candidate.Id == wanted)
+                    {
+                        target = candidate;
+                        return true;
+                    }
+                }
+
+                throw new InvalidOperationException(
+                    $"die-batch-v1 schedule targets object id {a.ObjectId}, but this build's " +
+                    $"Spawns table only creates {Spawns.Length} object(s) (ids 1..{Spawns.Length}). " +
+                    "The schedule in tools/harness/data/schedules/ is shared by the whole Die " +
+                    "batch and grows as tasks append spawns: either add your Spawns row, or run " +
+                    "die-batch-v1.base.sched.json, the snapshot that matches the base branch.");
             }
         }
         target = null!;
