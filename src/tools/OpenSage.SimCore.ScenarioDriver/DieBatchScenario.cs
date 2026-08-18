@@ -27,6 +27,12 @@
 // scaffolding for the batch's first task only: once real Die modules are in the walk the
 // witness has done its job, and the last task in the batch may drop it.
 //
+// OBJECT 8 (KeepObjectDie, the first ported Die module to reach this walk) is also the one
+// object here whose death does NOT remove it: everything else that dies leaves the Objects
+// channel, so "the walk got shorter" is the batch's usual death signal, and a class whose
+// whole contract is that the corpse stays needs the opposite signal. Object 8 must still be
+// in the channel, with its module still walking, on every checkpoint after its death frame.
+//
 // Order vocabulary (schedule -> sim effects):
 //   MSG_DO_ATTACK_OBJECT (1061) args [ObjectId target, Integer amount]
 //       -> AttemptDamage, DamageType Explosion / DeathType Normal. Sub-lethal amounts are
@@ -108,6 +114,21 @@ Object DieBatchHealer
     SkipSelfForHealing = Yes
   End
 End
+
+Object DieBatchKeepObject
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = KeepObjectDie ModuleTag_IWantRubble
+    DeathTypes = ALL -SUICIDED
+  End
+End
 ";
 
     /// <summary>
@@ -123,6 +144,7 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchKeepObject", false, -30f,  20f),   // 8 - dies NORMAL: the corpse STAYS
     };
 
     private readonly HeadlessSimGame _game;
