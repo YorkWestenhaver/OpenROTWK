@@ -92,6 +92,9 @@ internal static class Program
             case "autoheal-v1":
                 scenario = new AutoHealScenario(seed);
                 break;
+            case "die-batch-v1":
+                scenario = new DieBatchScenario(seed);
+                break;
             default:
                 Console.Error.WriteLine($"unknown scenario: {scenarioName}");
                 return 2;

@@ -139,8 +139,18 @@ internal sealed class HeadlessSimGame : IGame
         return gameObject;
     }
 
-    /// <summary>Runs one 5 Hz logic frame: sleepy module updates, then the frame advances.</summary>
-    public void Step() => GameLogic.Update();
+    /// <summary>
+    /// Runs one 5 Hz logic frame: sleepy module updates, the frame advances, then the
+    /// destroy list is reaped - the same two halves a real frame runs (GameLogic.Update
+    /// followed by Scene3D.LogicTick's DeleteDestroyed). Without the reap a killed object
+    /// stays in the object list and keeps ticking, which is exactly what a Die test must
+    /// not see.
+    /// </summary>
+    public void Step()
+    {
+        GameLogic.Update();
+        GameLogic.DeleteDestroyed();
+    }
 
     public Player CivilianPlayer => PlayerManager.GetCivilianPlayer();
 
