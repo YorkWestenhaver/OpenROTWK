@@ -276,6 +276,41 @@ Object DieBatchDrone
   Behavior = DestroyDie ModuleTag_Reap
   End
 End
+
+ObjectCreationList OCL_DieBatchSpawnling
+  CreateObject
+    ObjectNames = DieBatchSpawnling
+    Count = 1
+  End
+End
+
+Object DieBatchSpawnling
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchCreateObject
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = CreateObjectDie ModuleTag_Die
+    CreationList = OCL_DieBatchSpawnling
+    TransferPreviousHealth = Yes
+  End
+End
 ";
 
     /// <summary>
@@ -321,6 +356,9 @@ End
         ("DieBatchCrushVictim", false, -30f,   0f),  // 16 - CrushDie: front-end crush by 1
         ("DieBatchDroneProducer", false, -30f, 30f), // 17 - holds Upgrade_DieBatchDrone
         ("DieBatchDrone",       false, -34f, 30f),   // 18 - UpgradeDie: frees it by dying
+        ("DieBatchCreateObject", false, 30f, 30f),   // 19 - CreateObjectDie: its death ADDS an
+                                                     //      object to the walk, carrying the
+                                                     //      pre-death health deficit with it
     };
 
     private readonly HeadlessSimGame _game;

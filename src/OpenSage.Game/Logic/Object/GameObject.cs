@@ -286,6 +286,73 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     /// </summary>
     public bool HealthBelowMax => _body != null && _body.Health < _body.MaxHealth;
 
+    /// <summary>
+    /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
+    /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
+    /// overload): the original's <c>getCurrentSubdualDamageAmount() &gt; 0</c> predicate.
+    /// </summary>
+    public bool HasSubdualDamage => _body != null && _body.CurrentSubdualDamageAmount > 0f;
+
+    /// <summary>
+    /// Float-free "was damaged before it died" view: the original's
+    /// <c>getMaxHealth() - getPreviousHealth() &gt; 0</c> predicate. Note this reads
+    /// PREVIOUS health, not current - after a lethal hit the current health is zero and
+    /// would transfer a full-health deficit.
+    /// </summary>
+    public bool HasPreviousHealthDeficit => _body != null && _body.PreviousHealth < _body.MaxHealth;
+
+    /// <summary>
+    /// Float-boundary transfer of <paramref name="donor"/>'s subdual damage onto this
+    /// object (GPL CreateObjectDie's TransferPreviousHealth, first leg): unresistable
+    /// subdual damage of exactly the donor's current subdual amount, from no source.
+    /// Amounts stay float because Body is unmigrated substrate; ported modules gate the
+    /// call on <see cref="HasSubdualDamage"/> and never see the number.
+    /// </summary>
+    public void TransferSubdualDamageFrom(GameObject donor)
+    {
+        if (donor?._body is null || _body is null)
+        {
+            return;
+        }
+
+        AttemptDamage(new DamageInfoInput(null)
+        {
+            DamageType = DamageType.SubdualUnresistable,
+            Amount = donor._body.CurrentSubdualDamageAmount,
+        });
+    }
+
+    /// <summary>
+    /// Float-boundary transfer of <paramref name="donor"/>'s pre-death health deficit onto
+    /// this object (GPL CreateObjectDie's TransferPreviousHealth, second leg): unresistable
+    /// damage of (donor max health - donor PREVIOUS health), credited to whoever last
+    /// damaged the donor.
+    /// </summary>
+    /// <remarks>
+    /// Deviation recorded (CreateObjectDie.md, F-CODIE-3): the original copies the raw
+    /// source ObjectId out of the donor's last damage info, while our DamageInfoInput takes
+    /// a live GameObject. A killer that already left the world therefore lands as "no
+    /// source" here instead of as a stale id. Nothing in the sim reads a stale id today.
+    /// </remarks>
+    public void TransferPreviousHealthFrom(GameObject donor)
+    {
+        if (donor?._body is null || _body is null)
+        {
+            return;
+        }
+
+        var lastSourceId = donor._body.LastDamageInfo?.Request.SourceID ?? ObjectId.Invalid;
+        var lastSource = lastSourceId.IsValid
+            ? _gameEngine.GameLogic.GetObjectById(lastSourceId)
+            : null;
+
+        AttemptDamage(new DamageInfoInput(lastSource)
+        {
+            DamageType = DamageType.Unresistable,
+            Amount = donor._body.MaxHealth - donor._body.PreviousHealth,
+        });
+    }
+
     public DamageInfoOutput AttemptHealing(float amount, GameObject source)
     {
         return _body?.AttemptDamage(new DamageInfoInput(source)

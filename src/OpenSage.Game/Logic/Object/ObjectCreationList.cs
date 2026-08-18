@@ -11,13 +11,13 @@ namespace OpenSage.Logic.Object;
 
 internal sealed class ObjectCreationListManager
 {
-    public IEnumerable<GameObject> Create(ObjectCreationList list, GameObject gameObject, IGameEngine gameEngine)
+    public List<GameObject> Create(ObjectCreationList list, GameObject gameObject, IGameEngine gameEngine, GameObject secondary = null)
     {
         var objects = new List<GameObject>();
 
         foreach (var item in list.Nuggets)
         {
-            objects.AddRange(item.Execute(gameObject, gameEngine));
+            objects.AddRange(item.Execute(gameObject, gameEngine, null, secondary));
         }
 
         return objects;
@@ -56,7 +56,14 @@ public sealed class ObjectCreationList : BaseAsset
 
 public abstract class OCNugget
 {
-    internal abstract List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position = null);
+    /// <summary>
+    /// Runs this nugget. <paramref name="secondary"/> is the original's second creator
+    /// argument (GPL <c>ObjectCreationList::create(ocl, primary, secondary)</c>) - for a Die
+    /// module, the object that dealt the killing damage. The nuggets below do not consume it
+    /// yet (the original uses it for orientation and hand-off targeting); it is threaded here
+    /// so the caller's fact is not silently dropped at the seam.
+    /// </summary>
+    internal abstract List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position = null, GameObject secondary = null);
 }
 
 public sealed class CreateDebrisOCNugget : OCNugget
@@ -127,7 +134,7 @@ public sealed class CreateDebrisOCNugget : OCNugget
     [AddedIn(SageGame.CncGeneralsZeroHour)]
     public int RollRate { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         // TODO: Cache this.
         var debrisObjectDefinition = gameEngine.AssetLoadContext.AssetStore.ObjectDefinitions.GetByName("GenericDebris");
@@ -332,7 +339,7 @@ public sealed class CreateObjectOCNugget : OCNugget
     [AddedIn(SageGame.Bfme2)]
     public string WaypointSpawnPoints { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         var result = new List<GameObject>();
         // TODO
@@ -392,7 +399,7 @@ public sealed class ApplyRandomForceOCNugget : OCNugget
     public float MaxForcePitch { get; private set; }
     public float SpinRate { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         // TODO
         return new List<GameObject>();
@@ -413,7 +420,7 @@ public sealed class FireWeaponOCNugget : OCNugget
 
     public string Weapon { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         // TODO
         return new List<GameObject>();
@@ -440,7 +447,7 @@ public sealed class AttackOCNugget : OCNugget
     public int DeliveryDecalRadius { get; private set; }
     public RadiusDecalTemplate DeliveryDecal { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         // TODO
         return new List<GameObject>();
@@ -527,7 +534,7 @@ public sealed class DeliverPayloadOCNugget : OCNugget
     public int DeliveryDecalRadius { get; private set; }
     public RadiusDecalTemplate DeliveryDecal { get; private set; }
 
-    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position)
+    internal override List<GameObject> Execute(GameObject gameObject, IGameEngine gameEngine, Vector3? position, GameObject secondary)
     {
         // TODO
         return new List<GameObject>();
