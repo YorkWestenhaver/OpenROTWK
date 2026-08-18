@@ -275,6 +275,43 @@ End
     }
 
     // ------------------------------------------------------------------
+    // The walk itself, pinned to bytes. The shadow-copy test structurally cannot catch a
+    // field dropped from Xfer (template v1.1 delta D-8); a byte-exact assertion on a stream
+    // whose every field is known can, and it also pins declaration order (F9: OURS).
+    // ------------------------------------------------------------------
+    [Fact]
+    public void Xfer_WalksVersionThenCreatorIdThenLatch_InDeclarationOrder()
+    {
+        var game = NewGame();
+        var creator = game.SpawnObject("Bystander", game.CivilianPlayer, Vector3.Zero);
+        var beacon = game.SpawnObject("CompletionBeacon", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var module = DieModuleOf(beacon);
+
+        // Fresh: version 1, ObjectId.Invalid (4 LE bytes of zero), latch open.
+        Assert.Equal(new byte[] { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 }, PortedModuleTestKit.Save(module));
+
+        module.SetCreator(creator.Id);
+
+        // Latched: the creator's index appears LE in the middle, and the flag flips last.
+        var expected = new byte[] { 0x01, 0, 0, 0, 0, 0x01 };
+        System.BitConverter.GetBytes(creator.Id.Index).CopyTo(expected, 1);
+        Assert.Equal(expected, PortedModuleTestKit.Save(module));
+    }
+
+    [Fact]
+    public void Xfer_RejectsAFutureVersion()
+    {
+        var game = NewGame();
+        var beacon = game.SpawnObject("CompletionBeacon", game.CivilianPlayer, Vector3.Zero);
+        var module = DieModuleOf(beacon);
+
+        var future = PortedModuleTestKit.Save(module);
+        future[0] = 0x02;
+
+        Assert.ThrowsAny<System.Exception>(() => PortedModuleTestKit.Load(module, future));
+    }
+
+    // ------------------------------------------------------------------
     // Mid-behavior save/load continuation: two identical games, identical script; game B
     // round-trips the module state through Save->Load at frame 3. If the walk lost or
     // misread anything, B's report differs from A's.
