@@ -29,7 +29,7 @@ internal sealed class SimContext : ISimContext
             LogicRandom.CreateForSimContext(engine.GameLogic.Random.Seed));
         GameLogic = new GameLogicAdapter(engine);
         Partition = new PartitionAdapter(engine);
-        Terrain = new TerrainAdapter();
+        Terrain = new TerrainAdapter(engine);
         Players = new PlayerListAdapter();
         Assets = new AssetStoreAdapter();
         Events = new SimEventsAdapter();
@@ -60,6 +60,25 @@ internal sealed class SimContext : ISimContext
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
         public IEnumerable<GameObject> ObjectsAscendingId => _engine.GameLogic.Objects;
+
+        public IEnumerable<GameObject> CreateFromObjectCreationList(
+            ObjectCreationList list, GameObject primary, GameObject secondary)
+        {
+            // Boundary crossing: the ObjectCreationList nuggets are unmigrated float
+            // substrate (offsets, forces, dispositions are all float, and the nugget that
+            // rolls a lifetime still draws GameLogic.Random rather than the context stream).
+            // Object CREATION ORDER is what the sim sees, and that is nugget declaration
+            // order -> ascending ObjectId, which is deterministic per peer today and
+            // bit-deterministic everywhere once the OCL layer migrates (F11).
+            //
+            // The secondary party is accepted here but not yet forwarded: the fork's
+            // OCNugget.Execute signature has no slot for it, so nuggets that would use it
+            // (the original's Attack nugget targeting the damage dealer) are inert. Recorded
+            // as a finding rather than papered over - the module passes the right thing.
+            _ = secondary;
+
+            return _engine.ObjectCreationLists.Create(list, primary, _engine);
+        }
     }
 
     private sealed class PartitionAdapter : IPartitionQuery
@@ -83,6 +102,17 @@ internal sealed class SimContext : ISimContext
 
     private sealed class TerrainAdapter : ITerrainLogic
     {
+        private readonly IGameEngine _engine;
+
+        public TerrainAdapter(IGameEngine engine) => _engine = engine;
+
+        public bool IsSignificantlyAboveTerrain(GameObject gameObject)
+        {
+            // Float boundary (D-7): height-above-terrain and the gravity constant are both
+            // unmigrated substrate. The comparison happens entirely on that side and only a
+            // bool crosses, so no float ever reaches the [SimState] caller.
+            return gameObject.IsSignificantlyAboveTerrain;
+        }
     }
 
     private sealed class PlayerListAdapter : IPlayerList
@@ -99,6 +129,12 @@ internal sealed class SimContext : ISimContext
         {
             // Client-side FX dispatch is not wired yet; events are outputs with no
             // determinism obligation (S8), so a no-op is contract-legal.
+        }
+
+        public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId)
+        {
+            // Same story as FireFXAtObject: the client-bound event queue does not exist yet.
+            // Recording the call is what a ported module owes; playing it is the client's.
         }
     }
 }

@@ -51,6 +51,19 @@ public interface IGameLogic
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>
     IEnumerable<GameObject> ObjectsAscendingId { get; }
+
+    /// <summary>
+    /// The "spawn requests" half of this interface's frozen charter (design-module-api §1.2:
+    /// "object lookup by ObjectId, spawn/destroy requests"). Runs an ObjectCreationList the
+    /// way the original's <c>ObjectCreationList::create</c> does: <paramref name="primary"/>
+    /// is the object the list is anchored to (position, owner, orientation) and
+    /// <paramref name="secondary"/> is the situational second party (the damage dealer for a
+    /// death-triggered list), which may be null. Created objects are returned in nugget
+    /// declaration order, i.e. ascending ObjectId, so a caller that iterates them is
+    /// deterministic by construction.
+    /// </summary>
+    IEnumerable<GameObject> CreateFromObjectCreationList(
+        ObjectCreationList list, GameObject primary, GameObject secondary);
 }
 
 /// <summary>
@@ -69,9 +82,19 @@ public interface IPartitionQuery
     IEnumerable<GameObject> QueryObjectsInRadius(GameObject center, Fix64 radius);
 }
 
-/// <summary>Fix64-valued terrain view. Empty until the first terrain-consuming port.</summary>
+/// <summary>Fix64-valued terrain view. Grows one member per porting need.</summary>
 public interface ITerrainLogic
 {
+    /// <summary>
+    /// The original's <c>Thing::isSignificantlyAboveTerrain</c>: true when the object is high
+    /// enough that it would take more than three logic frames to fall back to the ground
+    /// (height above terrain &gt; -9 * gravity). Exposed as a predicate rather than a height so
+    /// the comparison stays on one side of the seam.
+    /// NOTE (migration): the height and the gravity constant are still float substrate, so
+    /// this predicate is same-binary deterministic today and becomes bit-deterministic across
+    /// architectures when terrain migrates to Fix64 (the D-7 boundary, same shape as radius).
+    /// </summary>
+    bool IsSignificantlyAboveTerrain(GameObject gameObject);
 }
 
 /// <summary>Player roster view. Empty until the first player-consuming port.</summary>
@@ -89,4 +112,12 @@ public interface ISimEvents
 {
     /// <summary>Request the named FX list at an object's position (e.g. UnitHealPulseFX).</summary>
     void FireFXAtObject(string fxListName, ObjectId objectId);
+
+    /// <summary>
+    /// Request one of an object's UnitSpecificSounds entries by key (e.g. "VoiceEject",
+    /// "SoundEject") at that object's position. The key is resolved against the object's own
+    /// template client-side, so no audio asset ever crosses into sim code (S8: audio is
+    /// deliberately absent from the context; only the event is not).
+    /// </summary>
+    void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId);
 }
