@@ -178,7 +178,10 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         }
 
         _game.Scene3D?.Quadtree.Remove(gameObject);
-        _game.Scene3D?.Radar.RemoveGameObject(gameObject);
+        // Null-conditional to match the creation path (CreateObject's "Radar?.AddGameObject"):
+        // a host without a radar (the headless sim host) must still be able to destroy an
+        // object, which is the whole observable effect of half the Die modules.
+        _game.Scene3D?.Radar?.RemoveGameObject(gameObject);
         gameObject.PartitionObject.Remove();
 
         gameObject.Drawable.Destroy();

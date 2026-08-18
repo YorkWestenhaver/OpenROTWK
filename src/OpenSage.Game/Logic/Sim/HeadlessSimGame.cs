@@ -94,6 +94,14 @@ internal sealed class HeadlessSimGame : IGame
 
         PartitionCellManager = new PartitionCellManager(this);
 
+        // A real GameClient, because the LOGIC reads through it: GameObject.Drawable is
+        // created by GameClient.CreateDrawable, and GameObject.ModelConditionFlags - which
+        // GameObject.OnDie sets on every death (IsBeingConstructed, the Damaged flags) -
+        // dereferences it. Without this a headless object cannot die. Drawables here carry
+        // no draw modules (the headless INI declares none) and no graphics device is
+        // touched; the client RNG stream stays separate from the logic stream (F5).
+        GameClient = new GameClient(this);
+
         GameLogic = new GameLogic(this);
         GameLogic.Random.Initialize(matchSeed);
 
@@ -171,7 +179,7 @@ internal sealed class HeadlessSimGame : IGame
     public NetworkMessageBuffer NetworkMessageBuffer { get; set; }
     public Texture LauncherImage { get; }
     public GameLogic GameLogic { get; }
-    public GameClient GameClient { get; }
+    public GameClient GameClient { get; }  // set in the constructor above
     public PlayerManager PlayerManager { get; }
     public TeamFactory TeamFactory { get; }
     public PartitionCellManager PartitionCellManager { get; }
