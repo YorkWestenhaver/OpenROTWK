@@ -109,6 +109,22 @@ public interface IGameLogic
     /// spawn is a deterministic function of the order in which modules request it.
     /// </summary>
     GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at);
+
+    /// <summary>
+    /// Record that a special power ran to completion, for the script engine's
+    /// "player completed special power" condition (GPL
+    /// <c>ScriptEngine::notifyOfCompletedSpecialPower</c>: an append to a per-player
+    /// (name, sourceObjectId) list, which the condition later scans and optionally
+    /// consumes). Appended in sim order, so the log is deterministic.
+    /// <para>
+    /// MIGRATION NOTE (SpecialPowerCompletionDie port, first consumer): OpenSAGE has no
+    /// ported script engine, so the SimContext adapter holds the log and nothing drains
+    /// it yet. It moves onto ScriptingSystem - and into that subsystem's persist walk -
+    /// when the script engine ports; see research/die/SpecialPowerCompletionDie.md
+    /// finding SPCD-1.
+    /// </para>
+    /// </summary>
+    void NotifyOfCompletedSpecialPower(int playerIndex, string specialPowerName, ObjectId sourceObjectId);
 }
 
 /// <summary>
@@ -151,6 +167,13 @@ public interface IPlayerList
     /// which in SAGE is spelled "its controlling player is not the neutral player".
     /// </summary>
     Player NeutralPlayer { get; }
+
+    /// <summary>
+    /// The player's index in the match roster (GPL <c>Player::getPlayerIndex</c>). Stable
+    /// for the match and identical on every peer, which is why script/AI bookkeeping is
+    /// keyed by it rather than by a reference.
+    /// </summary>
+    int GetPlayerIndex(OpenSage.Logic.Player player);
 }
 
 /// <summary>Immutable parsed-data view. Empty until the first asset-consuming port.</summary>
