@@ -1,6 +1,7 @@
 ﻿using System;
 using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
+using OpenSage.SimCore.Numerics;
 
 namespace OpenSage.Logic.Object;
 
@@ -22,22 +23,26 @@ public sealed class LocomotorTemplate : BaseAsset
     private static readonly IniParseTable<LocomotorTemplate> FieldParseTable = new IniParseTable<LocomotorTemplate>
     {
         { "Surfaces", (parser, x) => x.Surfaces = parser.ParseEnumFlags<Surfaces>() },
-        { "Speed", (parser, x) => x.MaxSpeed = parser.ParseVelocityToLogicFrames() },
-        { "SpeedDamaged", (parser, x) => x.MaxSpeedDamaged = parser.ParseVelocityToLogicFrames() },
-        { "MinSpeed", (parser, x) => x.MinSpeed = parser.ParseVelocityToLogicFrames() },
-        { "TurnRate", (parser, x) => x.MaxTurnRate = parser.ParseAngularVelocityToLogicFrames() },
-        { "TurnRateDamaged", (parser, x) => x.MaxTurnRateDamaged = parser.ParseAngularVelocityToLogicFrames() },
-        { "Acceleration", (parser, x) => x.Acceleration = parser.ParseAccelerationToLogicFrames() },
-        { "AccelerationDamaged", (parser, x) => x.AccelerationDamaged = parser.ParseAccelerationToLogicFrames() },
-        { "Lift", (parser, x) => x.Lift = parser.ParseAccelerationToLogicFrames() },
-        { "LiftDamaged", (parser, x) => x.LiftDamaged = parser.ParseAccelerationToLogicFrames() },
-        { "Braking", (parser, x) => x.Braking = parser.ParseAccelerationToLogicFrames() },
-        { "MinTurnSpeed", (parser, x) => x.MinTurnSpeed = parser.ParseVelocityToLogicFrames() },
-        { "TurnPivotOffset", (parser, x) => x.TurnPivotOffset = parser.ParseFloat() },
+        // Sim-consumed movement numerics are quantized ONCE at the blessed F4 text boundary
+        // (S2 locomotor system); the legacy float mirrors are derived from the quantized
+        // value via the display escape so the unmigrated float paths stay consistent with
+        // the sim (delta <= 2^-32, invisible to the float pipeline).
+        { "Speed", (parser, x) => { x.SimMaxSpeed = parser.ParseFix64VelocityPerLogicFrame(); x.MaxSpeed = x.SimMaxSpeed.ToFloatForDisplay(); } },
+        { "SpeedDamaged", (parser, x) => { x.SimMaxSpeedDamaged = parser.ParseFix64VelocityPerLogicFrame(); x.MaxSpeedDamaged = x.SimMaxSpeedDamaged.ToFloatForDisplay(); } },
+        { "MinSpeed", (parser, x) => { x.SimMinSpeed = parser.ParseFix64VelocityPerLogicFrame(); x.MinSpeed = x.SimMinSpeed.ToFloatForDisplay(); } },
+        { "TurnRate", (parser, x) => { x.SimMaxTurnRate = parser.ParseFix64AngularVelocityPerLogicFrame(); x.MaxTurnRate = x.SimMaxTurnRate.ToFloatForDisplay(); } },
+        { "TurnRateDamaged", (parser, x) => { x.SimMaxTurnRateDamaged = parser.ParseFix64AngularVelocityPerLogicFrame(); x.MaxTurnRateDamaged = x.SimMaxTurnRateDamaged.ToFloatForDisplay(); } },
+        { "Acceleration", (parser, x) => { x.SimAcceleration = parser.ParseFix64AccelerationPerLogicFrame(); x.Acceleration = x.SimAcceleration.ToFloatForDisplay(); } },
+        { "AccelerationDamaged", (parser, x) => { x.SimAccelerationDamaged = parser.ParseFix64AccelerationPerLogicFrame(); x.AccelerationDamaged = x.SimAccelerationDamaged.ToFloatForDisplay(); } },
+        { "Lift", (parser, x) => { x.SimLift = parser.ParseFix64AccelerationPerLogicFrame(); x.Lift = x.SimLift.ToFloatForDisplay(); } },
+        { "LiftDamaged", (parser, x) => { x.SimLiftDamaged = parser.ParseFix64AccelerationPerLogicFrame(); x.LiftDamaged = x.SimLiftDamaged.ToFloatForDisplay(); } },
+        { "Braking", (parser, x) => { x.SimBraking = parser.ParseFix64AccelerationPerLogicFrame(); x.Braking = x.SimBraking.ToFloatForDisplay(); } },
+        { "MinTurnSpeed", (parser, x) => { x.SimMinTurnSpeed = parser.ParseFix64VelocityPerLogicFrame(); x.MinTurnSpeed = x.SimMinTurnSpeed.ToFloatForDisplay(); } },
+        { "TurnPivotOffset", (parser, x) => { x.SimTurnPivotOffset = parser.ParseFix64(); x.TurnPivotOffset = x.SimTurnPivotOffset.ToFloatForDisplay(); } },
         { "AllowAirborneMotiveForce", (parser, x) => x.AllowAirborneMotiveForce = parser.ParseBoolean() },
-        { "PreferredHeight", (parser, x) => x.PreferredHeight = parser.ParseFloat() },
-        { "PreferredHeightDamping", (parser, x) => x.PreferredHeightDamping = parser.ParseFloat() },
-        { "SpeedLimitZ", (parser, x) => x.SpeedLimitZ = parser.ParseVelocityToLogicFrames() },
+        { "PreferredHeight", (parser, x) => { x.SimPreferredHeight = parser.ParseFix64(); x.PreferredHeight = x.SimPreferredHeight.ToFloatForDisplay(); } },
+        { "PreferredHeightDamping", (parser, x) => { x.SimPreferredHeightDamping = parser.ParseFix64(); x.PreferredHeightDamping = x.SimPreferredHeightDamping.ToFloatForDisplay(); } },
+        { "SpeedLimitZ", (parser, x) => { x.SimSpeedLimitZ = parser.ParseFix64VelocityPerLogicFrame(); x.SpeedLimitZ = x.SimSpeedLimitZ.ToFloatForDisplay(); } },
         { "ZAxisBehavior", (parser, x) => x.BehaviorZ = parser.ParseEnum<LocomotorBehaviorZ>() },
         { "Appearance", (parser, x) => x.Appearance = parser.ParseEnum<LocomotorAppearance>() },
         { "StickToGround", (parser, x) => x.StickToGround = parser.ParseBoolean() },
@@ -49,11 +54,11 @@ public sealed class LocomotorTemplate : BaseAsset
         { "ThrustWobbleRate", (parser, x) => x.ThrustWobbleRate = parser.ParseFloat() },
         { "ThrustMinWobble", (parser, x) => x.ThrustMinWobble = parser.ParseFloat() },
         { "ThrustMaxWobble", (parser, x) => x.ThrustMaxWobble = parser.ParseFloat() },
-        { "CloseEnoughDist", (parser, x) => x.CloseEnoughDist = parser.ParseFloat() },
+        { "CloseEnoughDist", (parser, x) => { x.SimCloseEnoughDist = parser.ParseFix64(); x.CloseEnoughDist = x.SimCloseEnoughDist.ToFloatForDisplay(); } },
         { "CloseEnoughDist3D", (parser, x) => x.CloseEnoughDist3D = parser.ParseBoolean() },
 
-        { "WanderWidthFactor", (parser, x) => x.WanderWidthFactor = parser.ParseFloat() },
-        { "WanderLengthFactor", (parser, x) => x.WanderLengthFactor = parser.ParseFloat() },
+        { "WanderWidthFactor", (parser, x) => { x.SimWanderWidthFactor = parser.ParseFix64(); x.WanderWidthFactor = x.SimWanderWidthFactor.ToFloatForDisplay(); } },
+        { "WanderLengthFactor", (parser, x) => { x.SimWanderLengthFactor = parser.ParseFix64(); x.WanderLengthFactor = x.SimWanderLengthFactor.ToFloatForDisplay(); } },
         { "WanderAboutPointRadius", (parser, x) => x.WanderAboutPointRadius = parser.ParseFloat() },
 
         { "AccelerationPitchLimit", (parser, x) => x.AccelerationPitchLimit = parser.ParseAngle() },
@@ -72,7 +77,7 @@ public sealed class LocomotorTemplate : BaseAsset
         { "LateralVelocityRollFactor", (parser, x) => x.LateralVelocityRollFactor = parser.ParseFloat() },
 
         { "Apply2DFrictionWhenAirborne", (parser, x) => x.Apply2DFrictionWhenAirborne = parser.ParseBoolean() },
-        { "Extra2DFriction", (parser, x) => x.Extra2DFriction = parser.ParseFrictionPerSec() },
+        { "Extra2DFriction", (parser, x) => { x.SimExtra2DFriction = parser.ParseFix64FrictionPerLogicFrame(); x.Extra2DFriction = x.SimExtra2DFriction.ToFloatForDisplay(); } },
         { "AirborneTargetingHeight", (parser, x) => x.AirborneTargetingHeight = parser.ParseInteger() },
         { "LocomotorWorksWhenDead", (parser, x) => x.LocomotorWorksWhenDead = parser.ParseBoolean() },
         { "CirclingRadius", (parser, x) => x.CirclingRadius = parser.ParseFloat() },
@@ -83,7 +88,7 @@ public sealed class LocomotorTemplate : BaseAsset
         { "MaximumWheelCompression", (parser, x) => x.MaximumWheelCompression = parser.ParseFloat() },
         { "FrontWheelTurnAngle", (parser, x) => x.FrontWheelTurnAngle = parser.ParseAngle() },
 
-        { "SlideIntoPlaceTime", (parser, x) => x.SlideIntoPlaceTime = parser.ParseTimeMillisecondsToLogicFramesFloat() },
+        { "SlideIntoPlaceTime", (parser, x) => { x.SimUltraAccurateSlideIntoPlaceFactor = SlideTimeMsToFrames(parser.ParseInteger(), parser.SageGame); x.SlideIntoPlaceTime = x.SimUltraAccurateSlideIntoPlaceFactor.ToFloatForDisplay(); } },
 
         { "RudderCorrectionDegree", (parser, x) => x.RudderCorrectionDegree = parser.ParseFloat() },
         { "RudderCorrectionRate", (parser, x) => x.RudderCorrectionRate = parser.ParseFloat() },
@@ -91,8 +96,8 @@ public sealed class LocomotorTemplate : BaseAsset
         { "ElevatorCorrectionRate", (parser, x) => x.ElevatorCorrectionRate = parser.ParseFloat() },
         //TODO: check if this conversion formula is correct
         //Converts from time for a 360 turn into degrees per second
-        { "TurnTime", (parser, x) => x.MaxTurnRate = 360.0f / (parser.ParseInteger() / 1000.0f) },
-        { "TurnTimeDamaged", (parser, x) => x.MaxTurnRateDamaged = 360.0f / ( parser.ParseInteger() / 1000.0f) },
+        { "TurnTime", (parser, x) => { x.SimMaxTurnRate = TurnTimeMsToRadiansPerFrame(parser.ParseInteger(), parser.SageGame); x.MaxTurnRate = x.SimMaxTurnRate.ToFloatForDisplay(); } },
+        { "TurnTimeDamaged", (parser, x) => { x.SimMaxTurnRateDamaged = TurnTimeMsToRadiansPerFrame(parser.ParseInteger(), parser.SageGame); x.MaxTurnRateDamaged = x.SimMaxTurnRateDamaged.ToFloatForDisplay(); } },
         { "SlowTurnRadius", (parser, x) => x.SlowTurnRadius = parser.ParseFloat() },
         { "FastTurnRadius", (parser, x) => x.FastTurnRadius = parser.ParseFloat() },
         { "NonDirtyTransform", (parser, x) => x.NonDirtyTransform = parser.ParseBoolean() },
@@ -132,6 +137,67 @@ public sealed class LocomotorTemplate : BaseAsset
     };
 
     internal const float BigNumber = 99999.0f;
+
+    // ========================================================================
+    // Quantized sim-side vocabulary (S2 locomotor system). These are THE values the
+    // deterministic movement code reads; each is quantized once at the F4 text boundary
+    // in the parse table above, in per-logic-frame units. The float twins above them are
+    // legacy mirrors for the unmigrated float paths and are derived FROM these.
+    // Sentinels follow GPL LocomotorTemplate::LocomotorTemplate(): -1 = "same as
+    // undamaged" (resolved in Validate), BIGNUM = 99999 (fits plain per F3 R1).
+    // ========================================================================
+
+    internal static readonly Fix64 SimBigNumber = Fix64.FromDecimalLiteral("99999");
+    private static readonly Fix64 SimMinusOne = Fix64.FromDecimalLiteral("-1");
+    private static readonly Fix64 SimSmallSpeed = Fix64.FromDecimalLiteral("0.01");
+
+    /// <summary>360-turn milliseconds -&gt; Fix64 radians/frame: 2000*Pi/(fps*ms), exact in Int128.</summary>
+    private static Fix64 TurnTimeMsToRadiansPerFrame(int milliseconds, SageGame sageGame)
+    {
+        if (milliseconds <= 0)
+        {
+            return Fix64.Zero;
+        }
+        var fps = sageGame.LogicFramesPerSecond();
+        var numerator = (Int128)2000 * Fix64.Pi.RawValue;
+        var denominator = (Int128)fps * milliseconds;
+        var half = denominator / 2;
+        return Fix64.FromRaw((long)((numerator + half) / denominator));
+    }
+
+    public Fix64 SimMaxSpeed { get; internal set; }
+    public Fix64 SimMaxSpeedDamaged { get; internal set; } = SimMinusOne;
+    public Fix64 SimMinSpeed { get; internal set; }
+    public Fix64 SimMaxTurnRate { get; internal set; }
+    public Fix64 SimMaxTurnRateDamaged { get; internal set; } = SimMinusOne;
+    public Fix64 SimAcceleration { get; internal set; }
+    public Fix64 SimAccelerationDamaged { get; internal set; } = SimMinusOne;
+    public Fix64 SimLift { get; internal set; }
+    public Fix64 SimLiftDamaged { get; internal set; } = SimMinusOne;
+    public Fix64 SimBraking { get; internal set; } = SimBigNumber;
+    public Fix64 SimMinTurnSpeed { get; internal set; } = SimBigNumber;
+    public Fix64 SimTurnPivotOffset { get; internal set; }
+    public Fix64 SimPreferredHeight { get; internal set; }
+    public Fix64 SimPreferredHeightDamping { get; internal set; } = Fix64.One;
+    public Fix64 SimSpeedLimitZ { get; internal set; } = Fix64.FromDecimalLiteral("999999");
+    public Fix64 SimExtra2DFriction { get; internal set; }
+    public Fix64 SimCloseEnoughDist { get; internal set; } = Fix64.One;
+    public Fix64 SimWanderWidthFactor { get; internal set; }
+    public Fix64 SimWanderLengthFactor { get; internal set; } = Fix64.One;
+    public Fix64 SimUltraAccurateSlideIntoPlaceFactor { get; internal set; }
+
+    /// <summary>Milliseconds -&gt; fractional logic frames as Fix64: ms*fps/1000, round-half-up.</summary>
+    private static Fix64 SlideTimeMsToFrames(int milliseconds, SageGame sageGame)
+    {
+        if (milliseconds <= 0)
+        {
+            return Fix64.Zero;
+        }
+        var fps = sageGame.LogicFramesPerSecond();
+        var numerator = (Int128)milliseconds * fps << 32;
+        var rounded = (numerator + 500) / 1000;
+        return Fix64.FromRaw((long)rounded);
+    }
 
     // Default damaged values of -1.0f mean "make the same as undamaged if not explicitly specified".
 
@@ -539,6 +605,51 @@ public sealed class LocomotorTemplate : BaseAsset
         if (sageGame == SageGame.CncGenerals)
         {
             DecelerationPitchLimit = AccelerationPitchLimit;
+        }
+
+        // Sim-side fix-ups mirror GPL LocomotorTemplate::validate() exactly, on the
+        // quantized values (the float twins below follow the same rules).
+        if (SimMaxSpeedDamaged < Fix64.Zero)
+        {
+            SimMaxSpeedDamaged = SimMaxSpeed;
+        }
+        if (SimMaxTurnRateDamaged < Fix64.Zero)
+        {
+            SimMaxTurnRateDamaged = SimMaxTurnRate;
+        }
+        if (SimAccelerationDamaged < Fix64.Zero)
+        {
+            SimAccelerationDamaged = SimAcceleration;
+        }
+        if (SimLiftDamaged < Fix64.Zero)
+        {
+            SimLiftDamaged = SimLift;
+        }
+        if (Appearance == LocomotorAppearance.Wings)
+        {
+            if (SimMinSpeed <= Fix64.Zero)
+            {
+                SimMinSpeed = SimSmallSpeed;
+            }
+            if (SimMinTurnSpeed <= Fix64.Zero)
+            {
+                SimMinTurnSpeed = SimSmallSpeed;
+            }
+        }
+        if (Appearance == LocomotorAppearance.Thrust)
+        {
+            if (SimMaxSpeed <= Fix64.Zero)
+            {
+                SimMaxSpeed = SimSmallSpeed;
+            }
+            if (SimMaxSpeedDamaged <= Fix64.Zero)
+            {
+                SimMaxSpeedDamaged = SimSmallSpeed;
+            }
+            if (SimMinSpeed <= Fix64.Zero)
+            {
+                SimMinSpeed = SimSmallSpeed;
+            }
         }
 
         // For "damaged" stuff that was omitted, set them to be the same as "undamaged".
