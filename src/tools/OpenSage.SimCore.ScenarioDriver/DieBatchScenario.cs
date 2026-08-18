@@ -311,6 +311,44 @@ Object DieBatchCreateObject
     TransferPreviousHealth = Yes
   End
 End
+
+; --- CreateCrateDie. The crate itself carries the witness behavior so the
+; object the DEATH created shows up in the Objects channel walk on its own: this is an
+; extension where the walk gains a member mid-run, and the new object's ctor
+; stagger draw is what proves it joined the same RNG stream.
+CrateData DieBatchCrateData
+  CreationChance = 1.0
+  CrateObject = DieBatchCrate 1.0
+End
+
+Object DieBatchCrate
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchCrateDropper
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = CreateCrateDie ModuleTag_Die
+    CrateData = DieBatchCrateData
+  End
+  Behavior = DestroyDie ModuleTag_Destroy
+  End
+End
 ";
 
     /// <summary>
@@ -359,6 +397,7 @@ End
         ("DieBatchCreateObject", false, 30f, 30f),   // 19 - CreateObjectDie: its death ADDS an
                                                      //      object to the walk, carrying the
                                                      //      pre-death health deficit with it
+        ("DieBatchCrateDropper", false, -20f, 20f),  // 20 - CreateCrateDie: its death ADDS an object
     };
 
     private readonly HeadlessSimGame _game;
