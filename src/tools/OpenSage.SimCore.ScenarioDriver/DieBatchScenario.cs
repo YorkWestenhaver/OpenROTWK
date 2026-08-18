@@ -108,6 +108,48 @@ Object DieBatchHealer
     SkipSelfForHealing = Yes
   End
 End
+
+; --- UpgradeDie's slice (appended; see the extension recipe at the top of this file) ---
+; The producer/drone pair the GPL comment describes - ranger building scout drones: the
+; drone's death frees Upgrade_DieBatchDrone on the object that produced it. The upgrade set
+; itself is GameObject state and not part of any ported module's walk, so what the CRC walk
+; witnesses here is the death dispatch and the witness module vanishing with its object; the
+; upgrade-set effect is asserted in UpgradeDieContractTests.
+Upgrade Upgrade_DieBatchDrone
+  Type = OBJECT
+End
+
+Object DieBatchDroneProducer
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 400
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchDrone
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = UpgradeDie ModuleTag_Die
+    DeathTypes = ALL
+    UpgradeToRemove = Upgrade_DieBatchDrone BaseUpgradeTag_01
+  End
+  ; UpgradeDie frees an upgrade; it does not remove the corpse. DestroyDie alongside it is
+  ; what makes the death visible in the dump as the drone leaving the Objects channel.
+  Behavior = DestroyDie ModuleTag_Reap
+  End
+End
 ";
 
     /// <summary>
@@ -123,6 +165,8 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchDroneProducer", false, -30f, 30f), // 8 - holds Upgrade_DieBatchDrone
+        ("DieBatchDrone",       false, -34f, 30f),   // 9 - UpgradeDie: frees it by dying
     };
 
     private readonly HeadlessSimGame _game;
@@ -159,6 +203,8 @@ End
             _game.SpawnObject(definition, isNeutral ? neutral : civilian, new Vector3(x, y, 0));
         }
 
+        WireUpgradeDieProducer();
+
         var context = (SimContext)_game.GameEngine.SimContext;
         var random = ((CountingSimRandom)context.GameLogicRandom).Random;
 
@@ -167,6 +213,31 @@ End
             new GameObjectsChannelSource(_game.GameLogic),
             new LogicRandomChannelSource(random),
         });
+    }
+
+    /// <summary>
+    /// UpgradeDie's slice needs a producer relationship, which no spawn table can express:
+    /// the producer must hold the upgrade, and the drone must know who made it. In a real
+    /// game ObjectCreationUpgrade sets CreatedByObjectID; here it is wired directly, which
+    /// keeps the spawn table a plain table.
+    /// </summary>
+    private void WireUpgradeDieProducer()
+    {
+        var producer = _game.GameLogic.GetObjectById(new ObjectId(8));
+        var drone = _game.GameLogic.GetObjectById(new ObjectId(9));
+        if (producer is null || drone is null)
+        {
+            // Loudly, not silently: without the pair, UpgradeDie's slice still RUNS and still
+            // PASSES self-diff - it just proves nothing, because the module never finds a
+            // producer to take an upgrade from. A vacuous green gate is the failure mode this
+            // scenario exists to prevent (cf. the witness-module note at the top of the file).
+            throw new InvalidOperationException(
+                "die-batch-v1: UpgradeDie's producer/drone pair (object ids 8 and 9) is missing. " +
+                "The Spawns table and this wiring must be appended together.");
+        }
+
+        producer.Upgrade(_game.AssetStore.Upgrades.GetByName("Upgrade_DieBatchDrone"));
+        drone.CreatedByObjectID = producer.Id;
     }
 
     public void AttachWriter(DeepCrcWriter writer) => _writer = writer;
