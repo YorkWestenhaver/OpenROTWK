@@ -94,6 +94,48 @@ Object DieBatchSurvivor
   End
 End
 
+; --- EjectPilotDie (Die batch task 7) -------------------------------------------
+; The ejected pilot is a plain object with no modules of its own: what the walk sees
+; is a NEW ObjectId appearing in the Objects channel on the frame its parent dies,
+; which is exactly the observable this module owes. It carries the batch witness for the
+; same reason every other object here does - only ported modules enter the walk, so a
+; module-less pilot would be invisible to the gate. GroundCreationList only, so the
+; scheduled ground death takes the configured branch while an airborne death would
+; take the empty branch (silent no-op).
+Object DieBatchPilot
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 10
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 1
+    HealingDelay = 400
+  End
+End
+
+ObjectCreationList OCL_DieBatchEjectPilot
+  CreateObject
+    ObjectNames = DieBatchPilot
+    Count = 1
+  End
+End
+
+Object DieBatchEjectVictim
+  KindOf = VEHICLE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = EjectPilotDie ModuleTag_Eject
+    GroundCreationList = OCL_DieBatchEjectPilot
+  End
+End
+
 Object DieBatchHealer
   KindOf = STRUCTURE
   Body = ActiveBody ModuleTag_Body
@@ -123,6 +165,7 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchEjectVictim", false, -30f,  20f),  // 8 - EjectPilotDie: killed, ejects DieBatchPilot as id 9
     };
 
     private readonly HeadlessSimGame _game;
