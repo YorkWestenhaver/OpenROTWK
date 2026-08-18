@@ -94,6 +94,41 @@ Object DieBatchSurvivor
   End
 End
 
+ObjectCreationList OCL_DieBatchSpawnling
+  CreateObject
+    ObjectNames = DieBatchSpawnling
+    Count = 1
+  End
+End
+
+Object DieBatchSpawnling
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+End
+
+Object DieBatchCreateObject
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AutoHealBehavior ModuleTag_Witness
+    StartsActive = Yes
+    HealingAmount = 4
+    HealingDelay = 400
+  End
+  Behavior = CreateObjectDie ModuleTag_Die
+    CreationList = OCL_DieBatchSpawnling
+    TransferPreviousHealth = Yes
+  End
+End
+
 Object DieBatchHealer
   KindOf = STRUCTURE
   Body = ActiveBody ModuleTag_Body
@@ -123,6 +158,9 @@ End
         ("DieBatchSurvivor",   false,  18f,   0f),   // 5 - control: damaged, never killed
         ("DieBatchVictim",     true,  200f,   0f),   // 6 - foreign owner, out of aura range
         ("DieBatchBurnVictim", false,   0f, -16f),   // 7 - BURNED death: the Die module fires
+        ("DieBatchCreateObject", false, 30f, 30f),   // 8 - CreateObjectDie: its death ADDS an
+                                                     //     object to the walk, carrying the
+                                                     //     pre-death health deficit with it
     };
 
     private readonly HeadlessSimGame _game;
