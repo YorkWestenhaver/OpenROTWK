@@ -22,10 +22,10 @@ public sealed class WeaponTemplate : BaseAsset
     private static readonly IniParseTable<WeaponTemplate> FieldParseTable = new IniParseTable<WeaponTemplate>
     {
         // Legacy
-        { "PrimaryDamage", (parser, x) => x.SetDamageNuggetDamage(0, parser.ParseFloat()) },
-        { "PrimaryDamageRadius", (parser, x) => x.SetDamageNuggetRadius(0, parser.ParseFloat()) },
-        { "SecondaryDamage", (parser, x) => x.SetDamageNuggetDamage(1, parser.ParseFloat()) },
-        { "SecondaryDamageRadius", (parser, x) => x.SetDamageNuggetRadius(1, parser.ParseFloat()) },
+        { "PrimaryDamage", (parser, x) => x.SetDamageNuggetDamage(0, parser.ParseFix64()) },
+        { "PrimaryDamageRadius", (parser, x) => x.SetDamageNuggetRadius(0, parser.ParseFix64()) },
+        { "SecondaryDamage", (parser, x) => x.SetDamageNuggetDamage(1, parser.ParseFix64()) },
+        { "SecondaryDamageRadius", (parser, x) => x.SetDamageNuggetRadius(1, parser.ParseFix64()) },
         {
             "DamageType",
             (parser, x) =>
@@ -243,13 +243,13 @@ public sealed class WeaponTemplate : BaseAsset
         return damageNuggets[index];
     }
 
-    private void SetDamageNuggetDamage(int index, float value)
+    private void SetDamageNuggetDamage(int index, SimCore.Numerics.Fix64 value)
     {
         var damageNugget = EnsureDammageNugget(index);
         damageNugget.Damage = value;
     }
 
-    private void SetDamageNuggetRadius(int index, float value)
+    private void SetDamageNuggetRadius(int index, SimCore.Numerics.Fix64 value)
     {
         var damageNugget = EnsureDammageNugget(index);
         damageNugget.Radius = value;

@@ -1,5 +1,5 @@
 ﻿using System.Numerics;
-using FixedMath.NET;
+using OpenSage.SimCore.Numerics;
 
 namespace OpenSage.Logic.Object;
 
@@ -37,11 +37,14 @@ internal sealed class WeaponTarget
     {
         if (TargetType == WeaponTargetType.Object)
         {
-            GetTargetObject().AttemptDamage(new DamageInfoInput(damageDealer)
+            // The S1 Fix64 delivery path (position targets need the Fix64 transform
+            // port; see research/systems/weapon-damage-armor.md).
+            DamagePipeline.DealDirectDamage(GetTargetObject(), new CombatDamageInput
             {
+                SourceId = damageDealer?.Id ?? ObjectId.Invalid,
                 DamageType = damageType,
                 DeathType = deathType,
-                Amount = (float)amount,
+                Amount = amount,
             });
         }
     }

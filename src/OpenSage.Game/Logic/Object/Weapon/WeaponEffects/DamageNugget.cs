@@ -1,6 +1,6 @@
-﻿using FixedMath.NET;
-using OpenSage.Data.Ini;
+﻿using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
+using OpenSage.SimCore.Numerics;
 
 namespace OpenSage.Logic.Object;
 
@@ -15,8 +15,8 @@ public class DamageNugget : WeaponEffectNugget
     private protected static new readonly IniParseTable<DamageNugget> FieldParseTable = WeaponEffectNugget.FieldParseTable
         .Concat(new IniParseTable<DamageNugget>
         {
-            { "Damage", (parser, x) => x.Damage = parser.ParseFloat() },
-            { "Radius", (parser, x) => x.Radius = parser.ParseFloat() },
+            { "Damage", (parser, x) => x.Damage = parser.ParseFix64() },
+            { "Radius", (parser, x) => x.Radius = parser.ParseFix64() },
             { "DelayTime", (parser, x) => x.DelayTime = parser.ParseInteger() },
             { "DamageType", (parser, x) => x.DamageType = parser.ParseEnum<DamageType>() },
             { "DamageFXType", (parser, x) => x.DamageFXType = parser.ParseEnum<DamageFXType>() },
@@ -40,14 +40,15 @@ public class DamageNugget : WeaponEffectNugget
         });
 
     /// <summary>
-    /// Damage for a normal hit.
+    /// Damage for a normal hit (Q31.32, quantized once at parse - the S1 chain's
+    /// entry amount).
     /// </summary>
-    public float Damage { get; internal set; }
+    public Fix64 Damage { get; internal set; }
 
     /// <summary>
-    /// Radius of damage.
+    /// Radius of damage (Q31.32).
     /// </summary>
-    public float Radius { get; internal set; }
+    public Fix64 Radius { get; internal set; }
 
     /// <summary>
     /// Delay after hit till the damage is applied.
@@ -120,6 +121,8 @@ public class DamageNugget : WeaponEffectNugget
             //TODO: increase damage with context.Weapon.Template.WeaponBonuses
         }
 
-        context.Weapon.CurrentTarget.DoDamage(DamageType, (Fix64)Damage, DeathType, context.Weapon.ParentGameObject);
+        // The S1 Fix64 chain: nugget amount (quantized at parse) -> DamagePipeline ->
+        // armor -> scalar -> health, no float hop on this side.
+        context.Weapon.CurrentTarget.DoDamage(DamageType, Damage, DeathType, context.Weapon.ParentGameObject);
     }
 }

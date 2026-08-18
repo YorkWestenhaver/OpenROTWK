@@ -10,11 +10,45 @@ namespace OpenSage.Logic.Object;
 
 public abstract class BodyModule : BehaviorModule
 {
-    private float _damageScalar = 1.0f;
+    // S1: the damage scalar is canonical Fix64 sim state (GPL BodyModule::m_damageScalar);
+    // float callers cross through the CombatLegacyBridge quantizer.
+    private SimCore.Numerics.Fix64 _damageScalar = SimCore.Numerics.Fix64.One;
 
     protected BodyModule(GameObject gameObject, IGameEngine gameEngine)
         : base(gameObject, gameEngine)
     {
+    }
+
+    /// <summary>
+    /// Set by a Fix64-aware body (ActiveBody) during the virtual AttemptDamage/
+    /// AttemptHealing call so <see cref="AttemptCombatDamage"/> can return the exact
+    /// Fix64 result instead of re-quantizing the legacy float view. Cleared by the
+    /// bridge before each call. Migration scaffolding: dies with the Body-batch
+    /// flag-day (amendments A2).
+    /// </summary>
+    protected CombatDamageOutput? LastCombatOutput;
+
+    /// <summary>
+    /// The S1 pipeline's Fix64 damage entry. Deliberately NON-virtual: it routes through
+    /// the virtual legacy <see cref="AttemptDamage"/> so every unported Body subclass
+    /// override (Highlander/Undead/Immortal/...) keeps its semantics; a Fix64-aware body
+    /// reports its exact result via <see cref="LastCombatOutput"/>.
+    /// </summary>
+    public CombatDamageOutput AttemptCombatDamage(in CombatDamageInput input)
+    {
+        LastCombatOutput = null;
+        var source = GameEngine.GameLogic.GetObjectById(input.SourceId);
+        var legacyOutput = AttemptDamage(CombatLegacyBridge.ToLegacyInput(input, source));
+        return LastCombatOutput ?? CombatLegacyBridge.ToCombatOutput(legacyOutput);
+    }
+
+    /// <summary>Fix64 healing entry, same routing rules as <see cref="AttemptCombatDamage"/>.</summary>
+    public CombatDamageOutput AttemptCombatHealing(in CombatDamageInput input)
+    {
+        LastCombatOutput = null;
+        var source = GameEngine.GameLogic.GetObjectById(input.SourceId);
+        var legacyOutput = AttemptHealing(CombatLegacyBridge.ToLegacyInput(input, source));
+        return LastCombatOutput ?? CombatLegacyBridge.ToCombatOutput(legacyOutput);
     }
 
     /// <summary>
@@ -130,7 +164,10 @@ public abstract class BodyModule : BehaviorModule
         set => DebugUtility.Crash("You should never call this for generic Bodys");
     }
 
-    public float DamageScalar => _damageScalar;
+    public float DamageScalar => _damageScalar.ToFloatForDisplay();
+
+    /// <summary>Canonical Fix64 damage scalar (the S1 pipeline consumes this).</summary>
+    public SimCore.Numerics.Fix64 DamageScalarFix64 => _damageScalar;
 
     /// <summary>
     /// Allows outside systems to apply defensive bonus of penalties (they all
@@ -138,7 +175,21 @@ public abstract class BodyModule : BehaviorModule
     /// </summary>
     public void ApplyDamageScalar(float scalar)
     {
+        _damageScalar *= CombatLegacyBridge.QuantizeFloat(scalar);
+    }
+
+    public void ApplyDamageScalar(SimCore.Numerics.Fix64 scalar)
+    {
         _damageScalar *= scalar;
+    }
+
+    /// <summary>
+    /// The base body's contribution to the contract Xfer walk (F9: our declaration
+    /// order). Called by Fix64-aware subclasses from their own Xfer.
+    /// </summary>
+    private protected void XferBodyBase(SimCore.Sync.IXfer xfer)
+    {
+        xfer.XferFix64("DamageScalar", ref _damageScalar, SimCore.Sync.Tolerance.Quantum);
     }
 
     /// <summary>
@@ -171,7 +222,13 @@ public abstract class BodyModule : BehaviorModule
         base.Load(reader);
         reader.EndObject();
 
-        reader.PersistSingle(ref _damageScalar); // was roughly 0.9 after changing to hold the line
+        // Retail layout is float (F9-exempt legacy reader); quantize on read.
+        var damageScalar = _damageScalar.ToFloatForDisplay();
+        reader.PersistSingle(ref damageScalar); // was roughly 0.9 after changing to hold the line
+        if (reader.Mode == StatePersistMode.Read)
+        {
+            _damageScalar = CombatLegacyBridge.QuantizeFloat(damageScalar);
+        }
     }
 
     private DamageType _inspectorDamageType = DamageType.Explosion;
@@ -180,7 +237,11 @@ public abstract class BodyModule : BehaviorModule
 
     internal override void DrawInspector()
     {
-        ImGui.InputFloat("Damage scalar", ref _damageScalar);
+        var damageScalarEdit = _damageScalar.ToFloatForDisplay();
+        if (ImGui.InputFloat("Damage scalar", ref damageScalarEdit))
+        {
+            _damageScalar = CombatLegacyBridge.QuantizeFloat(damageScalarEdit);
+        }
 
         ImGui.LabelText("Health", Health.ToString());
 

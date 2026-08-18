@@ -273,12 +273,44 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     }
 
     /// <summary>
-    /// Fix64 healing entry for ported modules (float boundary: Body is unmigrated substrate,
-    /// so the quantized amount is widened to float exactly once, here, not in [SimState]
-    /// module code). Collapses into the Fix64 pipeline when BodyModule ports.
+    /// The S1 Fix64 damage entry (DamagePipeline delivers through this). Routes through
+    /// the Body's legacy virtual chain so unported Body overrides keep their semantics;
+    /// the health application itself is Fix64 (BodyDamageCore).
+    /// </summary>
+    public CombatDamageOutput AttemptCombatDamage(in CombatDamageInput input)
+    {
+        if (_body == null)
+        {
+            return new CombatDamageOutput { NoEffect = true };
+        }
+
+        var output = _body.AttemptCombatDamage(input);
+
+        // TODO(Port): shockwave and radar stuff.
+
+        return output;
+    }
+
+    /// <summary>
+    /// Fix64 healing entry for ported modules: the amount stays Q31.32 end to end
+    /// through the Body's Fix64 core (S1).
     /// </summary>
     public DamageInfoOutput AttemptHealing(SimCore.Numerics.Fix64 amount, GameObject source)
-        => AttemptHealing(amount.ToFloatForDisplay(), source);
+    {
+        if (_body == null)
+        {
+            return default;
+        }
+
+        var output = _body.AttemptCombatHealing(new CombatDamageInput
+        {
+            SourceId = source?.Id ?? ObjectId.Invalid,
+            DamageType = DamageType.Healing,
+            DeathType = DeathType.None,
+            Amount = amount,
+        });
+        return CombatLegacyBridge.ToLegacyOutput(output);
+    }
 
     /// <summary>
     /// Float-free "is damaged" view for ported modules (same boundary rationale as the

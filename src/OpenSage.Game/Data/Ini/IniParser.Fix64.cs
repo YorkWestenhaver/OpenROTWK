@@ -32,7 +32,17 @@ partial class IniParser
         {
             return Fix64.FromDecimalLiteral(text);
         }
-        catch (Exception e) when (e is FormatException or OverflowException)
+        catch (OverflowException)
+        {
+            // Deterministic saturation. Shipping AotR data carries "effectively infinite"
+            // sentinels beyond the R1 survey (weapon.ini: AttackRange/Radius = 9999999999,
+            // 1e10 > Q31.32's ±2.1e9). The retail engine reads them as float ~1e10; both
+            // readings mean "farther than any map", so the same raw INI bytes still produce
+            // the same raw bits on every machine - the F4 property that matters.
+            // Recorded as S1 finding F-WDA-1 (research/systems/weapon-damage-armor.md).
+            return text.StartsWith('-') ? Fix64.MinValue : Fix64.MaxValue;
+        }
+        catch (FormatException e)
         {
             throw new IniParseException($"Invalid Fix64 value: '{token.Text}' ({e.Message})", token.Position);
         }
