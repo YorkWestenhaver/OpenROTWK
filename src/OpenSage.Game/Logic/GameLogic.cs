@@ -50,6 +50,20 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
     internal SimPartitionEngineHost SimPartitionIfCreated => _simPartition;
     // ------------------------------------------------------------------------------------
 
+    // ---- S5 pathfinding wiring (sys/pathfinding) ---------------------------------------
+    // The deterministic pathfind grid + A* + request queue host, constructed lazily on
+    // first use, obstacle-stamped in the lifecycle hooks below, and ticked in GPL's frame
+    // slot: AI::update (the pathfind queue) runs AFTER the sleepy module loop and BEFORE
+    // the partition tick (GameLogic.cpp subsystem order).
+    private OpenSage.Logic.Object.Pathfind.SimPathfindEngineHost _simPathfind;
+
+    internal OpenSage.Logic.Object.Pathfind.SimPathfindEngineHost SimPathfind =>
+        _simPathfind ??= new OpenSage.Logic.Object.Pathfind.SimPathfindEngineHost(_game);
+
+    /// <summary>The host if one was created; null until the first object/queue use.</summary>
+    internal OpenSage.Logic.Object.Pathfind.SimPathfindEngineHost SimPathfindIfCreated => _simPathfind;
+    // ------------------------------------------------------------------------------------
+
     private readonly List<GameObject> _objectsToIterate = new();
     // TODO: This allocates memory. Don't do this.
     public IEnumerable<GameObject> Objects
@@ -136,6 +150,9 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // S3 partition wiring (F-PV-1): register with the deterministic grid.
         SimPartition.OnObjectAdded(gameObject);
 
+        // S5 pathfinding wiring: structures stamp obstacle footprints into the pathfind grid.
+        SimPathfind.OnObjectAdded(gameObject);
+
         return gameObject;
     }
 
@@ -203,6 +220,9 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // S3 partition wiring (F-PV-1): unregister; the fog persists per the grid's
         // timed unlook (GPL unlook-on-destroy shape).
         _simPartition?.OnObjectRemoved(gameObject);
+
+        // S5 pathfinding wiring: un-stamp the obstacle footprint.
+        _simPathfind?.OnObjectRemoved(gameObject);
 
         gameObject.Drawable.Destroy();
 
@@ -291,6 +311,10 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         }
 
         _sleepyUpdates.Validate();
+
+        // S5 pathfinding wiring: GPL's AI::update slot - the pathfind queue drains after
+        // the module loop, before the partition tick (GameLogic.cpp subsystem order).
+        _simPathfind?.Update();
 
         // S3 partition wiring (F-PV-1): the SimPhase.PartitionUpdate body for hosts that
         // tick GameLogic directly (position re-anchor + due shroud-undo pops). Runs on

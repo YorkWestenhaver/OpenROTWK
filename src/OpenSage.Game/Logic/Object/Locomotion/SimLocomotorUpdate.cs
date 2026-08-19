@@ -31,10 +31,15 @@ public enum SimMoveMode
     MoveToPosition = 1,
     MoveTowardsAngle = 2,
     Maintain = 3,
+
+    // S5 pathfinding (additive): move along a pathfinder-produced path (GPL
+    // POSITION_ON_PATH). While the path request is queued the unit does not move
+    // (GPL "can't move till we get our path").
+    PathfindMoveToPosition = 4,
 }
 
 [SimState]
-public sealed class SimLocomotorUpdate : UpdateModule
+public sealed class SimLocomotorUpdate : UpdateModule, OpenSage.Logic.Object.Pathfind.ISimPathfindClient
 {
     private readonly SimLocomotorUpdateModuleData _data;
 
@@ -49,6 +54,15 @@ public sealed class SimLocomotorUpdate : UpdateModule
     private Fix64 _desiredSpeed;
     private bool _blocked;
     private bool _transformInitialized;
+
+    // ---- S5 pathfinding state (additive region, Pathfind* name-reserved) ----
+    private OpenSage.Logic.Object.Pathfind.SimPath _pathfindPath;
+    private FixVector3 _pathfindDestination;
+    private bool _pathfindWaitingForPath;
+    private LogicFrame _pathfindPathTimestamp;
+    private bool _pathfindHasPathTimestamp;
+    private LogicFrame _pathfindRequeueFrame;
+    private bool _pathfindHasRequeueFrame;
 
     public SimLocomotorUpdate(GameObject gameObject, ISimContext context, SimLocomotorUpdateModuleData data)
         : base(gameObject, context)
@@ -173,6 +187,150 @@ public sealed class SimLocomotorUpdate : UpdateModule
         SetWakeFrame(UpdateSleepTime.None);
     }
 
+    // ==================================================================
+    // S5 pathfinding (additive region, Pathfind* name-reserved): the GPL
+    // requestPath -> queue -> doPathfind -> POSITION_ON_PATH follow seam,
+    // living here until AIUpdate ports (PATH-F6, same shape as LOCO-F1).
+    // ==================================================================
+
+    public OpenSage.Logic.Object.Pathfind.SimPath PathfindPath => _pathfindPath;
+    public bool PathfindWaitingForPath => _pathfindWaitingForPath;
+
+    /// <summary>
+    /// GPL AIUpdate::requestPath: store the destination, mark waiting, and either queue
+    /// now or - when the last path was computed within the last 3 frames (the repath
+    /// spin guard) - defer the queueing by 1 second (5 frames at the frozen 5 Hz).
+    /// </summary>
+    public void SetPathfindTargetPosition(in FixVector3 destination, Fix64 desiredSpeed)
+    {
+        _mode = SimMoveMode.PathfindMoveToPosition;
+        _pathfindDestination = destination;
+        _desiredSpeed = desiredSpeed;
+        _blocked = false;
+        _pathfindWaitingForPath = true;
+
+        var now = Context.CurrentFrame;
+        if (_pathfindHasPathTimestamp &&
+            _pathfindPathTimestamp + new LogicFrameSpan(3) > now)
+        {
+            // Requesting a path very quickly - wait a second (GPL requestPath guard).
+            _pathfindRequeueFrame = now + new LogicFrameSpan(5);
+            _pathfindHasRequeueFrame = true;
+        }
+        else
+        {
+            Context.GameLogic.PathfindQueueForPath(GameObject.Id);
+        }
+
+        CurrentLocomotor?.StartMove(now);
+        SetWakeFrame(UpdateSleepTime.None);
+    }
+
+    /// <summary>
+    /// GPL AIUpdate::doPathfind - called by the pathfinder DURING queue processing (the
+    /// only site allowed to run a find). Computes the path from the current sim position
+    /// to the requested destination and stamps the path timestamp.
+    /// </summary>
+    public void DoPathfind(OpenSage.Logic.Object.Pathfind.SimPathfinder pathfinder)
+    {
+        if (!_pathfindWaitingForPath)
+        {
+            return;
+        }
+        _pathfindWaitingForPath = false;
+        EnsureTransformInitialized();
+
+        PathfindGetRadiusAndCenter(out var radius, out var centerInCell);
+        _pathfindPath = pathfinder.FindPath(
+            _locomotorSet.ValidSurfaces,
+            _physics.Position,
+            _pathfindDestination,
+            radius,
+            centerInCell,
+            ignoreObstacleId: 0);
+        _pathfindPathTimestamp = Context.CurrentFrame;
+        _pathfindHasPathTimestamp = true;
+    }
+
+    /// <summary>
+    /// GPL Pathfinder::getRadiusAndCenter: pathfind footprint radius from the bounding
+    /// circle - diameters in (10,20) snap to 20; iRadius = floor(diam/10 + 0.3); zero
+    /// bumps to 1; odd radii center in the cell; halve; clamp to 2 (clamped is centered).
+    /// </summary>
+    private void PathfindGetRadiusAndCenter(out int radius, out bool centerInCell)
+    {
+        var (bounding, _) = SimTransformBridge.PullGeometry(GameObject);
+        var diameter = bounding + bounding;
+        var cell = Fix64.FromDecimalLiteral("10");
+        var twoCells = Fix64.FromDecimalLiteral("20");
+        if (diameter > cell && diameter < twoCells)
+        {
+            diameter = twoCells;
+        }
+        var scaled = diameter / cell + Fix64.FromDecimalLiteral("0.3");
+        var iRadius = (int)(Fix64.Floor(scaled).RawValue >> 32);
+        centerInCell = false;
+        if (iRadius == 0)
+        {
+            iRadius++;
+        }
+        if ((iRadius & 1) != 0)
+        {
+            centerInCell = true;
+        }
+        iRadius /= 2;
+        if (iRadius > 2)
+        {
+            iRadius = 2;
+            centerInCell = true;
+        }
+        radius = iRadius;
+    }
+
+    /// <summary>
+    /// The POSITION_ON_PATH frame body (GPL doLocomotor): waiting means standing still;
+    /// otherwise project onto the path (computePointOnPath) and feed the locomotor the
+    /// goal point + remaining on-path distance. Returns false when there is nothing to
+    /// do this frame (waiting / no path).
+    /// </summary>
+    private bool PathfindFollowPath(LogicFrame now, Fix64 surfaceZ, BodyDamageType condition)
+    {
+        if (_pathfindHasRequeueFrame && now >= _pathfindRequeueFrame)
+        {
+            _pathfindHasRequeueFrame = false;
+            Context.GameLogic.PathfindQueueForPath(GameObject.Id);
+        }
+        if (_pathfindWaitingForPath || _pathfindPath == null || _pathfindPath.Count == 0)
+        {
+            return false; // GPL: can't move till we get our path
+        }
+
+        // Arrival (GPL AIUpdate close-enough vs the path end / requested destination).
+        var locomotor = CurrentLocomotor;
+        var goal = _pathfindPath.LastPosition;
+        var dx = goal.X - _physics.Position.X;
+        var dy = goal.Y - _physics.Position.Y;
+        var closeEnough = locomotor.CloseEnoughDist;
+        if (dx * dx + dy * dy <= closeEnough * closeEnough)
+        {
+            _pathfindPath = null;
+            _mode = SimMoveMode.Maintain;
+            return false;
+        }
+
+        _pathfindPath.ComputePointOnPath(
+            Context.GameLogic.PathfindGrid, _locomotorSet.ValidSurfaces, 0, _physics.Position,
+            out var goalPos, out var onPathDist);
+
+        var blocked = _blocked;
+        locomotor.MoveTowardsPosition(
+            _physics, condition, goalPos, onPathDist, _desiredSpeed,
+            ref blocked, now, surfaceZ);
+        _blocked = blocked;
+        return true;
+    }
+
+
     private BodyDamageType DamageCondition => GameObject.BodyModule.DamageState;
 
     public override UpdateSleepTime Update()
@@ -229,6 +387,18 @@ public sealed class SimLocomotorUpdate : UpdateModule
                 locomotor.MoveTowardsAngle(_physics, condition, _goalAngle, now, surfaceZ);
                 break;
 
+            // S5 pathfinding (additive): the POSITION_ON_PATH body. Falls through to
+            // Maintain when PathfindFollowPath collapses the mode on arrival.
+            case SimMoveMode.PathfindMoveToPosition:
+            {
+                if (!PathfindFollowPath(now, surfaceZ, condition) &&
+                    _mode == SimMoveMode.Maintain)
+                {
+                    goto case SimMoveMode.Maintain;
+                }
+                break;
+            }
+
             case SimMoveMode.Maintain:
                 requiresConstantCalling =
                     locomotor.MaintainCurrentPosition(_physics, condition, now, surfaceZ);
@@ -280,6 +450,25 @@ public sealed class SimLocomotorUpdate : UpdateModule
         xfer.XferFix64("DesiredSpeed", ref _desiredSpeed);
         xfer.XferBool("Blocked", ref _blocked);
         xfer.XferBool("TransformInitialized", ref _transformInitialized);
+
+        // ---- S5 pathfinding state (additive tail) ----
+        xfer.XferFixVector3("PathfindDestination", ref _pathfindDestination, Tolerance.Band);
+        xfer.XferBool("PathfindWaitingForPath", ref _pathfindWaitingForPath);
+        xfer.XferFrame("PathfindPathTimestamp", ref _pathfindPathTimestamp);
+        xfer.XferBool("PathfindHasPathTimestamp", ref _pathfindHasPathTimestamp);
+        xfer.XferFrame("PathfindRequeueFrame", ref _pathfindRequeueFrame);
+        xfer.XferBool("PathfindHasRequeueFrame", ref _pathfindHasRequeueFrame);
+        var hasPath = _pathfindPath != null;
+        xfer.XferBool("PathfindHasPath", ref hasPath);
+        if (hasPath)
+        {
+            _pathfindPath ??= new OpenSage.Logic.Object.Pathfind.SimPath();
+            _pathfindPath.Xfer(xfer);
+        }
+        else if (xfer.Mode == XferMode.Load)
+        {
+            _pathfindPath = null;
+        }
     }
 
     private void RebuildSetForLoad(LocomotorSetType type)
