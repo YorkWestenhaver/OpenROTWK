@@ -148,6 +148,13 @@ public abstract class BehaviorModuleData : ModuleData
         // S2 locomotor system driver (interim vocabulary until AIUpdate ports; see
         // Locomotion/SimLocomotorUpdate.cs header).
         { "SimLocomotorUpdate", Locomotion.SimLocomotorUpdateModuleData.Parse },
+
+        // S6 horde system (interim vocabulary, same shape: the legacy "HordeContain" /
+        // "HordeMemberCollide" / "BannerCarrierUpdate" entries stay untouched; see
+        // Horde/SimHordeContain.cs header).
+        { "SimHordeContain", Horde.SimHordeContainModuleData.Parse },
+        { "SimHordeMember", Horde.SimHordeMemberModuleData.Parse },
+        { "SimBannerCarrierUpdate", Horde.SimBannerCarrierUpdateModuleData.Parse },
         { "SiegeDockingBehavior", SiegeDockingBehaviorModuleData.Parse },
         { "SlaveWatcherBehavior", SlaveWatcherBehaviorModuleData.Parse },
         { "SlowDeathBehavior", SlowDeathBehaviorModuleData.Parse },
