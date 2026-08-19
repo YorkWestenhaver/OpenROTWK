@@ -125,6 +125,24 @@ public interface IGameLogic
     /// </para>
     /// </summary>
     void NotifyOfCompletedSpecialPower(int playerIndex, string specialPowerName, ObjectId sourceObjectId);
+
+    /// <summary>
+    /// S5 pathfinding (additive, Pathfind* name-reserved): enqueue the object on the
+    /// pathfinder's FIFO request queue (GPL <c>TheAI-&gt;pathfinder()-&gt;queueForPath</c>).
+    /// The request is served during the frame's queue-processing slot (after the module
+    /// update loop), subject to the per-frame cell budget; the pathfinder calls back into
+    /// the object's <c>ISimPathfindClient</c> module. False when the 512-slot ring is
+    /// full (GPL's failure mode).
+    /// </summary>
+    bool PathfindQueueForPath(ObjectId id);
+
+    /// <summary>
+    /// S5 pathfinding (additive, Pathfind* name-reserved): the match's pathfind grid -
+    /// [SimState] sim substrate serving the path-follow passability probes
+    /// (GPL <c>TheAI-&gt;pathfinder()-&gt;isLinePassable</c> reads the same map the finder
+    /// searched).
+    /// </summary>
+    OpenSage.Logic.Object.Pathfind.SimPathfindGrid PathfindGrid { get; }
 }
 
 /// <summary>

@@ -138,6 +138,13 @@ internal sealed class SimContext : ISimContext
 
         public void NotifyOfCompletedSpecialPower(int playerIndex, string specialPowerName, ObjectId sourceObjectId)
             => _completedSpecialPowers.Add(playerIndex, specialPowerName, sourceObjectId);
+
+        // S5 pathfinding (additive): route to the GameLogic-owned pathfind host.
+        public bool PathfindQueueForPath(ObjectId id)
+            => _engine.GameLogic.SimPathfind.QueueForPath(id);
+
+        public OpenSage.Logic.Object.Pathfind.SimPathfindGrid PathfindGrid
+            => _engine.GameLogic.SimPathfind.Grid;
     }
 
     private sealed class PartitionAdapter : IPartitionQuery
