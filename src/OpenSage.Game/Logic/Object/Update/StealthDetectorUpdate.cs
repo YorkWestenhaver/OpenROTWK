@@ -143,7 +143,20 @@ public sealed class StealthDetectorUpdate : UpdateModule
                 }
 
                 // THE sim effect (GPL stealth->markAsDetected): reveal the stealthed enemy.
-                candidate.SetObjectStatus(ObjectStatus.Detected, true);
+                // R9 integration: the target's StealthUpdate (ported in the same round) owns
+                // the Detected bit - it recomputes it from its detection timer every tick, so
+                // setting the bit alone would be cleared next frame. Arm the timer through
+                // its MarkAsDetected seam (exactly GPL's stealth->markAsDetected()); fall
+                // back to the raw bit for objects without a ported StealthUpdate.
+                var stealth = candidate.FindBehavior<StealthUpdate>();
+                if (stealth != null)
+                {
+                    stealth.MarkAsDetected();
+                }
+                else
+                {
+                    candidate.SetObjectStatus(ObjectStatus.Detected, true);
+                }
             }
         }
 
