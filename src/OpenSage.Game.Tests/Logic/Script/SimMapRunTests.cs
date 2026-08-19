@@ -154,4 +154,23 @@ End
         Assert.True(run.Game.GameLogic.TryGetObjectByName("Def_1", out var defender));
         Assert.NotEqual(attacker.Translation, defender.Translation);
     }
+
+    [Fact]
+    public void Job005Map_RetailLobbyWipe_AuthoredScenarioScriptsDoNotRun()
+    {
+        var run = new SimMapRun(SageGame.Bfme2, 0xB00, LoadJob005Map(), [Definitions], retailLobbyWipe: true);
+
+        // Every job005 script belongs to ScnAttacker/ScnDefender; the retail lobby
+        // wipes those players WITH their script lists (SCRIPT-O2 — this exact map
+        // hung in retail because its telemetry never ran).
+        Assert.Empty(run.Program.Scripts);
+
+        for (var f = 0; f < 20; f++)
+        {
+            run.StepFrame();
+        }
+
+        Assert.False(run.MapExitRequested);
+        Assert.False(run.Game.GameLogic.TryGetObjectByName("Atk_1", out _));
+    }
 }

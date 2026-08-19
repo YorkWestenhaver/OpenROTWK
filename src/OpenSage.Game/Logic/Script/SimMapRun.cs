@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using OpenSage.Data.Map;
+using OpenSage.Logic.Map;
 using OpenSage.Logic.Sim;
 using OpenSage.Scripting;
 using Player = OpenSage.Logic.Player;
@@ -33,12 +34,22 @@ internal sealed class SimMapRun
     public int MapObjectsSpawned { get; }
     public int MapObjectsSkipped { get; }
 
-    public SimMapRun(SageGame sageGame, uint seed, MapFile mapFile, IReadOnlyList<string> iniTexts)
+    public SimMapRun(SageGame sageGame, uint seed, MapFile mapFile, IReadOnlyList<string> iniTexts, bool retailLobbyWipe = false)
     {
         ArgumentNullException.ThrowIfNull(mapFile);
         ArgumentNullException.ThrowIfNull(iniTexts);
 
-        Program = SimScriptCompiler.Compile(mapFile.PlayerScriptsList);
+        // Opt-in retail-lobby conformance (SCRIPT-O2): only well-known players' script
+        // lists reach the compiler; the default path keeps the GPL/SP behavior of
+        // running every authored player's scripts.
+        IReadOnlyList<ScriptList> scriptLists = mapFile.PlayerScriptsList?.ScriptLists ?? [];
+        if (retailLobbyWipe)
+        {
+            scriptLists = SidesListUtility.ApplyRetailLobbyPlayerWipe(
+                mapFile.SidesList?.Players ?? [], scriptLists);
+        }
+
+        Program = SimScriptCompiler.Compile(scriptLists);
         if (Program.UnknownConditionIds.Count > 0 || Program.UnknownActionIds.Count > 0)
         {
             throw new InvalidDataException(

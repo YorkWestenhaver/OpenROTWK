@@ -9,9 +9,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using OpenSage.Data.Map;
+using OpenSage.Logic.Map;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Script;
 using OpenSage.Logic.Sim;
+using OpenSage.Scripting;
 using OpenSage.SimCore.Rng;
 using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
@@ -820,4 +822,61 @@ End
         Assert.Equal(neutral, probe.Owner);
     }
 
+    // ---- retail lobby player wipe (SCRIPT-O2) ----
+
+    [Theory]
+    [InlineData("", true)]            // Neutral's internal map name
+    [InlineData("Neutral", true)]
+    [InlineData("PlyrCivilian", true)]
+    [InlineData("PlyrCreeps", true)]
+    [InlineData("PlyrNeutral", true)]
+    [InlineData("SkirmishGondor", true)]
+    [InlineData("Player_1", true)]
+    [InlineData("Player_12", true)]
+    [InlineData("Player_", false)]
+    [InlineData("Player_One", false)]
+    [InlineData("ScnAttacker", false)]
+    [InlineData("ScnDefender", false)]
+    public void RetailLobbyWipe_SurvivorList(string playerName, bool survives)
+    {
+        Assert.Equal(survives, SidesListUtility.SurvivesRetailLobbyPlayerWipe(playerName));
+    }
+
+    [Fact]
+    public void RetailLobbyWipe_OnlyWellKnownPlayersScriptsRun()
+    {
+        // One program with a Neutral script list (job008's direct-arm telemetry) and
+        // authored ScnAttacker/ScnDefender lists (job005's spawns) — the exact shape
+        // the jobs 005/006/008 retail evidence discriminated.
+        var job005 = LoadMapAsset("job005_spawn_fight.map");
+        var job008 = LoadMapAsset("job008_exit_direct.map");
+        Assert.Equal(string.Empty, job005.SidesList.Players[0].Name);
+
+        var scriptLists = (ScriptList[])job005.PlayerScriptsList.ScriptLists.Clone();
+        scriptLists[0] = job008.PlayerScriptsList.ScriptLists[0];
+
+        var wiped = SidesListUtility.ApplyRetailLobbyPlayerWipe(job005.SidesList.Players, scriptLists);
+        var program = SimScriptCompiler.Compile(wiped);
+
+        // Only the Neutral scripts survived the wipe.
+        Assert.Contains(program.Scripts, s => s.Name == "Tlm_Exit");
+        Assert.DoesNotContain(program.Scripts, s => s.Name == "ScnA_00_Spawn");
+        Assert.All(program.Scripts, s => Assert.Equal(0, s.PlayerIndex));
+
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(program, host, NewRandom());
+        Run(engine, host, 250);
+
+        // The Neutral telemetry exits on its direct arm; the wiped spawns never ran
+        // (retail: job008 self-exited at ~104, job005 hung).
+        Assert.True(engine.MapExitRequested);
+        Assert.Equal(100u, engine.MapExitFrame.Value);
+        Assert.DoesNotContain(host.Log, entry => entry.StartsWith("create:"));
+
+        // The unwiped lists still run the authored players' scripts (GPL/SP path).
+        var unwipedHost = new FakeScriptHost();
+        var unwiped = new SimScriptEngine(SimScriptCompiler.Compile(scriptLists), unwipedHost, NewRandom());
+        Run(unwiped, unwipedHost, 5);
+        Assert.Contains(unwipedHost.Log, entry => entry.StartsWith("create:Atk_1"));
+    }
 }
