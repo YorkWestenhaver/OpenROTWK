@@ -37,6 +37,19 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
 
     internal uint NextObjectId = 1;
 
+    // ---- S3 partition wiring (sys/partition-wiring, closes F-PV-1) ---------------------
+    // The deterministic Fix64 partition grid host: constructed lazily on the first object
+    // (by which point the map/roster exist), registered/unregistered in the lifecycle
+    // hooks below, ticked at the end of Update() (the interim SimPhase.PartitionUpdate
+    // body until GameLogic rides SimLoop). ISimContext.Partition queries route here.
+    private SimPartitionEngineHost _simPartition;
+
+    internal SimPartitionEngineHost SimPartition => _simPartition ??= new SimPartitionEngineHost(_game);
+
+    /// <summary>The host if one was created; null before the first object. CRC channel sources use this.</summary>
+    internal SimPartitionEngineHost SimPartitionIfCreated => _simPartition;
+    // ------------------------------------------------------------------------------------
+
     private readonly List<GameObject> _objectsToIterate = new();
     // TODO: This allocates memory. Don't do this.
     public IEnumerable<GameObject> Objects
@@ -120,6 +133,9 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         _game.Scene3D.Radar?.AddGameObject(gameObject);
         _game.PartitionCellManager.OnObjectAdded(gameObject);
 
+        // S3 partition wiring (F-PV-1): register with the deterministic grid.
+        SimPartition.OnObjectAdded(gameObject);
+
         return gameObject;
     }
 
@@ -183,6 +199,10 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // object, which is the whole observable effect of half the Die modules.
         _game.Scene3D?.Radar?.RemoveGameObject(gameObject);
         gameObject.PartitionObject.Remove();
+
+        // S3 partition wiring (F-PV-1): unregister; the fog persists per the grid's
+        // timed unlook (GPL unlook-on-destroy shape).
+        _simPartition?.OnObjectRemoved(gameObject);
 
         gameObject.Drawable.Destroy();
 
@@ -271,6 +291,11 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         }
 
         _sleepyUpdates.Validate();
+
+        // S3 partition wiring (F-PV-1): the SimPhase.PartitionUpdate body for hosts that
+        // tick GameLogic directly (position re-anchor + due shroud-undo pops). Runs on
+        // the pre-increment frame counter, i.e. the frame that just executed.
+        _simPartition?.Update(now);
 
         _currentFrame++;
     }

@@ -148,14 +148,13 @@ internal sealed class SimContext : ISimContext
 
         public IEnumerable<GameObject> QueryObjectsInRadius(GameObject center, Fix64 radius)
         {
-            // Float boundary: the quadtree is unmigrated substrate. The float radius is
-            // derived from the quantized Fix64 exactly once, here.
-            var results = new List<GameObject>(
-                _engine.Quadtree.FindNearby(center, center.Transform, radius.ToFloatForDisplay()));
-
-            // The determinism contract: ascending ObjectId, never spatial-bucket order.
-            results.Sort(static (a, b) => a.Id.Index.CompareTo(b.Id.Index));
-            return results;
+            // S3 partition wiring (sys/partition-wiring, closes F-PV-1): the deterministic
+            // Fix64 SimPartitionGrid is the partition authority; the float quadtree no
+            // longer serves sim queries. Same signature, same ascending-ObjectId contract;
+            // the measure is GPL Center2D with GPL's strict '<' predicate (the old
+            // quadtree collider test was inclusive - reconciliation recorded in
+            // research/partition-wiring-r9.md).
+            return _engine.GameLogic.SimPartition.QueryObjectsInRadius(center, radius);
         }
     }
 
