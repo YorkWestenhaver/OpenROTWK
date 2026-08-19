@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
 
@@ -119,6 +120,42 @@ internal sealed class SpawnBehavior : UpdateModule
         {
             SpawnUnit();
         }
+    }
+
+    /// <summary>
+    /// Returns the living spawned slave nearest (2D, center-to-center) to
+    /// <paramref name="position"/>, or null when this spawner currently has no living
+    /// slaves. Mirrors GPL <c>SpawnBehaviorInterface::getClosestSlave</c>
+    /// (Behavior/SpawnBehavior.cpp) — the selection HiveStructureBody uses to redirect
+    /// incoming damage onto a slave. Destroyed slaves are skipped exactly as the original's
+    /// <c>findObjectByID</c> returns null for a reaped id. Distance is float (the D-7
+    /// partition boundary, same as AutoHeal's radius query); the damage it feeds is applied
+    /// in Fix64 by the chosen slave's Body.
+    /// </summary>
+    public GameObject? GetClosestSlave(in Vector3 position)
+    {
+        GameObject? closest = null;
+        var closestDistanceSquared = 0.0f;
+
+        foreach (var slave in _spawnedUnits)
+        {
+            if (slave == null || slave.IsDestroyed)
+            {
+                continue;
+            }
+
+            var dx = slave.Translation.X - position.X;
+            var dy = slave.Translation.Y - position.Y;
+            var distanceSquared = dx * dx + dy * dy;
+
+            if (closest == null || distanceSquared < closestDistanceSquared)
+            {
+                closest = slave;
+                closestDistanceSquared = distanceSquared;
+            }
+        }
+
+        return closest; // Could be null!
     }
 
     public override UpdateSleepTime Update()
