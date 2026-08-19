@@ -103,6 +103,33 @@ partial class IniParser
     public LogicFrameSpan ParseDurationLogicFrames() => ScanDurationLogicFrames(GetNextToken());
 
     /// <summary>
+    /// Seconds text -> whole logic frames, ceil(s * fps) computed on the quantized Q31.32
+    /// value with integer arithmetic only (the *Seconds INI vocabulary, e.g.
+    /// ScanIntervalSeconds; same posture as <see cref="ScanDurationLogicFrames"/>).
+    /// </summary>
+    public LogicFrameSpan ScanDurationLogicFramesSeconds(in IniToken token)
+    {
+        var sRaw = ScanFix64(token).RawValue;
+        if (sRaw < 0)
+        {
+            throw new IniParseException($"Negative duration: '{token.Text}'", token.Position);
+        }
+
+        // frames = ceil(sRaw * fps / (1 << 32)), exact in Int128.
+        var fps = SageGame.LogicFramesPerSecond();
+        var denominator = (Int128)1 << 32;
+        var numerator = (Int128)sRaw * fps;
+        var frames = (numerator + denominator - 1) / denominator;
+        if (frames > uint.MaxValue)
+        {
+            throw new IniParseException($"Duration out of range: '{token.Text}'", token.Position);
+        }
+        return new LogicFrameSpan((uint)frames);
+    }
+
+    public LogicFrameSpan ParseDurationLogicFramesSeconds() => ScanDurationLogicFramesSeconds(GetNextToken());
+
+    /// <summary>
     /// Degrees text -> Fix64 radians (S2: there is no FixedAngle type; angles are plain
     /// Fix64 radians and the degree conversion happens here). rad = deg * Pi / 180 with
     /// round-half-up at the raw scale, exact in Int128.
