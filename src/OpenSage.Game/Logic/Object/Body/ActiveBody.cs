@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
+using OpenSage.SimCore.Numerics;
+using OpenSage.SimCore.Sync;
 using OpenSage.Terrain;
 using OpenSage.Utilities;
 
@@ -41,10 +43,12 @@ public class ActiveBody : BodyModule
     {
         _moduleData = moduleData;
 
-        // ModuleData healths are float until the Body ModuleData audit; quantize once here.
+        // R7 Body ModuleData audit: MaxHealth/InitialHealth are now quantized ONCE at parse
+        // (ParseFix64, S5 blessed integer text boundary); the ctor consumes Fix64 directly.
+        // The two CombatLegacyBridge.QuantizeFloat edges S1 carried here are burned.
         _core.Initialize(
-            CombatLegacyBridge.QuantizeFloat(moduleData.MaxHealth),
-            CombatLegacyBridge.QuantizeFloat(moduleData.InitialHealth),
+            moduleData.MaxHealth,
+            moduleData.InitialHealth,
             Thresholds);
 
         // Force an initially-valid armor setup.
@@ -229,7 +233,7 @@ public class ActiveBody : BodyModule
             }
 
             var wasSubdued = IsSubdued;
-            _core.AddSubdualDamage(amount, CombatLegacyBridge.QuantizeFloat(_moduleData.SubdualDamageCap));
+            _core.AddSubdualDamage(amount, _moduleData.SubdualDamageCap);
             var nowSubdued = IsSubdued;
 
             alreadyHandled = true;
@@ -800,7 +804,7 @@ public class ActiveBody : BodyModule
         // TODO(Port): Implemement this.
     }
 
-    private bool CanBeSubdued => _moduleData.SubdualDamageCap > 0;
+    private bool CanBeSubdued => _moduleData.SubdualDamageCap > Fix64.Zero;
 
     private bool IsSubdued => _core.IsSubdued;
 
@@ -940,21 +944,69 @@ public class ActiveBody : BodyModule
         }
     }
 
-    // ---- the contract Xfer walk (S1): the Fix64 combat state participates in
-    // save/load + CRC + deep-dump. Field order = declaration order, ours (F9). The
-    // armor-set condition flags still ride ONLY the legacy persist (no generic-BitArray
-    // IXfer surface yet - filed as a finding). ----
+    // ---- the contract Xfer walk: the Fix64 combat state participates in save/load + CRC +
+    // deep-dump. Field order = declaration order, ours (F9). R7 completes the Objects-CRC fold
+    // by adding the armor-set condition flags (sim state: they select the active armor), packed
+    // into a uint over the 19 ArmorSetCondition values - closing finding F-WDA-5 with the frozen
+    // IXfer surface (no framework change). Deliberately EXCLUDED from the CRC channel, and why:
+    //   - _nextDamageFXFrame / _lastDamageFXDone: DamageFX throttle. Client-bound and set only
+    //     when a DamageFX asset is present, so they are HOST-DEPENDENT (null on headless) and
+    //     must not enter the sim checksum (D-5).
+    //   - _particleSystemIds: client visual handles.
+    //   - _lastDamageInfo (+ its frames): a float-laden legacy lookup struct (DamageInfoInput/
+    //     Output carry float Amount) used for display / AI last-attacker queries; it cannot cross
+    //     the float ban into the Fix64 channel. It rides the F9-exempt retail persister only.
+    //   - _currentArmorSet / _currentArmor / _currentDamageFX: derived, recomputed by
+    //     ValidateArmorAndDamageFX from the flags every AttemptDamage (rebuilt on load below).
+    // ----
 
     internal override bool HasSimXfer => true;
 
     public override void Xfer(SimCore.Sync.IXfer xfer)
     {
-        xfer.XferVersion(1);
+        xfer.XferVersion(2);
         XferBodyBase(xfer);                       // DamageScalar (Quantum)
         _core.Xfer(xfer);                         // health ledger + damage state
         xfer.XferBool("FrontCrushed", ref _frontCrushed);
         xfer.XferBool("BackCrushed", ref _backCrushed);
         xfer.XferBool("Indestructible", ref _indestructible);
+        XferArmorSetFlags(xfer);
+    }
+
+    /// <summary>
+    /// Folds <see cref="_currentArmorSetFlags"/> into the contract CRC channel by packing the
+    /// 19 <see cref="ArmorSetCondition"/> bits into a uint (they select the active armor, so they
+    /// are deterministic sim state). On load the flag set and the derived armor/DamageFX are
+    /// rebuilt. Closes finding F-WDA-5 without touching the frozen IXfer contract.
+    /// </summary>
+    private void XferArmorSetFlags(SimCore.Sync.IXfer xfer)
+    {
+        uint packed = 0;
+        if (xfer.Mode != XferMode.Load)
+        {
+            foreach (var condition in Enum.GetValues<ArmorSetCondition>())
+            {
+                if (_currentArmorSetFlags.Get(condition))
+                {
+                    packed |= 1u << (int)condition;
+                }
+            }
+        }
+
+        xfer.XferUInt("ArmorSetFlags", ref packed);
+
+        if (xfer.Mode == XferMode.Load)
+        {
+            _currentArmorSetFlags = new BitArray<ArmorSetCondition>();
+            foreach (var condition in Enum.GetValues<ArmorSetCondition>())
+            {
+                _currentArmorSetFlags.Set(condition, (packed & (1u << (int)condition)) != 0);
+            }
+
+            // Force the derived armor/DamageFX to re-resolve from the restored flags.
+            _currentArmorSet = null;
+            ValidateArmorAndDamageFX();
+        }
     }
 
     internal override void Load(StatePersister reader)
@@ -1022,6 +1074,14 @@ public class ActiveBody : BodyModule
     }
 }
 
+// R7 Body ModuleData audit (design-module-api §2.2, S5 vocabulary): every health/subdual
+// quantity is now a parse-time-quantized Fix64; no float field remains. [SimDataAudited] marks
+// the conversion. This class is NOT [ParseOnly] - it has had a runtime module since before the
+// migration (pilot delta D-11 pattern). ActiveBody itself is the recorded D-7 float boundary
+// (its Health/MaxHealth/EstimateDamage display views are mandated by the abstract BodyModule
+// contract), so the file is deliberately not [SimState]; the sim-state arithmetic it owns lives
+// in the [SimState] BodyDamageCore.
+[SimDataAudited]
 public class ActiveBodyModuleData : BodyModuleData
 {
     internal static ActiveBodyModuleData Parse(IniParser parser)
@@ -1040,22 +1100,22 @@ public class ActiveBodyModuleData : BodyModuleData
 
     internal static readonly IniParseTable<ActiveBodyModuleData> FieldParseTable = new()
     {
-        { "MaxHealth", (parser, x) => x.MaxHealth = parser.ParseFloat() },
-        { "InitialHealth", (parser, x) => { x.InitialHealth = parser.ParseFloat(); x._initialHealthSet = true; } },
-        { "MaxHealthDamaged", (parser, x) => x.MaxHealthDamaged = parser.ParseFloat() },
-        { "MaxHealthReallyDamaged", (parser, x) => x.MaxHealthReallyDamaged = parser.ParseFloat() },
-        { "RecoveryTime", (parser, x) => x.RecoveryTime = parser.ParseFloat() },
+        { "MaxHealth", (parser, x) => x.MaxHealth = parser.ParseFix64() },
+        { "InitialHealth", (parser, x) => { x.InitialHealth = parser.ParseFix64(); x._initialHealthSet = true; } },
+        { "MaxHealthDamaged", (parser, x) => x.MaxHealthDamaged = parser.ParseFix64() },
+        { "MaxHealthReallyDamaged", (parser, x) => x.MaxHealthReallyDamaged = parser.ParseFix64() },
+        { "RecoveryTime", (parser, x) => x.RecoveryTime = parser.ParseFix64() },
 
-        { "SubdualDamageCap", (parser, x) => x.SubdualDamageCap = parser.ParseFloat() },
+        { "SubdualDamageCap", (parser, x) => x.SubdualDamageCap = parser.ParseFix64() },
         { "SubdualDamageHealRate", (parser, x) => x.SubdualDamageHealRate = parser.ParseTimeMillisecondsToLogicFrames() },
-        { "SubdualDamageHealAmount", (parser, x) => x.SubdualDamageHealAmount = parser.ParseFloat() },
+        { "SubdualDamageHealAmount", (parser, x) => x.SubdualDamageHealAmount = parser.ParseFix64() },
         { "GrabObject", (parser, x) => x.GrabObject = parser.ParseAssetReference() },
         { "GrabOffset", (parser, x) => x.GrabOffset = parser.ParsePoint() },
         { "DamageCreationList", (parser, x) => x.DamageCreationLists.Add(DamageCreationList.Parse(parser)) },
         { "GrabFX", (parser, x) => x.GrabFX = parser.ParseAssetReference() },
         { "GrabDamage", (parser, x) => x.GrabDamage = parser.ParseInteger() },
         { "CheerRadius", (parser, x) => x.CheerRadius = parser.ParseInteger() },
-        { "DodgePercent", (parser, x) => x.DodgePercent = parser.ParsePercentage() },
+        { "DodgePercent", (parser, x) => x.DodgePercent = parser.ParseFix64Percentage() },
         { "UseDefaultDamageSettings", (parser, x) => x.UseDefaultDamageSettings = parser.ParseBoolean() },
         { "EnteringDamagedTransitionTime", (parser, x) => x.EnteringDamagedTransitionTime = parser.ParseInteger() },
         { "HealingBuffFx", (parser, x) => x.HealingBuffFx = parser.ParseAssetReference() },
@@ -1067,23 +1127,30 @@ public class ActiveBodyModuleData : BodyModuleData
 
     private bool _initialHealthSet;
 
-    public float MaxHealth { get; internal set; }
-    public float InitialHealth { get; internal set; }
+    /// <summary>Max hit points (quantized Q31.32 at parse, S5).</summary>
+    public Fix64 MaxHealth { get; internal set; }
 
+    /// <summary>Starting hit points; BFME+ defaults it to <see cref="MaxHealth"/> when omitted.</summary>
+    public Fix64 InitialHealth { get; internal set; }
+
+    /// <summary>Subdual damage needed to subdue (quantized Q31.32); zero = cannot be subdued.</summary>
     [AddedIn(SageGame.CncGeneralsZeroHour)]
-    public float SubdualDamageCap { get; private set; }
+    public Fix64 SubdualDamageCap { get; private set; }
 
     [AddedIn(SageGame.CncGeneralsZeroHour)]
     public LogicFrameSpan SubdualDamageHealRate { get; private set; }
 
+    /// <summary>Subdual hit points healed per heal tick (quantized Q31.32).</summary>
     [AddedIn(SageGame.CncGeneralsZeroHour)]
-    public float SubdualDamageHealAmount { get; private set; }
+    public Fix64 SubdualDamageHealAmount { get; private set; }
 
+    /// <summary>BFME per-damage-state max health (quantized Q31.32; parsed, not yet consumed - finding).</summary>
     [AddedIn(SageGame.Bfme)]
-    public float MaxHealthDamaged { get; private set; }
+    public Fix64 MaxHealthDamaged { get; private set; }
 
+    /// <summary>BFME recovery time; parsed as a bare Fix64, units unpinned and unconsumed (finding).</summary>
     [AddedIn(SageGame.Bfme)]
-    public float RecoveryTime { get; private set; }
+    public Fix64 RecoveryTime { get; private set; }
 
     [AddedIn(SageGame.Bfme)]
     public string? GrabObject { get; private set; }
@@ -1094,8 +1161,9 @@ public class ActiveBodyModuleData : BodyModuleData
     [AddedIn(SageGame.Bfme)]
     public List<DamageCreationList> DamageCreationLists { get; private set; } = [];
 
+    /// <summary>BFME per-damage-state max health (quantized Q31.32; parsed, not yet consumed - finding).</summary>
     [AddedIn(SageGame.Bfme)]
-    public float MaxHealthReallyDamaged { get; private set; }
+    public Fix64 MaxHealthReallyDamaged { get; private set; }
 
     [AddedIn(SageGame.Bfme)]
     public string? GrabFX { get; private set; }
@@ -1106,8 +1174,9 @@ public class ActiveBodyModuleData : BodyModuleData
     [AddedIn(SageGame.Bfme)]
     public int CheerRadius { get; private set; }
 
+    /// <summary>Dodge probability (exact Fix64 percentage; parsed, not yet consumed - finding).</summary>
     [AddedIn(SageGame.Bfme)]
-    public Percentage DodgePercent { get; private set; }
+    public Fix64 DodgePercent { get; private set; }
 
     [AddedIn(SageGame.Bfme)]
     public bool UseDefaultDamageSettings { get; private set; }
