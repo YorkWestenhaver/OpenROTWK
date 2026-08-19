@@ -47,19 +47,28 @@ public sealed class StatusBitsUpgrade : BehaviorModule, IUpgradeableModule
     public void TryUpgrade(UpgradeSet completedUpgrades) => _upgradeLogic.TryUpgrade(completedUpgrades);
 
     /// <summary>
-    /// GPL upgradeImplementation(): set each named status bit on the owning object.
-    /// Idempotent by construction (setting an already-set bit is a no-op).
+    /// GPL upgradeImplementation(): set each named StatusToSet bit, then clear each named
+    /// StatusToClear bit on the owning object (obj->setStatus(m_statusToSet);
+    /// obj->clearStatus(m_statusToClear) - GPL StatusBitsUpgrade.cpp, set-then-clear order).
+    /// Idempotent by construction. (StatusToClear restored in the R9 drift review: live AotR
+    /// data drives it, e.g. aicoding/retreat.inc ModuleTag_Retreating.)
     /// </summary>
     private void OnUpgradeTriggered()
     {
-        if (_data.StatusToSet == null)
+        if (_data.StatusToSet != null)
         {
-            return;
+            foreach (var status in _data.StatusToSet.GetSetBits())
+            {
+                GameObject.SetObjectStatus(status, true);
+            }
         }
 
-        foreach (var status in _data.StatusToSet.GetSetBits())
+        if (_data.StatusToClear != null)
         {
-            GameObject.SetObjectStatus(status, true);
+            foreach (var status in _data.StatusToClear.GetSetBits())
+            {
+                GameObject.SetObjectStatus(status, false);
+            }
         }
     }
 
@@ -84,11 +93,16 @@ public sealed class StatusBitsUpgradeModuleData : UpgradeModuleData
     private static new readonly IniParseTable<StatusBitsUpgradeModuleData> FieldParseTable = UpgradeModuleData.FieldParseTable
         .Concat(new IniParseTable<StatusBitsUpgradeModuleData>
         {
-            { "StatusToSet", (parser, x) => x.StatusToSet = parser.ParseEnumBitArray<ObjectStatus>() }
+            { "StatusToSet", (parser, x) => x.StatusToSet = parser.ParseEnumBitArray<ObjectStatus>() },
+            { "StatusToClear", (parser, x) => x.StatusToClear = parser.ParseEnumBitArray<ObjectStatus>() }
         });
 
     [AddedIn(SageGame.Bfme2Rotwk)]
     public BitArray<ObjectStatus> StatusToSet { get; private set; }
+
+    /// <summary>GPL m_statusToClear: bits cleared after StatusToSet is applied.</summary>
+    [AddedIn(SageGame.Bfme2Rotwk)]
+    public BitArray<ObjectStatus> StatusToClear { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
