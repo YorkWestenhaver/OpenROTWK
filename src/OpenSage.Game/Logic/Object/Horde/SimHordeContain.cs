@@ -152,7 +152,7 @@ public sealed class SimHordeContain : UpdateModule
     {
         position = default;
         var mover = HordeMover;
-        if (mover == null || slotIndex < 0 || slotIndex >= _slots.Count)
+        if (mover == null || !mover.TransformInitialized || slotIndex < 0 || slotIndex >= _slots.Count)
         {
             return false;
         }
@@ -212,7 +212,7 @@ public sealed class SimHordeContain : UpdateModule
             return;
         }
         var mover = HordeMover;
-        if (mover == null)
+        if (mover == null || !mover.TransformInitialized)
         {
             return;
         }
@@ -346,7 +346,7 @@ public sealed class SimHordeContain : UpdateModule
         TickBannerRespawn(now);
 
         var mover = HordeMover;
-        if (mover != null)
+        if (mover != null && mover.TransformInitialized)
         {
             SteerMembers(now, mover);
         }

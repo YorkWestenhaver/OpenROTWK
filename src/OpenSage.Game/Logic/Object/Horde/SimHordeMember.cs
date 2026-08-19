@@ -64,7 +64,7 @@ public sealed class SimHordeMember : DamageModule
         // (same-binary deterministic; finding HORDE-F4).
         FixVector2 attackerPosition;
         var attackerMover = attacker.FindBehavior<SimLocomotorUpdate>();
-        if (attackerMover != null)
+        if (attackerMover != null && attackerMover.TransformInitialized)
         {
             var p = attackerMover.Physics.Position;
             attackerPosition = new FixVector2(p.X, p.Y);
