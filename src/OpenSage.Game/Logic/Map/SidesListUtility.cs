@@ -63,6 +63,72 @@ internal static class SidesListUtility
         mapScriptLists = tempMapScriptLists.ToArray();
     }
 
+    /// <summary>
+    /// Retail LAN/skirmish lobby player wipe (SCRIPT-O2, bfme2-workbench/research/
+    /// script-timer-hang.md): the retail lobby rebuilds the map's player model and only
+    /// well-known map players keep their script lists; authored scenario players are
+    /// removed WITH their scripts (retail-observed: their scripts never run in a LAN
+    /// lobby). Returns script lists parallel to <paramref name="players"/> with wiped
+    /// players' lists replaced by empty ones — player order is preserved so script
+    /// player indices stay stable (retail removes the players outright; observable
+    /// behavior is identical because a removed player's scripts never run). Opt-in:
+    /// callers on SP/test paths stay on the unwiped lists.
+    /// </summary>
+    internal static ScriptList[] ApplyRetailLobbyPlayerWipe(
+        IReadOnlyList<Player> players,
+        IReadOnlyList<ScriptList> scriptLists)
+    {
+        var result = new ScriptList[scriptLists.Count];
+        for (var i = 0; i < scriptLists.Count; i++)
+        {
+            var survives = i < players.Count && SurvivesRetailLobbyPlayerWipe(players[i].Name);
+            result[i] = survives ? scriptLists[i] : new ScriptList();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The retail-observed survivor list (SCRIPT-O2): Neutral (its internal map name is
+    /// the empty string), PlyrCivilian, PlyrCreeps, PlyrNeutral, Skirmish*, and the
+    /// lobby slot players Player_N. Survival keys on the NAME, not the faction —
+    /// eregion's PlyrCreeps is FactionCivilian and its scripts run in every lobby game.
+    /// </summary>
+    internal static bool SurvivesRetailLobbyPlayerWipe(string playerName)
+    {
+        if (string.IsNullOrEmpty(playerName) || playerName == "Neutral")
+        {
+            return true;
+        }
+
+        if (playerName is "PlyrCivilian" or "PlyrCreeps" or "PlyrNeutral")
+        {
+            return true;
+        }
+
+        if (playerName.StartsWith("Skirmish", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        const string lobbySlotPrefix = "Player_";
+        if (playerName.Length > lobbySlotPrefix.Length &&
+            playerName.StartsWith(lobbySlotPrefix, StringComparison.Ordinal))
+        {
+            for (var i = lobbySlotPrefix.Length; i < playerName.Length; i++)
+            {
+                if (!char.IsAsciiDigit(playerName[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     private static Team CreateTeam(string name, string owner, bool isSingleton)
     {
         return new Team

@@ -468,6 +468,10 @@ public sealed class SimScriptEngine
                 _host.NamedAttackNamed(action.Name0, action.Name1);
                 break;
 
+            case SimScriptActionKind.TeamTransferToPlayer:
+                _host.TeamTransferToPlayer(action.Name0, action.Name1);
+                break;
+
             case SimScriptActionKind.MapExit:
                 if (!_mapExitRequested)
                 {
