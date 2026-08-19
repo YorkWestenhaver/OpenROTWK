@@ -260,9 +260,43 @@ public class ActiveBody : BodyModule
         {
             var oldState = _core.DamageState;
 
-            // The arithmetic half (kill override, clamp, damage-state recompute) lives
-            // in the Fix64 core; the visual/dead side effects follow here.
-            var combatOutput = _core.ApplyDamage(amount, damageInput.Kill, !alreadyHandled, Thresholds, out _);
+            // Resolve the Kill override to the concrete remaining health up front (the
+            // core's kill override is exactly "amount becomes current health"), so the
+            // Body-subclass health-floor hook below can floor even a DAMAGE_KILL - a
+            // GPL ImmortalBody survives kills too.
+            var healthLoss = damageInput.Kill ? _core.CurrentHealth : amount;
+
+            // Body-subclass health-floor seam. Default identity (every existing body).
+            // ImmortalBody/HighlanderBody override it to keep a >= 1 health floor, in
+            // Fix64 on the canonical core health (never the float display view). Only the
+            // health-affecting path is floored: GPL located the floor in
+            // internalChangeHealth, which the special "alreadyHandled" damage types
+            // (KillPilot/KillGarrisoned/Status/subdual) never route through.
+            if (!alreadyHandled)
+            {
+                healthLoss = ClampCombatHealthLoss(healthLoss);
+            }
+
+            // The arithmetic half (clamp, damage-state recompute) lives in the Fix64
+            // core; the visual/dead side effects follow here. Kill is already folded into
+            // healthLoss, so it is passed to the core as false.
+            CombatDamageOutput combatOutput;
+            if (!alreadyHandled && healthLoss <= SimCore.Numerics.Fix64.Zero)
+            {
+                // A health floor consumed the entire hit (e.g. an already-1-HP
+                // ImmortalBody). Run a zero-delta change so previousHealth tracks current
+                // - GPL internalChangeHealth always does prev = current before applying,
+                // and the fear-sound threshold predicate below reads previousHealth, so a
+                // stale prev would produce a phantom (desyncing) fear-sound RNG draw. No
+                // damage is dealt.
+                _core.ChangeHealth(SimCore.Numerics.Fix64.Zero, Thresholds);
+                combatOutput = new CombatDamageOutput();
+            }
+            else
+            {
+                combatOutput = _core.ApplyDamage(healthLoss, kill: false, !alreadyHandled, Thresholds, out _);
+            }
+
             if (!alreadyHandled)
             {
                 ApplyHealthChangeSideEffects(oldState);
@@ -727,6 +761,18 @@ public class ActiveBody : BodyModule
     {
         InternalChangeHealth(CombatLegacyBridge.QuantizeFloat(delta));
     }
+
+    /// <summary>
+    /// Body-subclass hook: clamp the health loss a single <see cref="AttemptDamage"/>
+    /// will inflict, evaluated AFTER armor and the damage scalar and after the Kill
+    /// override has been resolved to remaining health. Default: no clamp. ImmortalBody /
+    /// HighlanderBody override it to enforce a minimum surviving health, entirely in
+    /// Fix64 on <see cref="DamageCore"/> (not the float display view). This is the S1
+    /// seam that replaces GPL's per-subclass override of the virtual
+    /// <c>internalChangeHealth</c>: the S1 core extraction commits the health mutation
+    /// inside <see cref="BodyDamageCore"/>, so the overridable point moves here.
+    /// </summary>
+    protected virtual SimCore.Numerics.Fix64 ClampCombatHealthLoss(SimCore.Numerics.Fix64 loss) => loss;
 
     /// <summary>The canonical Fix64 health change (GPL internalChangeHealth).</summary>
     public void InternalChangeHealth(SimCore.Numerics.Fix64 delta)
