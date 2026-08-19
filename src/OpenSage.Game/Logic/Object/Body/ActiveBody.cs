@@ -1027,15 +1027,22 @@ public class ActiveBodyModuleData : BodyModuleData
     internal static ActiveBodyModuleData Parse(IniParser parser)
     {
         var result = parser.ParseBlock(FieldParseTable);
-
-        // BFME and later allows InitialValue to be omitted, in which case
-        // it is set to MaxHealth.
-        if (parser.SageGame >= SageGame.Bfme && !result._initialHealthSet)
-        {
-            result.InitialHealth = result.MaxHealth;
-        }
-
+        result.ApplyHealthDefaults(parser);
         return result;
+    }
+
+    /// <summary>
+    /// BFME and later allow InitialHealth to be omitted, in which case it defaults to
+    /// MaxHealth. This lives here (not in the parse table) so subclasses whose own
+    /// <c>Parse</c> shadows the base can re-apply it after their <c>ParseBlock</c> call -
+    /// otherwise the subclass body would spawn at 0 health (finding F-HB-1).
+    /// </summary>
+    private protected void ApplyHealthDefaults(IniParser parser)
+    {
+        if (parser.SageGame >= SageGame.Bfme && !_initialHealthSet)
+        {
+            InitialHealth = MaxHealth;
+        }
     }
 
     internal static readonly IniParseTable<ActiveBodyModuleData> FieldParseTable = new()

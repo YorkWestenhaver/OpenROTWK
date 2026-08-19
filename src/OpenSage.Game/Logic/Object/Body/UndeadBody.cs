@@ -44,7 +44,9 @@ public sealed class UndeadBody : ActiveBody
             shouldStartSecondLife = true;
         }
 
-        var damageOutput = AttemptDamage(modifiedDamageInput);
+        // Shared correction (see HighlanderBody): the first-life clamp must defer to the base
+        // ActiveBody health application, not recurse into this override.
+        var damageOutput = base.AttemptDamage(modifiedDamageInput);
 
         // After we take it (which allows for damaging special effects),
         // we will do our modifications to the body module.
@@ -104,7 +106,12 @@ public sealed class UndeadBody : ActiveBody
 [AddedIn(SageGame.CncGeneralsZeroHour)]
 public sealed class UndeadBodyModuleData : ActiveBodyModuleData
 {
-    internal static new UndeadBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
+    internal static new UndeadBodyModuleData Parse(IniParser parser)
+    {
+        var result = parser.ParseBlock(FieldParseTable);
+        result.ApplyHealthDefaults(parser);   // F-HB-1: same shadowing-Parse defaulting bug as HighlanderBody.
+        return result;
+    }
 
     private static new readonly IniParseTable<UndeadBodyModuleData> FieldParseTable = ActiveBodyModuleData.FieldParseTable
         .Concat(new IniParseTable<UndeadBodyModuleData>
