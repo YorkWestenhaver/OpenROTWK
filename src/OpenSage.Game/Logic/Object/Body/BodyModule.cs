@@ -183,6 +183,16 @@ public abstract class BodyModule : BehaviorModule
         _damageScalar *= scalar;
     }
 
+    // ---- F-DDB-1 (R8, additive framework seam) ----
+    // A Body module cannot self-tick: it is not on GameLogic's sleepy-update schedule, and C#
+    // single inheritance forbids a class being both a BodyModule and an UpdateModule. Retail SAGE
+    // solves this with multiple inheritance (a Body that also implements UpdateModuleInterface);
+    // OpenSAGE realizes it with companion update modules, exactly as the engine already does for
+    // ExperienceHelper / StatusDamageHelper. This hook lets a Body contribute such companions; the
+    // object's construction path (GameObject) adds them so they register like any UpdateModule.
+    // Default: none. First consumer: DelayedDeathBody's death timer.
+    internal virtual IEnumerable<BehaviorModule> CreateAuxiliaryModules() => Array.Empty<BehaviorModule>();
+
     /// <summary>
     /// The base body's contribution to the contract Xfer walk (F9: our declaration
     /// order). Called by Fix64-aware subclasses from their own Xfer.
