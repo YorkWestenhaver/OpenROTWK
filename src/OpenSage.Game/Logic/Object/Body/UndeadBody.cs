@@ -2,6 +2,7 @@
 
 using System;
 using OpenSage.Data.Ini;
+using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
 
@@ -44,7 +45,11 @@ public sealed class UndeadBody : ActiveBody
             shouldStartSecondLife = true;
         }
 
-        var damageOutput = AttemptDamage(modifiedDamageInput);
+        // R7 fix: route the (possibly clamped) hit to the *base* ActiveBody damage
+        // resolution, not this overridden method. The prior port called the
+        // unqualified AttemptDamage, which re-entered this method and recursed until
+        // stack overflow (finding F-UB-1). GPL calls ActiveBody::attemptDamage here.
+        var damageOutput = base.AttemptDamage(modifiedDamageInput);
 
         // After we take it (which allows for damaging special effects),
         // we will do our modifications to the body module.
@@ -61,8 +66,11 @@ public sealed class UndeadBody : ActiveBody
         // Flag module as no longer intercepting damage.
         _isSecondLife = true;
 
-        // Modify ActiveBody's max health and initial health.
-        SetMaxHealth(_moduleData.SecondLifeMaxHealth, MaxHealthChangeType.FullyHeal);
+        // Modify ActiveBody's max health and initial health. SecondLifeMaxHealth is
+        // audited to Fix64 (S5 vocabulary); it widens once here to the float SetMaxHealth
+        // contract surface that ActiveBody still exposes (the D-7 health boundary S1
+        // deferred). Integer literals - the entire corpus, default 1 - are bit-exact.
+        SetMaxHealth(_moduleData.SecondLifeMaxHealth.ToFloatForDisplay(), MaxHealthChangeType.FullyHeal);
 
         // Set Armor set flag to use second life armor.
         SetArmorSetFlag(ArmorSetCondition.SecondLife);
@@ -95,6 +103,30 @@ public sealed class UndeadBody : ActiveBody
             }
         }
     }
+
+    // ---- contract Xfer (GPL UndeadBody::xfer, version 1): the second-life flag is sim
+    // state and must fold into the Objects CRC channel alongside ActiveBody's Fix64
+    // ledger. Declaration order = GPL order (F9): own version -> base walk -> the flag. ----
+
+    public override void Xfer(IXfer xfer)
+    {
+        xfer.XferVersion(1);
+        base.Xfer(xfer);                             // ActiveBody: version + Fix64 ledger + crush/indestructible
+        xfer.XferBool("IsSecondLife", ref _isSecondLife); // Exact (A3): a boolean has no quantum gap
+    }
+
+    internal override void Load(StatePersister reader)
+    {
+        // Retail .sav layout mirrors GPL UndeadBody::xfer (F9-exempt legacy reader):
+        // own version, then ActiveBody's persisted body, then the flag.
+        reader.PersistVersion(1);
+
+        reader.BeginObject("Base");
+        base.Load(reader);
+        reader.EndObject();
+
+        reader.PersistBoolean(ref _isSecondLife);
+    }
 }
 
 /// <summary>
@@ -102,6 +134,7 @@ public sealed class UndeadBody : ActiveBody
 /// ModelConditionState/ArmorSet and allows the use of the BattleBusSlowDeathBehavior module.
 /// </summary>
 [AddedIn(SageGame.CncGeneralsZeroHour)]
+[SimDataAudited]
 public sealed class UndeadBodyModuleData : ActiveBodyModuleData
 {
     internal static new UndeadBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
@@ -109,8 +142,14 @@ public sealed class UndeadBodyModuleData : ActiveBodyModuleData
     private static new readonly IniParseTable<UndeadBodyModuleData> FieldParseTable = ActiveBodyModuleData.FieldParseTable
         .Concat(new IniParseTable<UndeadBodyModuleData>
         {
-            { "SecondLifeMaxHealth", (parser, x) => x.SecondLifeMaxHealth = parser.ParseFloat() },
+            // Health quantity -> Fix64 at the S5 blessed integer text boundary (was ParseFloat).
+            { "SecondLifeMaxHealth", (parser, x) => x.SecondLifeMaxHealth = parser.ParseFix64() },
         });
 
-    public float SecondLifeMaxHealth { get; private set; } = 1;
+    public SimCore.Numerics.Fix64 SecondLifeMaxHealth { get; private set; } = SimCore.Numerics.Fix64.One;
+
+    internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
+    {
+        return new UndeadBody(gameObject, gameEngine, this);
+    }
 }
