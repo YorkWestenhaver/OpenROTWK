@@ -13,10 +13,40 @@ public sealed class BoneFXUpdate : UpdateModule
     {
     }
 
+    /// <summary>
+    /// The body damage state this update last observed. Set by <see cref="ChangeBodyDamageState"/>
+    /// (GPL <c>m_curBodyState = newState</c>); it selects which pristine/rubble particle systems
+    /// and FX lists the (still-unported) FX subsystem should spawn.
+    /// </summary>
+    /// <remarks>
+    /// This is the landing point for <see cref="BoneFXDamage"/>'s
+    /// <c>OnBodyDamageStateChange</c> relay. BoneFXUpdate itself is NOT yet ported (Update is a
+    /// stub and the module carries no contract Xfer), so this field does not yet join the Objects
+    /// CRC channel — it will when BoneFXUpdate ports. See modules-r7/BoneFXDamage.md finding
+    /// F-BFXD-1.
+    /// </remarks>
+    public BodyDamageType CurrentBodyState { get; private set; }
+
     public override UpdateSleepTime Update()
     {
         // TODO(Port): Use correct value.
         return UpdateSleepTime.None;
+    }
+
+    /// <summary>
+    /// Called by the paired <see cref="BoneFXDamage"/> module when the owner's body damage state
+    /// transitions. GPL <c>BoneFXUpdate::changeBodyDamageState</c> does three things:
+    /// records the new state, kills the running particle systems, and re-initialises the per-bone
+    /// spawn timers. Only the first (the sim-visible <see cref="CurrentBodyState"/> assignment) is
+    /// wired here; the particle-kill and timer re-init are client-FX subsystem work that belongs
+    /// to the BoneFXUpdate port (still a Load-only stub), so they remain a TODO(Port).
+    /// </summary>
+    public void ChangeBodyDamageState(BodyDamageType oldState, BodyDamageType newState)
+    {
+        CurrentBodyState = newState;
+
+        // TODO(Port, BoneFXUpdate): killRunningParticleSystems() + initTimes() — client-side FX
+        // spawn/kill and per-bone timer re-init. Inert until BoneFXUpdate is ported.
     }
 
     internal override void Load(StatePersister reader)
