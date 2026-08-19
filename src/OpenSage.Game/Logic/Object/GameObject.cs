@@ -441,6 +441,14 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     string IInspectable.Name => "GameObject";
 
+    // --- S8 script-runtime (sys/script-runtime) additive region ---
+    /// <summary>
+    /// Names a script-created unit (GPL ScriptActions::createUnitOnTeamAt's obj->setName):
+    /// the one sanctioned external naming path; same one-shot rule as map-object naming.
+    /// </summary>
+    internal void AssignScriptName(string name) => Name = name;
+    // --- end S8 script-runtime additive region ---
+
     public TeamTemplate TeamTemplate { get; set; }
 
     public Team Team { get; internal set; }

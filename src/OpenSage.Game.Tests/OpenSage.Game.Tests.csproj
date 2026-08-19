@@ -24,6 +24,10 @@
     <None Update="Data\InstallationLocator\Assets\*.vdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- S8 script-runtime (sys/script-runtime): scenariogen sample map -->
+    <None Update="Logic\Script\Assets\*.map">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   
   <ItemGroup>
