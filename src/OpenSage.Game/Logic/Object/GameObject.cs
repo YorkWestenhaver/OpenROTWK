@@ -318,6 +318,18 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     /// </summary>
     public bool HealthBelowMax => _body != null && _body.Health < _body.MaxHealth;
 
+    // ---- R9 EnemyNearUpdate port: Fix64 vision-range facade (additive) ----
+    /// <summary>
+    /// Fix64 vision range for ported [SimState] modules (the original's
+    /// <c>Object::getVisionRange</c>), quantized from the live (scalar-adjusted) float value
+    /// through the F4 wire boundary exactly once here so no float reaches the caller. Same D-7
+    /// facade rationale as <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/> and
+    /// <see cref="SetMaxHealth(SimCore.Numerics.Fix64)"/>; same-binary deterministic today,
+    /// bit-deterministic cross-arch when the transform/vision substrate migrates to Fix64.
+    /// </summary>
+    public SimCore.Numerics.Fix64 VisionRange =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(_visionRange));
+
     /// <summary>
     /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
     /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
