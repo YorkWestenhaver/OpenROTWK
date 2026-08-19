@@ -175,11 +175,10 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     private float _visionRange;
     private float _shroudClearingRange;
 
-    // --- R9 mod/stealthdetectorupdate (additive, F-SDU-1): read accessor for the object's
-    // current (scalar-adjusted) vision range. Float substrate; the ONE crossing to Fix64
-    // happens on the far side of the ISimContext partition seam (SimContext.PartitionAdapter,
-    // D-7 wire boundary), never in [SimState] module code. ---
-    public float VisionRange => _visionRange;
+    // --- R9 integration note: mod/stealthdetectorupdate's float VisionRange accessor
+    // (F-SDU-1) collided with mod/enemynearupdate's Fix64 VisionRange facade below; the
+    // Fix64 facade is the single surviving accessor (identical wire quantization), and
+    // SimContext.PartitionAdapter.GetVisionRange delegates to it. ---
 
     public void ApplyVisionRangeScalar(float scalar)
     {

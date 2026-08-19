@@ -160,9 +160,10 @@ internal sealed class SimContext : ISimContext
         // R9 mod/stealthdetectorupdate (additive, F-SDU-1): vision range crossing. The
         // object's vision range is float substrate; it is quantized through the F4 wire
         // boundary here, exactly once, so only a Fix64 reaches the [SimState] caller (D-7).
+        // (R9 integration: GameObject.VisionRange is now the Fix64 facade from
+        // mod/enemynearupdate — same FromWireFloat quantization, applied exactly once there.)
         public OpenSage.SimCore.Numerics.Fix64 GetVisionRange(GameObject gameObject)
-            => OpenSage.SimCore.Numerics.Fix64.FromWireFloat(
-                System.BitConverter.SingleToUInt32Bits(gameObject.VisionRange));
+            => gameObject.VisionRange;
     }
 
     private sealed class TerrainAdapter : ITerrainLogic
