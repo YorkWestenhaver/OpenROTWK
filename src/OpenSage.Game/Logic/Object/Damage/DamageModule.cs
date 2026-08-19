@@ -6,6 +6,22 @@ public abstract class DamageModule : BehaviorModule, IDamageModule
     {
     }
 
+    /// <summary>
+    /// The frozen contract ctor for a PORTED Damage module (api-freeze-v1 §3 item 1, and item 4's
+    /// rule that the category bases carry it): it forwards to <see cref="BehaviorModule"/>'s
+    /// ISimContext ctor, so <see cref="BehaviorModule.Context"/> is populated and the port reaches
+    /// the sim through that door only — never through <see cref="ObjectModule.GameEngine"/>.
+    /// <para>
+    /// Accessibility matches <see cref="BehaviorModule"/>'s ISimContext ctor
+    /// (<c>private protected</c>): every Damage subclass lives in this assembly. The legacy
+    /// <see cref="IGameEngine"/> ctor above stays until the last Damage class is ported (F11).
+    /// This mirrors the promotion the Die batch applied to <c>DieModule</c>.
+    /// </para>
+    /// </summary>
+    private protected DamageModule(GameObject gameObject, ISimContext context) : base(gameObject, context)
+    {
+    }
+
     public virtual void OnDamage(in DamageInfo damageInfo) { }
 
     public virtual void OnHealing(in DamageInfo damageInfo) { }
