@@ -92,6 +92,9 @@ internal static class Program
             case "autoheal-v1":
                 scenario = new AutoHealScenario(seed);
                 break;
+            case "delayeddeath-v1":
+                scenario = new DelayedDeathScenario(seed);
+                break;
             case "die-batch-v1":
                 scenario = new DieBatchScenario(seed);
                 break;

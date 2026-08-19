@@ -682,6 +682,13 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
                 {
                     case BodyModule body:
                         _body = body;
+                        // F-DDB-1 (R8, additive seam): a Body that must self-tick contributes
+                        // companion UpdateModules here; they are added to the behavior list now, so
+                        // GameLogic's sleepy-update registration picks them up like any other update.
+                        foreach (var auxiliaryModule in body.CreateAuxiliaryModules())
+                        {
+                            AddBehavior(behaviorDataContainer.Tag + "_Aux", AddDisposable(auxiliaryModule));
+                        }
                         break;
 
                     case IContainModule contain:
