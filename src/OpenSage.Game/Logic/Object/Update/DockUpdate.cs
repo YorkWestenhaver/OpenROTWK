@@ -50,6 +50,24 @@ public abstract class DockUpdate : UpdateModule
         return modelInstance.AbsoluteBoneTransforms[bone.Index].Translation;
     }
 
+    // ---- R10 SupplyWarehouseCripplingBehavior support (additive, name-reserved) ----
+    // GPL DockUpdate carries m_dockCrippled: game logic (the crippling behavior) sets me
+    // inoperative and I decide what that means. At the base level, crippled means "never grant
+    // enter clearance". The landed dock does not yet implement enter/exit clearance (it is a
+    // simplified box-dispenser), so this flag currently has no clearance consumer - it is the
+    // observable sink for SupplyWarehouseCripplingBehavior's state-transition relay. The
+    // clearance/kill-docker consumption is a documented TODO (modules-r10 F-SWCB-1). Not
+    // persisted through the legacy Load reader (which is an incomplete retail layout); the flag
+    // is exactly (body damage-state == ReallyDamaged) and is re-established by the behavior.
+    private bool _dockCrippled;
+
+    /// <summary>Whether game logic has crippled this dock (GPL m_dockCrippled).</summary>
+    public bool IsDockCrippled => _dockCrippled;
+
+    /// <summary>GPL setDockCrippled: game logic sets me inoperative; I decide what that means.</summary>
+    public virtual void SetDockCrippled(bool setting) => _dockCrippled = setting;
+    // ---- end R10 crippling support ----
+
     public bool CanApproach() => !_usesWaitingBones || _unitsApproaching.Count < _moduleData.NumberApproachPositions + 1;
 
     public Vector3 GetApproachTargetPosition(SupplyAIUpdate aiUpdate)
