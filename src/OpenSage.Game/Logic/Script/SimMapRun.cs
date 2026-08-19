@@ -53,6 +53,18 @@ internal sealed class SimMapRun
             Game.LoadIniText(iniText);
         }
 
+        // Replace the host's default two-player world with the map's authored sides so
+        // scenario teams get real distinct owners (with the map's playerEnemies/Allies)
+        // instead of all collapsing onto the civilian player — TEAM_ATTACK_TEAM needs
+        // hostile sides for a real damage exchange. Runs before any object spawns, so no
+        // stale Player reference survives the swap. Scenariogen (and WorldBuilder) maps
+        // always author Neutral first and PlyrCivilian second, the slots PlayerManager's
+        // accessors assume.
+        if (mapFile.SidesList?.Players is { Count: > 0 } mapPlayers)
+        {
+            Game.PlayerManager.OnNewGame([.. mapPlayers], GameType.Skirmish);
+        }
+
         Host = new SimScriptHostAdapter(Game, Game.CivilianPlayer);
 
         var teamOwners = new Dictionary<string, Player>(StringComparer.Ordinal);
@@ -104,6 +116,7 @@ internal sealed class SimMapRun
     public void StepFrame()
     {
         Engine.Update();
+        Host.TickCombat();
         Game.Step();
     }
 

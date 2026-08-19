@@ -30,7 +30,7 @@ internal sealed class FiringWeaponState : FixedDurationWeaponState
             Context.Weapon.CurrentRounds--;
         }
 
-        Context.GameEngine.AudioSystem.PlayAudioEvent(
+        Context.GameEngine.AudioSystem?.PlayAudioEvent(
             Context.Weapon.Template.FireSound?.Value);
 
         var weaponEffectExecutionContext = new WeaponEffectExecutionContext(Context.Weapon, Context.GameEngine);
