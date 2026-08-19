@@ -196,6 +196,28 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
         OrderAttack(attacker, victim);
     }
 
+    public void TeamTransferToPlayer(string teamName, string playerName)
+    {
+        var team = FindTeam(teamName);
+        var player = _game.PlayerManager.GetPlayerByName(playerName);
+        if (team == null || player == null)
+        {
+            return; // GPL doTransferTeamToPlayer sanity bail
+        }
+
+        // GPL setControllingPlayer + the per-object update walk: the team keeps its
+        // membership ("maintaining team-ness"), every member re-owns to the player.
+        team.Owner = player;
+        foreach (var id in MembersAscending(team))
+        {
+            var member = _gameLogic.GetObjectById(id);
+            if (member != null)
+            {
+                member.Owner = player;
+            }
+        }
+    }
+
     public void RequestMapExit()
     {
         MapExitRequested = true;

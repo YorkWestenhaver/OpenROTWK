@@ -382,6 +382,7 @@ public static class SimScriptCompiler
 
                 case SimScriptActionKind.TeamAttackTeam:
                 case SimScriptActionKind.NamedAttackNamed:
+                case SimScriptActionKind.TeamTransferToPlayer:
                     return new SimScriptAction
                     {
                         Kind = kind,
@@ -414,6 +415,7 @@ public static class SimScriptCompiler
             "CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT" => SimScriptActionKind.CreateUnnamedOnTeamAtWaypoint,
             "TEAM_ATTACK_TEAM" => SimScriptActionKind.TeamAttackTeam,
             "NAMED_ATTACK_NAMED" => SimScriptActionKind.NamedAttackNamed,
+            "TEAM_TRANSFER_TO_PLAYER" => SimScriptActionKind.TeamTransferToPlayer,
             "MAP_EXIT" => SimScriptActionKind.MapExit,
             _ => SimScriptActionKind.Unknown,
         };
@@ -439,6 +441,7 @@ public static class SimScriptCompiler
             39 => SimScriptActionKind.NamedAttackNamed,
             40 => SimScriptActionKind.CreateNamedOnTeamAtWaypoint,
             41 => SimScriptActionKind.CreateUnnamedOnTeamAtWaypoint,
+            153 => SimScriptActionKind.TeamTransferToPlayer,
             _ => SimScriptActionKind.Unknown,
         };
 

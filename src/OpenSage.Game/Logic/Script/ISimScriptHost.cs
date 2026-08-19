@@ -51,6 +51,13 @@ public interface ISimScriptHost
     void NamedAttackNamed(string attackerName, string victimName);
 
     /// <summary>
+    /// GPL doTransferTeamToPlayer: the named team (and every object on it) changes
+    /// ownership to the named player, "maintaining team-ness"; unknown team or player
+    /// is a silent no-op.
+    /// </summary>
+    void TeamTransferToPlayer(string teamName, string playerName);
+
+    /// <summary>
     /// BFME2 MAP_EXIT (content id 496; no GPL reference — observed behavior: the session
     /// ends). The host records the request and ends the session however it sees fit; the
     /// runtime also latches the frame in its own Xfer'd state.

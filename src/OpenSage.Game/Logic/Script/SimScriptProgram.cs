@@ -58,6 +58,7 @@ public enum SimScriptActionKind
     CreateUnnamedOnTeamAtWaypoint,  // CREATE_UNNAMED_ON_TEAM_AT_WAYPOINT <objType> <team> <waypoint>
     TeamAttackTeam,                 // TEAM_ATTACK_TEAM <attackerTeam> <victimTeam>
     NamedAttackNamed,               // NAMED_ATTACK_NAMED <attacker> <victim>
+    TeamTransferToPlayer,           // TEAM_TRANSFER_TO_PLAYER <team> <player>
     MapExit,                        // MAP_EXIT (BFME2-only, content id 496)
 }
 

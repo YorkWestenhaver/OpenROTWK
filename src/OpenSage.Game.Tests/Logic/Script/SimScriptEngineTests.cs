@@ -75,6 +75,9 @@ public class SimScriptEngineTests
         public void NamedAttackNamed(string attackerName, string victimName) =>
             Log.Add($"attack:{attackerName}:{victimName}");
 
+        public void TeamTransferToPlayer(string teamName, string playerName) =>
+            Log.Add($"transfer:{teamName}:{playerName}");
+
         public void RequestMapExit()
         {
             MapExitRequested = true;
@@ -757,4 +760,64 @@ End
         Assert.True(engine.MapExitRequested);
         Assert.Equal(100u, engine.MapExitFrame.Value);
     }
+
+    private static MapFile LoadMapAsset(string fileName)
+    {
+        var mapPath = Path.Combine("Logic", "Script", "Assets", fileName);
+        using var stream = File.OpenRead(mapPath);
+        return MapFile.FromStream(stream);
+    }
+
+    // ---- TEAM_TRANSFER_TO_PLAYER (action id 156, spawn-then-transfer idiom) ----
+
+    [Fact]
+    public void Job007TransferMap_CompilesAndRunsNatively()
+    {
+        var program = SimScriptCompiler.Compile(
+            LoadMapAsset("job007_disc_transfer.map").PlayerScriptsList);
+
+        Assert.Empty(program.UnknownConditionIds);
+        Assert.Empty(program.UnknownActionIds);
+        Assert.Contains(program.Scripts, s => s.Name == "Scn_01_Transfer");
+
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(program, host, NewRandom());
+
+        Run(engine, host, 250);
+
+        // Frame 0, walk order: the spawn lands Probe_1 on teamPlyrCivilian, then the
+        // NAMED_CREATED-gated transfer hands the team to the lobby-slot player
+        // (spawn-in-lobby §6 Variant B) with the GPL argument order (team, player),
+        // and the safe telemetry arms its TRUE timer -> exit exactly 100 later.
+        var createEntry = "create:Probe_1:GondorFighterHorde:teamPlyrCivilian:wpProbe";
+        var transferEntry = "transfer:teamPlyrCivilian:Player_1";
+        Assert.Contains(createEntry, host.Log);
+        Assert.Contains(transferEntry, host.Log);
+        Assert.True(host.Log.IndexOf(createEntry) < host.Log.IndexOf(transferEntry));
+        Assert.True(engine.MapExitRequested);
+        Assert.Equal(100u, engine.MapExitFrame.Value);
+    }
+
+    [Fact]
+    public void TeamTransferToPlayer_ReownsTeamMembers_OnHeadlessSimGame()
+    {
+        var game = new HeadlessSimGame(SageGame.Bfme2, 0xB00);
+        game.LoadIniText(Definitions);
+
+        var host = new SimScriptHostAdapter(game, game.CivilianPlayer);
+        host.RegisterWaypoint("wpProbe", new Vector3(10, 10, 0));
+        Assert.True(host.CreateUnitOnTeamAtWaypoint("Probe_1", "ScriptDummy", "teamPlyrCivilian", "wpProbe"));
+        Assert.True(game.GameLogic.TryGetObjectByName("Probe_1", out var probe));
+        Assert.Equal(game.CivilianPlayer, probe.Owner);
+
+        // Unknown player: GPL doTransferTeamToPlayer sanity bail, nothing changes.
+        host.TeamTransferToPlayer("teamPlyrCivilian", "Player_1");
+        Assert.Equal(game.CivilianPlayer, probe.Owner);
+
+        // Known player: the team and every member re-own to it.
+        var neutral = game.PlayerManager.GetPlayerByName("plyrNeutral");
+        host.TeamTransferToPlayer("teamPlyrCivilian", "plyrNeutral");
+        Assert.Equal(neutral, probe.Owner);
+    }
+
 }
