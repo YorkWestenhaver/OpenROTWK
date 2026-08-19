@@ -37,6 +37,8 @@ internal static class Program
         uint checkpointInterval = 10;
         uint seed = 0xB00u;
         var scenarioName = "scripted-v1";
+        string? mapPath = null;
+        var iniPaths = new List<string>();
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -48,24 +50,27 @@ internal static class Program
                 case "--checkpoint-interval": checkpointInterval = uint.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--seed": seed = ParseUInt(args[++i]); break;
                 case "--scenario": scenarioName = args[++i]; break;
+                case "--map": mapPath = args[++i]; break;
+                case "--ini": iniPaths.Add(args[++i]); break;
                 default:
                     Console.Error.WriteLine($"unknown argument: {args[i]}");
                     return 2;
             }
         }
 
-        if (schedulePath is null || outPath is null)
+        if (outPath is null || (schedulePath is null && mapPath is null))
         {
             Console.Error.WriteLine(
                 "usage: scenariodriver --schedule <injection-schedule.json> --out <dump> " +
-                "[--until-frame N] [--checkpoint-interval K] [--seed S]");
+                "[--until-frame N] [--checkpoint-interval K] [--seed S] " +
+                "[--scenario NAME] [--map <file.map> [--ini <file.ini>]...]");
             return 2;
         }
 
         List<InjectedOrder> orders;
         try
         {
-            orders = LoadSchedule(schedulePath);
+            orders = schedulePath is null ? new List<InjectedOrder>() : LoadSchedule(schedulePath);
         }
         catch (Exception e) when (e is JsonException or FormatException or KeyNotFoundException or InvalidDataException)
         {
@@ -81,7 +86,7 @@ internal static class Program
                 lastOrderFrame = o.Frame;
             }
         }
-        var stopAfter = untilFrame ?? lastOrderFrame + 10;
+        var stopAfter = untilFrame ?? (mapPath is not null ? 300u : lastOrderFrame + 10);
 
         IDriverScenario scenario;
         switch (scenarioName)
@@ -101,6 +106,22 @@ internal static class Program
             case "spcd-v1":
                 scenario = new SpecialPowerCompletionDieScenario(seed);
                 break;
+            case "map-v1":
+                if (mapPath is null)
+                {
+                    Console.Error.WriteLine("map-v1 requires --map <file.map>");
+                    return 2;
+                }
+                try
+                {
+                    scenario = new MapScenario(seed, mapPath, iniPaths);
+                }
+                catch (Exception e) when (e is IOException or InvalidDataException or InvalidOperationException)
+                {
+                    Console.Error.WriteLine($"map error: {e.Message}");
+                    return 2;
+                }
+                break;
             default:
                 Console.Error.WriteLine($"unknown scenario: {scenarioName}");
                 return 2;
@@ -115,10 +136,11 @@ internal static class Program
             loop.Orders.SubmitScheduled(o.Order, new LogicFrame(o.Frame), o.SubmissionIndex);
         }
 
+        var mapScenario = scenario as MapScenario;
         using (var stream = new StreamWriter(outPath, append: false, new UTF8Encoding(false)) { NewLine = "\n" })
         {
             scenario.AttachWriter(new DeepCrcWriter(stream, leaveOpen: true));
-            while (loop.CurrentFrame.Value <= stopAfter)
+            while (loop.CurrentFrame.Value <= stopAfter && mapScenario is not { MapExitRequested: true })
             {
                 loop.Advance();
             }
@@ -128,6 +150,13 @@ internal static class Program
             $"{scenarioName}: frames=0..{stopAfter} orders={orders.Count} dispatched={scenario.Dispatched} " +
             $"checkpoints={scenario.Checkpoints} objects={scenario.ObjectCount} " +
             $"finalCombined={scenario.FinalCombined:X8} seed=0x{seed:X8} interval={loop.CrcCheckpointIntervalInFrames}");
+        if (mapScenario is not null)
+        {
+            var exitFrame = mapScenario.MapExitFrame;
+            Console.WriteLine(
+                $"map-v1: MapExitFrame={(exitFrame is null ? "none" : exitFrame.Value.ToString(CultureInfo.InvariantCulture))} " +
+                $"mapObjectsSpawned={mapScenario.MapObjectsSpawned} mapObjectsSkipped={mapScenario.MapObjectsSkipped}");
+        }
         return 0;
     }
 
