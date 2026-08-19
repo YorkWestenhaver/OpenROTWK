@@ -137,7 +137,12 @@ public sealed class UndeadBody : ActiveBody
 [SimDataAudited]
 public sealed class UndeadBodyModuleData : ActiveBodyModuleData
 {
-    internal static new UndeadBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
+    internal static new UndeadBodyModuleData Parse(IniParser parser)
+    {
+        var result = parser.ParseBlock(FieldParseTable);
+        result.ApplyHealthDefaults(parser);   // F-HB-1: same shadowing-Parse defaulting bug as HighlanderBody.
+        return result;
+    }
 
     private static new readonly IniParseTable<UndeadBodyModuleData> FieldParseTable = ActiveBodyModuleData.FieldParseTable
         .Concat(new IniParseTable<UndeadBodyModuleData>
