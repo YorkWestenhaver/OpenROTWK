@@ -129,7 +129,12 @@ public sealed class ImmortalBody : ActiveBody
 [SimDataAudited]
 public sealed class ImmortalBodyModuleData : ActiveBodyModuleData
 {
-    internal static new ImmortalBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
+    internal static new ImmortalBodyModuleData Parse(IniParser parser)
+    {
+        var result = parser.ParseBlock(FieldParseTable);
+        result.ApplyHealthDefaults(parser);   // F-HB-1: the shadowing Parse must keep the base defaulting.
+        return result;
+    }
 
     // ImmortalBody carries no INI fields beyond ActiveBody's, so the audit contribution of
     // THIS class is vacuous (empty concat). The inherited health vocabulary belongs to

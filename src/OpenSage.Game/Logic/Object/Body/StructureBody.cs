@@ -94,7 +94,12 @@ public sealed class StructureBody : ActiveBody
 [SimDataAudited]
 public sealed class StructureBodyModuleData : ActiveBodyModuleData
 {
-    internal static new StructureBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
+    internal static new StructureBodyModuleData Parse(IniParser parser)
+    {
+        var result = parser.ParseBlock(FieldParseTable);
+        result.ApplyHealthDefaults(parser);   // F-HB-1: the shadowing Parse must keep the base defaulting.
+        return result;
+    }
 
     private static new readonly IniParseTable<StructureBodyModuleData> FieldParseTable = ActiveBodyModuleData.FieldParseTable
         .Concat(new IniParseTable<StructureBodyModuleData>());

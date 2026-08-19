@@ -170,7 +170,12 @@ public sealed class HiveStructureBody : ActiveBody
 [SimDataAudited]
 public sealed class HiveStructureBodyModuleData : ActiveBodyModuleData
 {
-    internal static new HiveStructureBodyModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
+    internal static new HiveStructureBodyModuleData Parse(IniParser parser)
+    {
+        var result = parser.ParseBlock(FieldParseTable);
+        result.ApplyHealthDefaults(parser);   // F-HB-1: the shadowing Parse must keep the base defaulting.
+        return result;
+    }
 
     private static new readonly IniParseTable<HiveStructureBodyModuleData> FieldParseTable = ActiveBodyModuleData.FieldParseTable
         .Concat(new IniParseTable<HiveStructureBodyModuleData>
