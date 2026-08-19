@@ -141,6 +141,15 @@ public interface IPartitionQuery
     /// (excluding none - callers filter), ascending ObjectId.
     /// </summary>
     IEnumerable<GameObject> QueryObjectsInRadius(GameObject center, Fix64 radius);
+
+    /// <summary>
+    /// The object's current vision range as a Fix64 (grown for the StealthDetectorUpdate
+    /// port, R9: a detector with DetectionRange 0 falls back to it, GPL getVisionRange).
+    /// NOTE (migration, D-7 shape): vision range is float substrate today, so this crosses
+    /// the F4 wire boundary in the adapter and is same-binary deterministic now, becoming
+    /// bit-deterministic cross-arch when the transform/template ranges migrate to Fix64.
+    /// </summary>
+    Fix64 GetVisionRange(GameObject gameObject);
 }
 
 /// <summary>Fix64-valued terrain view. Grows one member per porting need.</summary>
