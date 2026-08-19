@@ -11,7 +11,11 @@ using OpenSage.Mathematics;
 namespace OpenSage.Logic;
 
 [DebuggerDisplay("[Player: {Name}]")]
-public class Player : IPersistableObject
+// mod/costmodifierupgrademoduledata (R9): made `partial` (additive, one keyword) so the
+// per-KindOf production-cost-change registry lands in its own file
+// (Economy/PlayerProductionCostModifiers.cs) without touching this class body. No existing
+// member changed. See research/modules-r9/CostModifierUpgradeModuleData.md.
+public partial class Player : IPersistableObject
 {
     public const int MaxPlayers = 16;
 
