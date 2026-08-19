@@ -30,6 +30,12 @@ internal readonly record struct RecordedFX(
     ObjectId SourceObjectId,
     FXOrientation Orientation);
 
+internal readonly record struct RecordedParticleSystem(
+    string ParticleSystemName,
+    ObjectId ObjectId,
+    string Bone,
+    bool RandomBone);
+
 internal sealed class RecordingSimEvents : ISimEvents
 {
     public List<RecordedFX> Events { get; } = new();
@@ -48,6 +54,12 @@ internal sealed class RecordingSimEvents : ISimEvents
 
     public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId) =>
         Sounds.Add((unitSpecificSoundKey, objectId));
+
+    /// <summary>Attached-particle-system requests, in order (TransitionDamageFX).</summary>
+    public List<RecordedParticleSystem> ParticleSystems { get; } = new();
+
+    public void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone) =>
+        ParticleSystems.Add(new RecordedParticleSystem(particleSystemName, objectId, bone, randomBone));
 
     /// <summary>Installs a fresh recorder on the headless host's context and returns it.</summary>
     public static RecordingSimEvents InstallOn(HeadlessSimGame game)

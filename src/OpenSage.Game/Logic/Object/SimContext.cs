@@ -278,6 +278,38 @@ internal sealed class SimContext : ISimContext
             // Same story as FireFXAtObject: the client-bound event queue does not exist yet.
             // Recording the call is what a ported module owes; playing it is the client's.
         }
+
+        public void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone)
+        {
+            // Output side of the seam (S8): create the emitter and attach it to the object's
+            // transform. Bone resolution and the randomBone pick are client model concerns
+            // (the emitter follows the object's world matrix here; a bone-relative offset and
+            // any random-bone selection belong to the unmigrated client draw code - see
+            // F-TDF-2). A missing template or object is silently nothing, exactly as the
+            // original's null checks do it. The created system's lifetime is the client's; the
+            // sim keeps no id (F-TDF-1).
+            if (string.IsNullOrEmpty(particleSystemName))
+            {
+                return;
+            }
+
+            var subject = _engine.GameLogic.GetObjectById(objectId);
+            if (subject is null)
+            {
+                return;
+            }
+
+            var template = _engine.AssetStore.FXParticleSystemTemplates.GetByName(particleSystemName);
+            if (template is null || _engine.ParticleSystems is null)
+            {
+                return;
+            }
+
+            _ = randomBone;
+            _ = bone;
+
+            _engine.ParticleSystems.Create(template, subject.TransformMatrix);
+        }
     }
 }
 
