@@ -66,6 +66,15 @@ public sealed class SimLocomotorUpdate : UpdateModule
     }
 
     public SimPhysics Physics => _physics;
+
+    /// <summary>
+    /// Whether the one-time transform ingestion (LOCO-F8: lazy at the first Update) has
+    /// happened - before that, <see cref="Physics"/> position/yaw are default. Added by the
+    /// S6 horde system (additive): cross-object readers (flank test, slot anchor) must not
+    /// consume an uninitialized mirror.
+    /// </summary>
+    public bool TransformInitialized => _transformInitialized;
+
     public SimLocomotorSet LocomotorSet => _locomotorSet;
     public SimMoveMode Mode => _mode;
     public LocomotorSetType CurrentSetType => _currentSetType;

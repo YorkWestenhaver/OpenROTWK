@@ -32,7 +32,7 @@ internal sealed class SimContext : ISimContext
         Partition = new PartitionAdapter(engine);
         Terrain = new TerrainAdapter(engine);
         Players = new PlayerListAdapter(engine);
-        Assets = new AssetStoreAdapter();
+        Assets = new AssetStoreAdapter(engine);
         Events = new SimEventsAdapter(engine);
     }
 
@@ -200,6 +200,14 @@ internal sealed class SimContext : ISimContext
 
     private sealed class AssetStoreAdapter : IAssetStore
     {
+        private readonly IGameEngine _engine;
+
+        public AssetStoreAdapter(IGameEngine engine) => _engine = engine;
+
+        // S6 horde system: template lookup for banner-carrier respawn. Immutable parsed
+        // data behind the seam; no float crossing.
+        public ObjectDefinition GetObjectDefinition(string name) =>
+            _engine.AssetLoadContext.AssetStore.ObjectDefinitions.GetByName(name);
     }
 
     /// <summary>

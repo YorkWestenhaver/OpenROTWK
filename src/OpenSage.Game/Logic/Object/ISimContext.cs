@@ -186,9 +186,15 @@ public interface IPlayerList
     int GetPlayerIndex(OpenSage.Logic.Player player);
 }
 
-/// <summary>Immutable parsed-data view. Empty until the first asset-consuming port.</summary>
+/// <summary>Immutable parsed-data view. Grows one member per porting need.</summary>
 public interface IAssetStore
 {
+    /// <summary>
+    /// Object template lookup by name (grown for the S6 horde system: the banner-carrier
+    /// respawn path resolves BannerCarriersAllowed template names at runtime). Immutable
+    /// parsed data, so the read carries no determinism hazard; null when no such template.
+    /// </summary>
+    ObjectDefinition GetObjectDefinition(string name);
 }
 
 /// <summary>Fire-and-forget client-bound events (S8): outputs only, never sim inputs.</summary>
