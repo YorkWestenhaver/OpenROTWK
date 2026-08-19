@@ -226,4 +226,19 @@ public interface ISimEvents
     /// deliberately absent from the context; only the event is not).
     /// </summary>
     void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId);
+
+    /// <summary>
+    /// Request a named particle system attached to an object, placed at a bone (or the
+    /// object's own transform when <paramref name="bone"/> is empty). Grown for the
+    /// TransitionDamageFX port (the first module whose output is an attached emitter rather
+    /// than a one-shot FXList): the original's <c>createParticleSystem</c> +
+    /// <c>attachToObject</c> pair. The bone lookup and the <paramref name="randomBone"/>
+    /// pick are client-side model concerns resolved on the far side of the seam - a
+    /// <c>[SimState]</c> module names the bone and never touches a transform (see
+    /// research/modules-r7/TransitionDamageFX.md finding F-TDF-2 on the original's
+    /// logic-stream random-bone draw, which cannot be reproduced sim-side and is deliberately
+    /// not drawn here). The client owns the created emitter's lifetime, so the sim keeps no
+    /// particle-system id (F-TDF-1).
+    /// </summary>
+    void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone);
 }

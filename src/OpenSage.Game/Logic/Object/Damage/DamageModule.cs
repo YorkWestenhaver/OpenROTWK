@@ -6,6 +6,17 @@ public abstract class DamageModule : BehaviorModule, IDamageModule
     {
     }
 
+    /// <summary>
+    /// The frozen contract ctor (api-freeze-v1 §3 item 1), promoted onto DamageModule by the
+    /// first Damage-category port (TransitionDamageFX, R7) exactly as the Die batch promoted
+    /// DieModule. Accessibility matches <see cref="BehaviorModule"/>'s ISimContext ctor
+    /// (<c>private protected</c>): every Damage subclass lives in this assembly. The legacy
+    /// <see cref="IGameEngine"/> ctor above stays until the last Damage class is ported (F11).
+    /// </summary>
+    private protected DamageModule(GameObject gameObject, ISimContext context) : base(gameObject, context)
+    {
+    }
+
     public virtual void OnDamage(in DamageInfo damageInfo) { }
 
     public virtual void OnHealing(in DamageInfo damageInfo) { }
