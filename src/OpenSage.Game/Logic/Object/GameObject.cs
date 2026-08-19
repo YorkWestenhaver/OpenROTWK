@@ -801,6 +801,11 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         _attributeModifiers[name].Invalid = true;
     }
 
+    /// <summary>Whether the named modifier is registered and not yet flagged for removal
+    /// (R11 read seam for the ported modifier-granting modules and their tests).</summary>
+    public bool HasAttributeModifier(string name)
+        => _attributeModifiers.TryGetValue(name, out var modifier) && !modifier.Invalid;
+
     public void ShowCollider(string name)
     {
         if (Colliders.Any(x => x.Name.Equals(name)))
@@ -1765,9 +1770,11 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
         _body?.OnVeterancyLevelChanged(oldLevel, newLevel, provideFeedback);
 
-        _gameEngine.AudioSystem.PlayAudioEvent(
+        // Client audio; null-tolerant so the headless sim host (no audio system, no
+        // MiscAudio scope) can promote units.
+        _gameEngine.AudioSystem?.PlayAudioEvent(
             this,
-            _gameEngine.AssetLoadContext.AssetStore.MiscAudio.Current.UnitPromoted.Value
+            _gameEngine.AssetLoadContext.AssetStore.MiscAudio.Current?.UnitPromoted?.Value
         );
     }
 

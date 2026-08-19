@@ -21,7 +21,7 @@ public sealed class SimHordeMember : DamageModule
     // ---- mutable sim state (the whole inventory) ----
     private ObjectId _hordeId;
 
-    public SimHordeMember(GameObject gameObject, ISimContext context, SimHordeMemberModuleData data)
+    public SimHordeMember(GameObject gameObject, ISimContext context, BehaviorModuleData data)
         : base(gameObject, context)
     {
     }
@@ -91,8 +91,8 @@ public sealed class SimHordeMember : DamageModule
 
 /// <summary>
 /// Member-side horde marker. The binary's HordeMemberCollide parses an EMPTY block
-/// (spec §2); registered under the interim name "SimHordeMember" alongside the legacy
-/// "HordeMemberCollide" entry, which stays untouched.
+/// (spec §2); registered under the interim name "SimHordeMember" alongside the real
+/// "HordeMemberCollide" entry, which creates this same runtime since the R11 port.
 /// </summary>
 [SimDataAudited]
 public sealed class SimHordeMemberModuleData : BehaviorModuleData
