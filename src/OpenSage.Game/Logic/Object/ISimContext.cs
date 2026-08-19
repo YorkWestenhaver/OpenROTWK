@@ -130,9 +130,9 @@ public interface IGameLogic
 /// <summary>
 /// Deterministic spatial queries: results are always in ascending ObjectId order (frozen
 /// contract, design-module-api §6), so partition iteration is never a desync source.
-/// NOTE: until the partition subsystem itself migrates to Fix64, the underlying quadtree
-/// query runs on the float substrate behind this seam (same-binary deterministic; the
-/// cross-arch guarantee arrives with the partition port).
+/// NOTE (updated, sys/partition-wiring R9): queries are served by the deterministic Fix64
+/// SimPartitionGrid (S3) - bit-deterministic cross-arch. Positions still originate in the
+/// float transform and are quantized once at the F4 wire boundary behind this seam.
 /// </summary>
 public interface IPartitionQuery
 {
