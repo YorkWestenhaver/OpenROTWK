@@ -99,7 +99,10 @@ public class MapFile
     // This will probably change as we port more stuff.
     public IEnumerable<ScriptList> GetPlayerScriptsList() => SidesList.Players.Select(player => player.Scripts) ?? PlayerScriptsList.ScriptLists;
 
-    public List<Team> GetTeams() => SidesList.Teams ?? Teams.Items;
+    // BFME-era maps carry teams in the standalone Teams chunk while SidesList.Teams parses
+    // to an empty (non-null) list, so an empty sides list must fall through too.
+    public List<Team> GetTeams() =>
+        SidesList.Teams is { Count: > 0 } sidesTeams ? sidesTeams : Teams?.Items ?? SidesList.Teams;
 
     public static Stream Decompress(Stream stream)
     {

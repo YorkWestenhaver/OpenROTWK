@@ -140,6 +140,81 @@ End
     }
 
     [Fact]
+    public void Job009Map_RealIniSubset_SpawnsHordeMembersAndExchangesDamage()
+    {
+        var mapPath = Path.Combine("Logic", "Script", "Assets", "job009_creep_fight.map");
+        MapFile mapFile;
+        using (var stream = File.OpenRead(mapPath))
+        {
+            mapFile = MapFile.FromStream(stream);
+        }
+        var subsetIni = File.ReadAllText(
+            Path.Combine("Logic", "Script", "Assets", "job009_creep_fight_subset.ini"));
+
+        var run = new SimMapRun(SageGame.Bfme2, 0xB00, mapFile, [subsetIni]);
+
+        static int CountByTemplate(SimMapRun run, params string[] names)
+        {
+            var count = 0;
+            foreach (var gameObject in run.Game.GameLogic.Objects)
+            {
+                foreach (var name in names)
+                {
+                    if (gameObject.Definition.Name == name)
+                    {
+                        count++;
+                        break;
+                    }
+                }
+            }
+            return count;
+        }
+
+        static float TotalMemberHealth(SimMapRun run)
+        {
+            var total = 0f;
+            foreach (var gameObject in run.Game.GameLogic.Objects)
+            {
+                var name = gameObject.Definition.Name;
+                if (name is "GondorFighter" or "MordorFighter1" or "MordorFighter2")
+                {
+                    total += gameObject.BodyModule.Health;
+                }
+            }
+            return total;
+        }
+
+        // Frame 0 runs the spawn scripts; the S6 contain spawns the payloads on the first
+        // module update. Both hordes' full member rosters exist by frame 5.
+        for (var f = 0; f < 5; f++)
+        {
+            run.StepFrame();
+        }
+
+        Assert.Equal(15, CountByTemplate(run, "GondorFighter"));
+        Assert.Equal(20, CountByTemplate(run, "MordorFighter1", "MordorFighter2"));
+        var healthAfterSpawn = TotalMemberHealth(run);
+        Assert.Equal(15 * 330 + 20 * 75, (int)healthAfterSpawn);
+
+        // The two sides' owners became hostile through TEAM_ATTACK_TEAM.
+        Assert.True(run.Game.GameLogic.TryGetObjectByName("Atk_1", out var attacker));
+        Assert.True(run.Game.GameLogic.TryGetObjectByName("Def_1", out var defender));
+        Assert.NotEqual(attacker.Owner, defender.Owner);
+        Assert.Contains(defender.Owner, attacker.Owner.Enemies);
+
+        // March + melee: by frame 250 the hordes have closed the 300-unit gap and the
+        // members' S1 weapons have drawn real blood on both sides.
+        for (var f = 5; f < 250; f++)
+        {
+            run.StepFrame();
+        }
+
+        var healthAfterFight = TotalMemberHealth(run);
+        Assert.True(healthAfterFight < healthAfterSpawn,
+            $"expected member health to decrease ({healthAfterFight} >= {healthAfterSpawn})");
+    }
+
+    [Fact]
     public void Job005Map_RegistersMapTeamsAndWaypoints()
     {
         var run = new SimMapRun(SageGame.Bfme2, 0xB00, LoadJob005Map(), [Definitions]);

@@ -19,6 +19,9 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Object.Horde;
+using OpenSage.Logic.Object.Locomotion;
+using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Ticking;
 
 namespace OpenSage.Logic.Script;
@@ -31,6 +34,10 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
 
     private readonly List<(string Name, Vector3 Position)> _waypoints = new();
     private readonly List<TeamEntry> _teams = new();
+    private readonly List<(string Attacker, string Victim)> _attackOrders = new();
+
+    /// <summary>Members' own combat drives them once released; locomotor clamps to its max.</summary>
+    private static readonly Fix64 AttackMoveSpeedSentinel = Fix64.FromDecimalLiteral("99999");
 
     private sealed class TeamEntry
     {
@@ -164,6 +171,22 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
             return; // GPL doAttack sanity bail
         }
 
+        // GPL semantics: a scripted attack forces hostility whatever the map authored —
+        // TEAM_ATTACK_TEAM works between nominally neutral scenario sides (job-009's
+        // creeps-vs-civilian pairing relies on it).
+        if (attackers.Owner != victims.Owner)
+        {
+            attackers.Owner.AddEnemy(victims.Owner);
+            victims.Owner.AddEnemy(attackers.Owner);
+        }
+
+        // Horde containers are driven per-frame by TickCombat (approach + member melee);
+        // the standing order is what survives across frames.
+        if (!_attackOrders.Contains((attackers.Name, victims.Name)))
+        {
+            _attackOrders.Add((attackers.Name, victims.Name));
+        }
+
         // Victim pick: the lowest-ObjectId live member (recorded deviation SR-D4 — the
         // original AI group picks per-attacker victims through its own logic; a fixed
         // total-order pick keeps the draw count untouched until an AI system exists).
@@ -181,8 +204,180 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
                 continue;
             }
 
-            OrderAttack(attacker, victim);
+            if (attacker.FindBehavior<SimHordeContain>() == null)
+            {
+                OrderAttack(attacker, victim);
+            }
         }
+    }
+
+    /// <summary>
+    /// Per-frame combat drive for the standing TEAM_ATTACK_TEAM orders (SimMapRun calls
+    /// this each StepFrame). The AIUpdate family is deliberately unfrozen (api-freeze-v1
+    /// §7), so the harness supplies the minimal HordeAIUpdate shape here: each attacking
+    /// horde marches on the victim team's lead object until its rangefinder range, flips
+    /// the S6 melee mux, and its members fight through the real S1 weapon pipeline
+    /// (retargeting to the nearest live enemy member as targets die). Weapon state
+    /// machines tick here because the headless host has no Scene3D.LogicTick.
+    /// </summary>
+    public void TickCombat()
+    {
+        foreach (var (attackerName, victimName) in _attackOrders)
+        {
+            var attackers = FindTeam(attackerName);
+            var victims = FindTeam(victimName);
+            if (attackers == null || victims == null)
+            {
+                continue;
+            }
+
+            var victimLead = FirstLiveMember(victims);
+
+            foreach (var id in MembersAscending(attackers))
+            {
+                var attacker = _gameLogic.GetObjectById(id);
+                if (attacker == null || attacker.IsEffectivelyDead || attacker.IsDestroyed)
+                {
+                    continue;
+                }
+
+                var horde = attacker.FindBehavior<SimHordeContain>();
+                if (horde == null)
+                {
+                    continue;
+                }
+
+                TickHordeAttack(attacker, horde, victims, victimLead);
+            }
+        }
+    }
+
+    private void TickHordeAttack(GameObject attacker, SimHordeContain horde, TeamEntry victims, GameObject victimLead)
+    {
+        var mover = attacker.FindBehavior<SimLocomotorUpdate>();
+
+        if (victimLead == null)
+        {
+            horde.SetMeleeAttacking(false);
+            if (mover != null && mover.Mode == SimMoveMode.MoveToPosition)
+            {
+                mover.Stop();
+            }
+            return;
+        }
+
+        // Approach-vs-melee by the horde's own rangefinder (NormalMeleeHordeRangefinder
+        // range 12): outside it the horde marches on the victim; inside, the S6 melee mux
+        // releases the configured ranks and members fight in place.
+        var range = attacker.CurrentWeapon?.Template.AttackRange ?? 0;
+        var distance = Vector3.Distance(attacker.Translation, victimLead.Translation);
+        if (distance > range && mover != null)
+        {
+            horde.SetMeleeAttacking(false);
+            mover.SetTargetPosition(SimTransformBridge.PullPosition(victimLead), AttackMoveSpeedSentinel);
+        }
+        else
+        {
+            horde.SetMeleeAttacking(true);
+            if (mover != null && mover.Mode == SimMoveMode.MoveToPosition)
+            {
+                mover.Stop();
+            }
+        }
+
+        foreach (var memberId in horde.MemberIds)
+        {
+            var member = _gameLogic.GetObjectById(memberId);
+            if (member == null || member.IsEffectivelyDead || member.IsDestroyed)
+            {
+                continue;
+            }
+
+            var weapon = member.CurrentWeapon;
+            if (weapon == null)
+            {
+                continue;
+            }
+
+            // Track the nearest live enemy every frame (dead or out-of-range locks would
+            // stall the melee — each member's original pick rarely ends up adjacent once
+            // the formations collide).
+            var victim = NearestLiveVictim(member, victims);
+            if (victim?.Id != weapon.CurrentTarget?.TargetObjectId)
+            {
+                weapon.SetTarget(victim != null ? new WeaponTarget(_gameLogic, victim.Id) : null);
+            }
+
+            // Released melee members chase their victim (the HordeAIUpdate pursue shape):
+            // without it the survivors of first contact stand out of range and the fight
+            // stalls. Formation steering already skips released slots.
+            if (victim != null && horde.IsMeleeAttacking)
+            {
+                var memberMover = member.FindBehavior<SimLocomotorUpdate>();
+                if (memberMover != null)
+                {
+                    if (Vector3.Distance(member.Translation, victim.Translation) > weapon.Template.AttackRange)
+                    {
+                        memberMover.SetTargetPosition(SimTransformBridge.PullPosition(victim), AttackMoveSpeedSentinel);
+                    }
+                    else if (memberMover.Mode == SimMoveMode.MoveToPosition)
+                    {
+                        memberMover.Stop();
+                    }
+                }
+            }
+
+            weapon.LogicTick();
+        }
+    }
+
+    /// <summary>
+    /// Nearest live combatant on the victim team: horde containers contribute their
+    /// members, plain objects themselves. Ties break on lowest ObjectId (the iteration
+    /// order), keeping the pick deterministic.
+    /// </summary>
+    private GameObject NearestLiveVictim(GameObject member, TeamEntry victims)
+    {
+        GameObject best = null;
+        var bestDistanceSquared = float.MaxValue;
+
+        void Consider(GameObject candidate)
+        {
+            if (candidate == null || candidate.IsEffectivelyDead || candidate.IsDestroyed)
+            {
+                return;
+            }
+            var distanceSquared = Vector3.DistanceSquared(member.Translation, candidate.Translation);
+            if (distanceSquared < bestDistanceSquared)
+            {
+                best = candidate;
+                bestDistanceSquared = distanceSquared;
+            }
+        }
+
+        foreach (var id in MembersAscending(victims))
+        {
+            var container = _gameLogic.GetObjectById(id);
+            if (container == null || container.IsDestroyed)
+            {
+                continue;
+            }
+
+            var horde = container.FindBehavior<SimHordeContain>();
+            if (horde != null)
+            {
+                foreach (var memberId in horde.MemberIds)
+                {
+                    Consider(_gameLogic.GetObjectById(memberId));
+                }
+            }
+            else
+            {
+                Consider(container);
+            }
+        }
+
+        return best;
     }
 
     public void NamedAttackNamed(string attackerName, string victimName)
