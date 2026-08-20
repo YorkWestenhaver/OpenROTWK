@@ -65,6 +65,12 @@ public sealed class SlaughterHordeContain : UpdateModule, IUpgradeableModule
     // ---- mutable sim state (the whole inventory; every field is in Xfer) ----
     private readonly List<ObjectId> _members = new();
 
+    // Build cost of each seated member, captured on entry and index-parallel to _members.
+    // The refund cannot re-read it at reap time: a member that dies is deleted from the
+    // object list at the end of its death frame, which can be before the container's own
+    // Update() next runs, so by then GetObjectById(memberId) is already null.
+    private readonly List<uint> _memberCosts = new();
+
     public SlaughterHordeContain(GameObject gameObject, ISimContext context, SlaughterHordeContainModuleData data)
         : base(gameObject, context)
     {
@@ -196,8 +202,9 @@ public sealed class SlaughterHordeContain : UpdateModule, IUpgradeableModule
         }
 
         _members.Add(member.Id);
+        _memberCosts.Add(CastleUnpackStamper.GetBuildCost(member.Definition));
         SetContainedStatus(member, true);
-        RouteMemberTo(member, in _data.EntryPosition);
+        RouteMemberTo(member, _data.EntryPosition);
 
         SetWakeFrame(UpdateSleepTime.None);
         return true;
@@ -215,9 +222,9 @@ public sealed class SlaughterHordeContain : UpdateModule, IUpgradeableModule
             return false;
         }
 
-        RouteMemberTo(member, in _data.ExitOffset);
+        RouteMemberTo(member, _data.ExitOffset);
         SetContainedStatus(member, false);
-        _members.Remove(member.Id);
+        RemoveMemberAt(_members.IndexOf(member.Id));
         return true;
     }
 
@@ -280,19 +287,33 @@ public sealed class SlaughterHordeContain : UpdateModule, IUpgradeableModule
                 continue;
             }
 
-            _members.RemoveAt(i);
-            IssueCashBackRefund(member);
+            var cost = i < _memberCosts.Count ? _memberCosts[i] : 0u;
+            RemoveMemberAt(i);
+            IssueCashBackRefund(cost);
         }
     }
 
-    private void IssueCashBackRefund(GameObject member)
+    private void RemoveMemberAt(int index)
     {
-        if (member == null || GameObject.Owner == null)
+        if (index < 0 || index >= _members.Count)
         {
             return;
         }
 
-        var cost = CastleUnpackStamper.GetBuildCost(member.Definition);
+        _members.RemoveAt(index);
+        if (index < _memberCosts.Count)
+        {
+            _memberCosts.RemoveAt(index);
+        }
+    }
+
+    private void IssueCashBackRefund(uint cost)
+    {
+        if (GameObject.Owner == null)
+        {
+            return;
+        }
+
         if (cost == 0)
         {
             return;
@@ -316,9 +337,12 @@ public sealed class SlaughterHordeContain : UpdateModule, IUpgradeableModule
         xfer.XferVersion(1);
         _upgradeLogic.Xfer(xfer);
         xfer.XferList("Members", _members, XferMember);
+        xfer.XferList("MemberCosts", _memberCosts, XferMemberCost);
     }
 
     private static void XferMember(IXfer xfer, ref ObjectId item) => xfer.XferObjectId("Id", ref item);
+
+    private static void XferMemberCost(IXfer xfer, ref uint item) => xfer.XferUInt("Cost", ref item);
 }
 
 [AddedIn(SageGame.Bfme)]

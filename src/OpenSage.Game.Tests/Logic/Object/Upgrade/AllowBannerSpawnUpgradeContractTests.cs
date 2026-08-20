@@ -58,8 +58,16 @@ End
     private static AllowBannerSpawnUpgrade BannerModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<AllowBannerSpawnUpgrade>().Single();
 
-    private static UpgradeSet UpgradeSetOf(HeadlessSimGame game, params string[] upgradeNames) =>
-        new UpgradeSet(upgradeNames.Select(name => game.AssetStore.Upgrades.GetByName(name)));
+    private static UpgradeSet UpgradeSetOf(HeadlessSimGame game, params string[] upgradeNames)
+    {
+        var set = new UpgradeSet();
+        foreach (var name in upgradeNames)
+        {
+            set.Add(game.AssetStore.Upgrades.GetByName(name));
+        }
+
+        return set;
+    }
 
     [Fact]
     public void NotTriggered_WhenPrerequisiteNotGranted()

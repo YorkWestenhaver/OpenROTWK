@@ -34,6 +34,7 @@
 // it survives and gains the Ring status/upgrades.
 
 using System.Collections.Generic;
+using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Sync;

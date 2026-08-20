@@ -154,11 +154,22 @@ End
         var victim = game.SpawnObject("TestVictim", owner, new Vector3(5, 0, 0));
         var module = ModuleOf(pen);
 
+        // Warm-up frames: a freshly created object's update modules only join the sleepy
+        // update list on the frame after CreateObject, so the pen's own Update() (the one
+        // that reaps and refunds) does not run until the registration frame has passed.
+        game.Step();
+        game.Step();
+
         Assert.True(module.TryContain(victim));
         Assert.Equal(0u, owner.BankAccount.Money);
 
         PortedModuleTestKit.TriggerDeath(victim);
-        game.Step();   // the pen's own Update() reaps the dead member and pays the refund
+        // The pen's own Update() reaps the dead member and pays the refund. A wake frame set
+        // from outside Update() (TryContain's SetWakeFrame) lands on the frame after the
+        // current one, and GameLogic advances its frame counter after the module loop, so the
+        // reaping Update() runs on the second Step, not the first.
+        game.Step();
+        game.Step();
 
         // BuildCost 100 * CashBackPercent 75% = 75.
         Assert.Equal(75u, owner.BankAccount.Money);
@@ -173,8 +184,11 @@ End
         var victim = game.SpawnObject("TestVictim", game.CivilianPlayer, new Vector3(0, 5, 0));
         var module = ModuleOf(pen);
 
-        // One frame ticks both SimLocomotorUpdate modules' lazy transform ingestion
-        // (TransformInitialized) so RouteMemberTo has a real Fix64 anchor to steer from.
+        // Two frames tick both SimLocomotorUpdate modules' lazy transform ingestion
+        // (TransformInitialized) so RouteMemberTo has a real Fix64 anchor to steer from -
+        // a freshly created object's modules only join the sleepy update list on the frame
+        // after CreateObject, so the first Step does not yet run their Update().
+        game.Step();
         game.Step();
 
         Assert.True(module.TryContain(victim));
