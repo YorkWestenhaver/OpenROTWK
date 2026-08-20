@@ -1,34 +1,68 @@
-Contributing to OpenSage
-======================
+Contributing to OpenROTWK
+=========================
 
-This document describes contribution guidelines that are specific to OpenSage. It closely matches the guidelines defined by the [C# standard library](https://github.com/dotnet/corefx) itself
+Contributions are welcome. This document says what we care about; the
+[Developer Guide](docs/developer-guide.md) covers how to build and run.
 
-Developer Guide
---------------------
-In case you want some more knowledge on how to get started with development of OpenSage please take a look at our [Developer Guide](docs/developer-guide.md). 
+## AI-assisted contributions are 100% welcome
 
-Coding Style Changes
---------------------
+This project was built by a human directing AI agents at scale, and contributions
+produced the same way are explicitly welcome — most of this codebase came into
+existence that way. We don't care how the code was written. We care whether it is
+correct, verified, and honestly presented. What that means in practice:
 
-OpenSage tries to strictly match the coding style described in [Coding Style](docs/coding-style.md). We plan to do that with tooling, in a holistic way. In the meantime, please:
+* You (the human submitting) are responsible for the contribution. You should be
+  able to answer questions about it. "The AI wrote it and I didn't look" is not a
+  contribution; "I directed this, verified it against the gates below, and stand
+  behind it" is — regardless of who or what typed the code.
+* Don't disclose or apologize for AI use; it's normal here. Do disclose what
+  verification you ran.
 
-* **DO NOT** send PRs for style changes.
+## Proposing a major change: show your alternatives
 
-Pull Requests
--------------
+For any significant change — a new system, an architectural shift, a dependency, a
+rework of something that already works — the proposal (issue or PR description)
+must include:
 
-* **DO** submit all code changes via pull requests (PRs) rather than through a direct commit. PRs will be reviewed and potentially merged by the repo maintainers after a peer review that includes at least one maintainer.
-* **DO** give PRs short-but-descriptive names (e.g. "Improve code coverage for System.Console by 10%", not "Fix #1234")
-* **DO** refer to any relevant issues, and include [keywords](https://help.github.com/articles/closing-issues-via-commit-messages/) that automatically close issues when the PR is merged.
-* **DO** tag any users that should know about and/or review the change.
-* **DO** ensure each commit successfully builds.  The entire PR must pass all tests in the Continuous Integration (CI) system before it'll be merged.
-* **DO** address PR feedback in an additional commit(s) rather than amending the existing commits, and only rebase/squash them when necessary.  This makes it easier for reviewers to track changes.
-* **DO** assume that ["Rebase and Merge"](https://github.com/blog/2141-squash-your-commits) will be used to merge your commit unless you request otherwise in the PR.
-* **DO NOT** fix merge conflicts using a merge commit. Prefer `git rebase`.
-* **DO NOT** mix independent, unrelated changes in one PR. Separate real product/test code changes from larger code formatting/dead code removal changes. Separate unrelated fixes into separate PRs, especially if they are in different assemblies.
+1. **Purpose** — what problem this solves, and why it needs solving. "For the sake
+   of it" changes (rewrites for taste, style crusades, modernization without a
+   concrete payoff) will be declined.
+2. **The alternatives you considered** — at least the other viable options, and
+   **why you rejected them**. This is not a formality: if you haven't genuinely
+   weighed multiple paths, the proposal isn't ready. A design chosen without
+   alternatives isn't a decision, it's a default.
+3. **How it will be verified** — which existing gates cover it, and what new tests
+   or conformance evidence it brings.
 
-Merging Pull Requests (for contributors with write access)
-----------------------------------------------------------
+Small fixes don't need this ceremony — a clear description and passing gates are
+enough.
 
-* **DO** use ["Rebase and Merge"](https://github.blog/2016-09-26-rebase-and-merge-pull-requests) by default for contributions.
-* **DO** use ["Squash and Merge"](https://github.com/blog/2141-squash-your-commits) in case a PR author created many small commits, which don't make a lot of sense individually.
+## Hard rules (these are the project)
+
+* **No floating point in simulation code.** All sim math is `Fix64` fixed-point;
+  the float-quarantine analyzer enforces this at build time and its failures are
+  never suppressed. This is the cross-platform determinism guarantee — see the
+  README's design section for why.
+* **Determinism is tested, not assumed.** The run-twice CRC gates in CI must stay
+  green. If your change makes the same inputs produce different bits, it is wrong
+  even if it looks right.
+* **Conformance beats intuition.** Where retail behavior is known (GPL source,
+  behavioral specs, oracle captures), match it. "The original game does X" wins
+  arguments; "I think it should do Y" belongs in a mod.
+* **Provenance: four sources only.** Code may come from translating EA's GPL
+  Generals/Zero Hour release, from reading data files, from observing the retail
+  game, or from written behavioral specifications. **Never** from decompiled or
+  binary-derived code — not the retail binary, and not other projects' decompiled
+  output (e.g. byte-matching recovery projects). If your contribution's lineage
+  can't be stated in those terms, it can't be merged.
+* **No game assets, ever.** Nothing from the retail games or third-party mods
+  enters this repository — not even "just for testing."
+
+## Practical points
+
+* Keep PRs focused: one change per PR. Separate refactors from behavior changes.
+* Every commit should build; the full test suite must pass.
+* When touching shared registries or widely-included files, keep additions
+  minimal and uniquely named — most integration pain in this project's history
+  has come from two changes colliding in a shared file.
+* Style: match the surrounding code. Don't send style-only PRs.
