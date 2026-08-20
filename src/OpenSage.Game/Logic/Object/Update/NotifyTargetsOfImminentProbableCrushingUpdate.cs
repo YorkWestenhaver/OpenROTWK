@@ -1,7 +1,8 @@
 // NotifyTargetsOfImminentProbableCrushingUpdate - R12 port. BFME-only (no generals-gpl
 // sibling); no clean-room Ghidra spec of this exact class exists in bfme2-workbench/research/
 // (spec-hordes.md documents the sibling HordeNotifyTargetsOfImminentProbableCrushingUpdate,
-// which adds one field, ScanWidth, and is a SEPARATE registered module - still [ParseOnly]).
+// which adds one field, ScanWidth, and is a SEPARATE registered module - ported alongside
+// this one in R12, see HordeNotifyTargetsOfImminentProbableCrushingUpdate.cs).
 // Census over the full AotR INI corpus confirms this class is genuinely field-less: every
 // authored use (`grep -rn "Behavior = NotifyTargetsOfImminentProbableCrushingUpdate"`)
 // is a bare `ModuleTag_NotifyCrushScan` block with an immediate `End` - mumakil, corsair
@@ -124,14 +125,17 @@ public sealed class NotifyTargetsOfImminentProbableCrushingUpdate : UpdateModule
             _warnedTargets.RemoveAt(i);
         }
 
-        // Warn newly-eligible targets.
+        // Warn every eligible target, re-asserting the flag each tick rather than only on
+        // first sight. EmotionBraceForBeingCrushed is shared, un-refcounted state on the
+        // TARGET: this module and its sibling (Horde/base
+        // NotifyTargetsOfImminentProbableCrushingUpdate) both set and clear it, and any
+        // number of crushers can be bracing the same target at once. With a "skip if already
+        // in _warnedTargets" guard, one crusher's ClearWarning would wipe the flag while
+        // another crusher still bears down, and that second crusher would never re-set it
+        // (its own list still lists the target as warned) - the target would stay
+        // permanently un-braced. Re-asserting costs one redundant flag write and self-heals.
         foreach (var id in eligible)
         {
-            if (_warnedTargets.Contains(id))
-            {
-                continue;
-            }
-
             var target = Context.GameLogic.GetObjectById(id);
             if (target == null)
             {
@@ -139,7 +143,10 @@ public sealed class NotifyTargetsOfImminentProbableCrushingUpdate : UpdateModule
             }
 
             target.SetModelConditionState(ModelConditionFlag.EmotionBraceForBeingCrushed);
-            _warnedTargets.Add(id);
+            if (!_warnedTargets.Contains(id))
+            {
+                _warnedTargets.Add(id);
+            }
         }
     }
 

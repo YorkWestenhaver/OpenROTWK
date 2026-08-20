@@ -95,7 +95,7 @@ End
         var teamFactory = new TeamFactory(game);
         var saboteurTeam = teamFactory.AddTeam(new TeamTemplate(teamFactory, 1, "SaboteurTeam", saboteurPlayer, isSingleton: true));
 
-        saboteurPlayer.SetPlayerRelationship(enemyPlayer, RelationshipType.Enemies);
+        saboteurPlayer.SetRelationship(enemyPlayer, RelationshipType.Enemies);
 
         var saboteur = game.SpawnObject("TestSaboteur", saboteurPlayer, new Vector3(0, 0, 0));
         saboteur.Team = saboteurTeam;

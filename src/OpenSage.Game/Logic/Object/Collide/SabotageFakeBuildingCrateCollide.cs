@@ -33,8 +33,12 @@ public sealed class SabotageFakeBuildingCrateCollide : CrateCollide
 
         // Check to make sure that the other object is also the goal object in the
         // AIUpdateInterface, in order to prevent an unintentional sabotage simply by having
-        // the saboteur walk too close to it.
-        if (GameObject.AIUpdate?.GoalObject != other)
+        // the saboteur walk too close to it. GPL guards this with `ai && ai->getGoalObject()
+        // != other`, so a saboteur with NO AIUpdate at all passes the gate - matching the
+        // sibling SabotageSupplyCenterCrateCollide port. (Writing it as `AIUpdate?.GoalObject
+        // != other` inverted that: a null AIUpdate yielded null != other and rejected.)
+        var ai = GameObject.AIUpdate;
+        if (ai != null && ai.GoalObject != other)
         {
             return false;
         }

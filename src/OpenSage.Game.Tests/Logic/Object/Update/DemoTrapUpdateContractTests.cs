@@ -88,11 +88,11 @@ End
 
     private static void MakeEnemies(Player a, Player b)
     {
-        // GetRelationship reads Player.SetPlayerRelationship's table, not the Enemies/Allies
+        // GetRelationship reads Player.SetRelationship's table, not the Enemies/Allies
         // list AddEnemy populates (that list is unrelated bookkeeping) - see
-        // Player.SetPlayerRelationship's doc comment.
-        a.SetPlayerRelationship(b, RelationshipType.Enemies);
-        b.SetPlayerRelationship(a, RelationshipType.Enemies);
+        // Player.SetRelationship's doc comment.
+        a.SetRelationship(b, RelationshipType.Enemies);
+        b.SetRelationship(a, RelationshipType.Enemies);
     }
 
     /// <summary>

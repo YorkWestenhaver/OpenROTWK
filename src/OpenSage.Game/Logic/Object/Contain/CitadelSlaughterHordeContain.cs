@@ -95,7 +95,7 @@ public sealed class CitadelSlaughterHordeContain : BehaviorModule, IUpgradeableM
             return _data.AllowOwnPlayerInsideOverride || PassesPassengerFilter(horde);
         }
 
-        // Player.Allies/Player.Enemies (not the Team-keyed GetRelationship/SetPlayerRelationship
+        // Player.Allies/Player.Enemies (not the Team-keyed GetRelationship/SetRelationship
         // pair): the same one-directional "is the entrant's owner an ally/enemy of the
         // citadel's owner" test AutoHealBehavior already uses for its own ally gate. Neither
         // set containing the entrant's owner means Neutral (the default relationship).
