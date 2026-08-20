@@ -373,6 +373,14 @@ internal sealed class SimContext : ISimContext
 
             _engine.ParticleSystems.Create(template, subject.TransformMatrix);
         }
+
+        // R12 (HeightDieUpdate): same story as FireUnitSoundAtObject - the event is recorded
+        // as owed, but ParticleSystemManager has no object-attachment tracking yet (F-HDU-1),
+        // so there is nothing here to tear down.
+        public void DestroyAttachedParticleSystems(ObjectId objectId)
+        {
+            _ = objectId;
+        }
     }
 }
 

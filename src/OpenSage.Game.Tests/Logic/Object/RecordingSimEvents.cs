@@ -66,6 +66,12 @@ internal sealed class RecordingSimEvents : ISimEvents
     public void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone) =>
         ParticleSystems.Add(new RecordedParticleSystem(particleSystemName, objectId, bone, randomBone));
 
+    /// <summary>Destroy-attached-particles requests, in order (HeightDieUpdate, R12).</summary>
+    public List<ObjectId> DestroyedAttachedParticleSystemsFor { get; } = new();
+
+    public void DestroyAttachedParticleSystems(ObjectId objectId) =>
+        DestroyedAttachedParticleSystemsFor.Add(objectId);
+
     /// <summary>Installs a fresh recorder on the headless host's context and returns it.</summary>
     public static RecordingSimEvents InstallOn(HeadlessSimGame game)
     {
