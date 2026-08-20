@@ -360,4 +360,41 @@ End
             Assert.True(jitter.Length() <= jitterBound + 0.01f);
         }
     }
+
+    // ------------------------------------------------------------------------------------
+    // 7. If the launch vehicle is destroyed/removed before the missile's first Launch-state
+    //    tick fires, the missile detects the null launcher lookup and self-destructs rather
+    //    than crashing on a missing launch-bone transform.
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public void LauncherDestroyedDuringLaunch_MissileSelfDestructs()
+    {
+        var game = NewGame();
+        var launcher = SpawnLauncher(game);
+        var missileHost = SpawnMissileHost(game);
+        var data = BuildModuleData();
+        var missile = new NeutronMissileUpdate(missileHost, game.GameEngine, data);
+
+        missile.ProjectileLaunchAtObjectOrPosition(
+            victim: null,
+            victimPos: new Vector3(100f, 0f, 0f),
+            launcher: launcher,
+            wslot: WeaponSlot.Primary,
+            specificBarrelToUse: 0);
+
+        Assert.Equal(NeutronMissileUpdate.MissileState.Launch, missile.State);
+
+        // The launcher is gone by the time the missile's first Launch tick runs: destroyed
+        // and reaped (DeleteDestroyed), so GetObjectById(_launcherId) returns null - matching
+        // what the real per-frame game loop does between destroying an object and the next
+        // logic tick.
+        game.GameLogic.DestroyObject(launcher);
+        game.GameLogic.DeleteDestroyed();
+
+        SetCurrentFrame(game, 0);
+        missile.Update();
+
+        Assert.Equal(ObjectId.Invalid, missile.LauncherId);
+        Assert.True(missileHost.IsDestroyed);
+    }
 }

@@ -127,6 +127,15 @@ public sealed class ObjectFilter
             return false;
         }
 
+        // "ALL" means "everything matches" (subject only to the -KindOf exclusions handled
+        // above), independent of any +KindOf inclusions - it is not itself an ObjectKinds
+        // value, so without this the Include-bit check below always failed for a bare ALL
+        // filter (no Include bits were ever set from parsing "ALL").
+        if (Rules.Get(ObjectFilterRule.All))
+        {
+            return true;
+        }
+
         return Include.Intersects(gameObject.Definition.KindOf);
     }
 
