@@ -70,7 +70,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
                 return null;
             }
 
-            return _parent.Definition.ExperienceRequired[_currentLevel + 1];
+            return _parent.Definition.ExperienceRequired?[_currentLevel + 1] ?? 0;
         }
     }
 
@@ -108,7 +108,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
 
         var oldLevel = _currentLevel;
         _currentLevel = newLevel;
-        _currentExperience = _parent.Definition.ExperienceRequired[_currentLevel];
+        _currentExperience = _parent.Definition.ExperienceRequired?[_currentLevel] ?? 0;
         // Original code checks if parent is null here, but I don't think it can ever be null
         OnVeterancyLevelChanged(oldLevel, newLevel, provideFeedback);
     }
@@ -125,7 +125,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
         }
 
         var oldLevel = _currentLevel;
-        _currentExperience = _parent.Definition.ExperienceRequired[_currentLevel];
+        _currentExperience = _parent.Definition.ExperienceRequired?[_currentLevel] ?? 0;
         // Original code checks if parent is null here, but I don't think it can ever be null
         OnVeterancyLevelChanged(oldLevel, newLevel);
     }
@@ -162,7 +162,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
         var levelIndex = 0;
 
         // While we can gain more levels and we have enough experience to gain the next level...
-        while (((levelIndex + 1) < (int)VeterancyLevel.Count) && _currentExperience >= _parent.Definition.ExperienceRequired[(VeterancyLevel)(levelIndex + 1)])
+        while (((levelIndex + 1) < (int)VeterancyLevel.Count) && _currentExperience >= (_parent.Definition.ExperienceRequired?[(VeterancyLevel)(levelIndex + 1)] ?? 0))
         {
             levelIndex++;
         }
@@ -187,7 +187,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
 
         if (newLevel > _currentLevel)
         {
-            var experienceNeeded = _parent.Definition.ExperienceRequired[newLevel] - _currentExperience;
+            var experienceNeeded = (_parent.Definition.ExperienceRequired?[newLevel] ?? 0) - _currentExperience;
             AddExperiencePoints(experienceNeeded, canScaleForBonus);
             return true;
         }
@@ -230,7 +230,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
         _currentExperience = experienceIn;
 
         var levelIndex = 0;
-        while (((levelIndex + 1) < (int)VeterancyLevel.Count) && _currentExperience >= _parent.Definition.ExperienceRequired[(VeterancyLevel)(levelIndex + 1)])
+        while (((levelIndex + 1) < (int)VeterancyLevel.Count) && _currentExperience >= (_parent.Definition.ExperienceRequired?[(VeterancyLevel)(levelIndex + 1)] ?? 0))
         {
             levelIndex++;
         }
