@@ -152,7 +152,11 @@ debt is enormous.** Tim Jones and the OpenSAGE contributors spent years building
 rendering pipeline, the file-format loaders, and the SAGE research that this project
 inherits — the entire presentation layer and data plumbing of this engine is their
 work, continued. Massive, unreserved thanks. This repository preserves the full
-OpenSAGE commit history, and their authorship, deliberately.
+OpenSAGE commit history, and their authorship, deliberately — which is why OpenSAGE
+contributors appear in this repository's contributor list: their code lives here,
+and they deserve the credit for it. Their presence in the history is attribution,
+not affiliation — OpenROTWK is an independent project, and no endorsement by the
+OpenSAGE team or its contributors is implied.
 
 Further thanks to:
 
