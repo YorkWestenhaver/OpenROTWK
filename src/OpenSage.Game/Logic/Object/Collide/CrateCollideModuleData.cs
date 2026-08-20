@@ -9,6 +9,17 @@ public abstract class CrateCollide : CollideModule
     {
     }
 
+    /// <summary>
+    /// The frozen contract ctor (api-freeze-v1 §3 item 1), grown for the UnitCrateCollide
+    /// port (R12): the first CrateCollide subclass whose OnCollide logic is Fix64/ISimContext
+    /// throughout and needs the module-facing sim seam. Legacy CrateCollide siblings
+    /// (MoneyCrateCollide, SalvageCrateCollide, etc.) keep using the IGameEngine ctor above
+    /// unchanged.
+    /// </summary>
+    protected CrateCollide(GameObject gameObject, ISimContext context) : base(gameObject, context)
+    {
+    }
+
     internal override void Load(StatePersister reader)
     {
         reader.PersistVersion(1);
