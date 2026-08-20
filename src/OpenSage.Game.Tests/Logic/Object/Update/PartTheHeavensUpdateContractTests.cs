@@ -8,6 +8,7 @@ using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
+using OpenSage.SimCore.Numerics;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Update;
@@ -84,16 +85,16 @@ End
         var data = GetData(game);
 
         Assert.Equal(2, data.Radius.Keys.Count);
-        Assert.Equal(0f, data.Radius.Keys[0].T);
-        Assert.Equal(0f, data.Radius.Keys[0].V);
-        Assert.Equal(0f, data.Radius.Keys[0].I);
-        Assert.Equal(0f, data.Radius.Keys[0].O);
-        Assert.Equal(30f, data.Radius.Keys[1].T);
-        Assert.Equal(100f, data.Radius.Keys[1].V);
+        Assert.Equal(Fix64.Zero, data.Radius.Keys[0].T);
+        Assert.Equal(Fix64.Zero, data.Radius.Keys[0].V);
+        Assert.Equal(Fix64.Zero, data.Radius.Keys[0].I);
+        Assert.Equal(Fix64.Zero, data.Radius.Keys[0].O);
+        Assert.Equal(Fix64.FromDecimalLiteral("30"), data.Radius.Keys[1].T);
+        Assert.Equal(Fix64.FromDecimalLiteral("100"), data.Radius.Keys[1].V);
 
         Assert.Equal(3, data.Opacity.Keys.Count);
-        Assert.Equal(15f, data.Opacity.Keys[1].T);
-        Assert.Equal(255f, data.Opacity.Keys[1].V);
+        Assert.Equal(Fix64.FromDecimalLiteral("15"), data.Opacity.Keys[1].T);
+        Assert.Equal(Fix64.FromDecimalLiteral("255"), data.Opacity.Keys[1].V);
     }
 
     [Fact]

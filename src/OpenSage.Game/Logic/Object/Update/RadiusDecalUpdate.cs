@@ -77,19 +77,28 @@ public sealed class RadiusDecalUpdate : UpdateModule
     /// <summary>GPL killRadiusDecal(): clear the decal and sleep forever.</summary>
     public void KillRadiusDecal()
     {
+        ClearDecalState();
+
+        SetWakeFrame(UpdateSleepTime.Forever);
+    }
+
+    /// <summary>The state-clearing half of <see cref="KillRadiusDecal"/>, without the
+    /// SetWakeFrame call: Update() itself already returns UpdateSleepTime.Forever to sleep
+    /// itself, and SetWakeFrame() may not be called from inside a module's own Update() (it
+    /// would be ignored anyway, in favor of the return code - GameLogic.AwakenUpdateModule).</summary>
+    private void ClearDecalState()
+    {
         _decalActive = false;
         _decalTemplateId = 0;
         _decalRadius = Fix64.Zero;
         _decalPosition = default;
-
-        SetWakeFrame(UpdateSleepTime.Forever);
     }
 
     public override UpdateSleepTime Update()
     {
         if (_killWhenNoLongerAttacking && !GameObject.TestStatus(ObjectStatus.IsAttacking))
         {
-            KillRadiusDecal();
+            ClearDecalState();
             return UpdateSleepTime.Forever;
         }
 

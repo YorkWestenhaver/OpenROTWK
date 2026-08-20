@@ -210,8 +210,10 @@ End
 
         // Give the pilot an outstanding move order of its own (as if another system, or an
         // earlier order, already has it in motion) before the module ever gets a chance to
-        // scan: it must not clobber that order with a board attempt.
-        loco.SetTargetPosition(new FixVector3(Fix64.FromDecimalLiteral("-500"), Fix64.Zero, Fix64.Zero), Fix64.FromDecimalLiteral("6"));
+        // scan: it must not clobber that order with a board attempt. The destination is away
+        // from the jeep (negative X, phase-1 check below) but still within ScanRange (200) of
+        // it once arrived, so the later re-scan in phase 3 can actually find it.
+        loco.SetTargetPosition(new FixVector3(Fix64.FromDecimalLiteral("-50"), Fix64.Zero, Fix64.Zero), Fix64.FromDecimalLiteral("6"));
 
         Step(game, 6);
         // Still heading the way it was told, not toward the jeep: the module saw "not idle"

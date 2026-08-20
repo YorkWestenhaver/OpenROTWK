@@ -83,6 +83,11 @@ End
         ModuleOf(bomb).SetTargetPosition(Target(1000, 0, 0));
 
         var before = bomb.Translation;
+        // A freshly spawned sleepy update module's very first Update() lands on the tick
+        // after the one it was created on (SetWakeFrame(UpdateSleepTime.None) is a 1-frame
+        // minimum scheduling latency shared by every module, GameLogic.cs) - this first
+        // Step() only reaches that arming tick, not the module's first real tick yet.
+        game.Step();
         game.Step();
         var afterOneStep = bomb.Translation;
 
@@ -104,6 +109,10 @@ End
         var bomb = game.SpawnObject("BombZeroScalar", game.CivilianPlayer, HighUp);
         ModuleOf(bomb).SetTargetPosition(Target(123, 456, 0));
 
+        // Two steps: the first only reaches the module's arming tick (SetWakeFrame(None)'s
+        // 1-frame minimum latency, shared by every sleepy update module - see the sibling
+        // interpolation test above), the second is its first real Update().
+        game.Step();
         game.Step();
 
         var pos = bomb.Translation;
@@ -206,6 +215,10 @@ End
         ModuleOf(bombRejected).SetTargetPosition(Target(50, 60, 0));
         ModuleOf(bombRejected).SetTargetPosition(FixVector3.Zero); // rejected: no effect
 
+        // Two steps: the first only reaches the modules' arming tick (SetWakeFrame(None)'s
+        // 1-frame minimum latency, shared by every sleepy update module - see the sibling
+        // interpolation test above), the second is their first real Update().
+        game.Step();
         game.Step();
 
         // Both bombs still jump to the original (50, 60) target: the zero-length call never

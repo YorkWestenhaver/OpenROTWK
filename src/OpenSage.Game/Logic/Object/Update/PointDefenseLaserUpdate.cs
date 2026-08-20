@@ -298,6 +298,15 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
 
         foreach (var candidate in Context.Partition.QueryObjectsInRadius(GameObject, _data.ScanRange))
         {
+            if (candidate.IsEffectivelyDead)
+            {
+                // GPL's live-map partition filter excludes the dying/dead; without this a
+                // corpse still resolvable by ObjectId would keep winning the scan forever
+                // (it never re-fires - fireWhenReady's own dead-target check drops it again
+                // every frame) and starve out the next real target.
+                continue;
+            }
+
             bool primary;
             var kindOf = candidate.Definition.KindOf;
             if (kindOf != null && _data.PrimaryTargetTypes != null && kindOf.Intersects(_data.PrimaryTargetTypes))

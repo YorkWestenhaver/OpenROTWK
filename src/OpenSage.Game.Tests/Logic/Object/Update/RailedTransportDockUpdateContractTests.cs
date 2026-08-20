@@ -45,6 +45,24 @@ Object DockerUnit
   Locomotor = SET_NORMAL TestGroundLoco
 End
 
+// Same as DockerUnit, but with a real PhysicsBehavior: the unload/push-out path drives the
+// unloaded object through AIUpdate.AddTargetPoint (a real locomotor move command), and
+// Locomotor.SetPhysicsOptions requires GameObject.Physics to be non-null - the dock/contain
+// (Docking_*) tests never touch AIUpdate movement (they manipulate the transform directly),
+// so only the payload used by the unload tests needs this.
+Object DockerCargo
+  KindOf = VEHICLE SELECTABLE
+  TransportSlotCount = 1
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = PhysicsBehavior ModuleTag_Physics
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+  Locomotor = SET_NORMAL TestGroundLoco
+End
+
 Object EmptyTrain
   KindOf = VEHICLE
   Body = ActiveBody ModuleTag_Body
@@ -69,7 +87,7 @@ Object LoadedTrain
   Behavior = RailedTransportContain ModuleTag_Contain
     AllowInsideKindOf = VEHICLE
     Slots = 5
-    InitialPayload = DockerUnit 3
+    InitialPayload = DockerCargo 3
   End
   Behavior = RailedTransportDockUpdate ModuleTag_Dock
     PullInsideDuration = 1000
@@ -86,7 +104,7 @@ Object OneSlotTrain
   Behavior = RailedTransportContain ModuleTag_Contain
     AllowInsideKindOf = VEHICLE
     Slots = 1
-    InitialPayload = DockerUnit 1
+    InitialPayload = DockerCargo 1
   End
   Behavior = RailedTransportDockUpdate ModuleTag_Dock
     PullInsideDuration = 1000
@@ -123,9 +141,15 @@ End
         dock.Dock(docker);
         Assert.True(dock.IsLoadingOrUnloading);
 
+        // A freshly spawned/awoken sleepy update module's very first Update() lands on the
+        // tick after the one it was created/armed on (SetWakeFrame(UpdateSleepTime.None) is a
+        // 1-frame minimum latency shared by every module, GameLogic.cs) - this first Step()
+        // only reaches that arming tick, not the module's first real pull-in tick yet.
+        game.Step();
+
         // Per-frame step is mag/PullInsideDuration = 25/5 = 5 units/frame; close-enough is a
         // fixed 6 units (GPL's hardcoded closeEnoughDistance, not ToleranceDistance). It should
-        // NOT be contained after just one frame...
+        // NOT be contained after just one (real) frame...
         game.Step();
         Assert.DoesNotContain(docker.Id, contain.ContainedObjectIds);
         Assert.True(docker.ModelConditionFlags.Get(ModelConditionFlag.Moving));
@@ -199,6 +223,10 @@ End
         var contain = ContainOf(train);
 
         dock.Dock(docker);
+        // Two steps: the first only reaches the module's arming tick (SetWakeFrame(None)'s
+        // 1-frame minimum latency, shared by every sleepy update module - see the sibling
+        // gradual-pull test above), the second is its first real Update().
+        game.Step();
         game.Step();
 
         Assert.Contains(docker.Id, contain.ContainedObjectIds);
@@ -288,7 +316,7 @@ End
         GameObject unloading = null;
         foreach (var obj in game.GameLogic.Objects)
         {
-            if (obj.Definition.Name == "DockerUnit" &&
+            if (obj.Definition.Name == "DockerCargo" &&
                 obj.ContainerId.IsInvalid &&
                 obj.IsDisabledByType(DisabledType.Held))
             {

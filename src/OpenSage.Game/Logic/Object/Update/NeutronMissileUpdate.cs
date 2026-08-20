@@ -229,7 +229,18 @@ public sealed class NeutronMissileUpdate : UpdateModule
             _noTurnDistLeft -= distThisTurn;
         }
 
-        if (_state != MissileState.PreLaunch && _state != MissileState.Dead && !GameObject.IsAboveTerrain)
+        // Gated on oldPosValid (state was already Attack going INTO this Update), not the
+        // post-switch state: the frame doLaunch() first lands us at the launch bone's
+        // position is not itself a ground hit - the missile hasn't started flying yet, it has
+        // only just been placed there (matches the existing oldPosValid gate just above, which
+        // draws the same before/after-launch distinction for the no-turn distance budget).
+        //
+        // Height check is strictly-below (< 0), not GameObject.IsAboveTerrain's own boundary
+        // (height > 0, i.e. its negation triggers at height == 0 too): a missile skimming
+        // exactly along the ground plane - e.g. a level, non-TargetFromDirectlyAbove flight
+        // path with no vertical component at all - has not collided with anything, only one
+        // that has actually dipped below terrain has.
+        if (oldPosValid && GameObject.HeightAboveTerrain < 0f)
         {
             // The normal always points straight down (GPL comment, kept verbatim).
             HandleCollision(null);

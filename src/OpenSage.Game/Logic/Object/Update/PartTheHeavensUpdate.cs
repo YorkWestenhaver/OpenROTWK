@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
 using OpenSage.SimCore;
+using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
@@ -90,16 +91,16 @@ public sealed class Key
 
     internal static readonly IniParseTable<Key> FieldParseTable = new IniParseTable<Key>
     {
-        { "T", (parser, x) => x.T = parser.ParseFloat() },
-        { "V", (parser, x) => x.V = parser.ParseFloat() },
-        { "I", (parser, x) => x.I = parser.ParseFloat() },
-        { "O", (parser, x) => x.O = parser.ParseFloat() },
+        { "T", (parser, x) => x.T = parser.ParseFix64() },
+        { "V", (parser, x) => x.V = parser.ParseFix64() },
+        { "I", (parser, x) => x.I = parser.ParseFix64() },
+        { "O", (parser, x) => x.O = parser.ParseFix64() },
     };
 
-    public float T { get; private set; }
-    public float V { get; private set; }
-    public float I { get; private set; }
-    public float O { get; private set; }
+    public Fix64 T { get; private set; }
+    public Fix64 V { get; private set; }
+    public Fix64 I { get; private set; }
+    public Fix64 O { get; private set; }
 }
 
 public enum Padding

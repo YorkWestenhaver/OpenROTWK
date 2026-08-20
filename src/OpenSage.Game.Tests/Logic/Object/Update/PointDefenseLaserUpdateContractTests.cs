@@ -238,6 +238,11 @@ End
         // projects the approacher's velocity forward, putting its PREDICTED position closer
         // than the stationary target's real one.
         var platform = game.SpawnObject("LaserPlatform", game.CivilianPlayer, Vector3.Zero);
+        // SetWakeFrame(UpdateSleepTime.None) means "wake up next frame" (a 1-frame minimum
+        // scheduling latency shared by every sleepy update module, GameLogic.cs), not
+        // same-frame execution - a freshly spawned module's very first Update() lands on the
+        // tick after the one it was created on, so this needs two steps, not one.
+        game.Step();
         game.Step();
 
         var module = ModuleOf(platform);
