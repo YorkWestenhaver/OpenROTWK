@@ -126,17 +126,16 @@ Here's a rough roadmap:
 
 ## Legal disclaimers
 
-* This project is not affiliated with or endorsed by EA in any way. Command & Conquer is a trademark of Electronic Arts.
-* This project is non-commercial. The source code is available for free and always will be.
-* OpenSAGE is nowhere near playable yet, but when it is and you want to play Generals or Zero Hour with it,
-  you will need to have a legally acquired installation of one of those games. OpenSAGE uses data files from the original games. 
-  You can purchase [Command & Conquer: The Ultimate Collection through Origin](https://www.origin.com/twn/en-us/store/command-and-conquer/command-and-conquer-the-ultimate-collection/ultimate-collection).
-* This is a blackbox re-implementation project. The code in this project was written based on reading data files, 
-  and observing the game running. In some cases (for example refpack decompression) the code was written based on specs available on the Internet.
-  I believe this puts the project in the clear, legally speaking. If someone at EA disagrees, please talk to me.
-* If you want to contribute to this repository, your contribution must be either your own original code, or open source code with a
-  clear acknowledgement of its origin. No code that was acquired through reverse engineering executable binaries will be accepted.
-* No assets from the original games are included in this repo.
+* This project is not affiliated with or endorsed by Electronic Arts, Warner Bros. Discovery, Middle-earth Enterprises, or the Tolkien Estate in any way. Command & Conquer™ is a trademark of Electronic Arts. *The Lord of the Rings: The Battle for Middle-earth II* and *The Rise of the Witch-king* are trademarks of Electronic Arts, published under license from the rights holders to *The Lord of the Rings*.
+* This project is non-commercial. The source code is free and always will be, licensed under GPL v3.
+* **This fork targets *The Battle for Middle-earth II: The Rise of the Witch-king***, a later BFME2-era revision of the SAGE engine, rather than upstream OpenSAGE's focus on Command & Conquer: Generals and Zero Hour. To play anything with it you will need a legally acquired installation of the original game. These titles are no longer commercially sold, but a legal copy is still required: this project uses the original game's data files at runtime and will never distribute them.
+* **How this fork was written.** The code in this fork comes from four sources, kept deliberately separate:
+  1. **Licensed source code**: portions are translated from the Command & Conquer: Generals / Zero Hour source code that Electronic Arts released under GPL v3 (see `LICENSE-EA.md`) — the closest published ancestor of the BFME2-era engine. This is licensed use, not reverse engineering.
+  2. **Reading data files** (INI, map, model, and archive formats) and **observing the retail game running**, as in upstream OpenSAGE.
+  3. **Behavioral specifications**: for gameplay systems that exist only in BFME2-era SAGE and have no released source (hordes, castle build-plots, and similar), behavior was studied from the retail game and documented as written specifications describing *what the game does*; implementation code was then written from those specifications and the game's own data files. Executable code is never copied, decompiled into, or derived from the retail binary.
+  4. **Conformance testing**: the retail game, running from a legally owned installation, is used as a test oracle — this fork's output is *compared against* the original game's observed behavior to measure accuracy. Observations are used to grade the reimplementation, not as source material for it.
+* No assets, data files, or other content from the original games — or from any third-party mod — are included in this repository. Third-party mods (such as *Age of the Ring*) remain the property of their respective authors, and running them requires obtaining them from their authors.
+* If any rights holder has concerns about this project, please open an issue and we will engage in good faith.
 
 A note on the name: while Command & Conquer is a trademark of EA, SAGE is not (as far as I can tell, based on a US trademark search). "OpenSAGE" seems like a good way to make it clear what the project is about, without infringing on trademarks.
 
