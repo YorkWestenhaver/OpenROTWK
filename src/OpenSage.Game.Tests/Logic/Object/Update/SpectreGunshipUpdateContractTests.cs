@@ -162,7 +162,9 @@ End
         var enemy = game.SpawnObject("Enemy", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        for (var i = 0; i < 4; i++)
+        // Three ticks: two to insert into orbit, one more while still orbiting. OrbitTime is
+        // 400ms = 2 frames, so a fourth tick would already have started the departure.
+        for (var i = 0; i < 3; i++)
         {
             game.Step();
         }
@@ -189,7 +191,9 @@ End
         var enemy = game.SpawnObject("Enemy", game.PlayerManager.NeutralPlayer, new Vector3(-100, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        for (var i = 0; i < 4; i++)
+        // Three ticks: two to insert into orbit, one more while still orbiting. OrbitTime is
+        // 400ms = 2 frames, so a fourth tick would already have started the departure.
+        for (var i = 0; i < 3; i++)
         {
             game.Step();
         }
@@ -350,7 +354,9 @@ End
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
         var live = ModuleOf(gunship);
-        for (var i = 0; i < 4; i++)
+        // Three ticks: two to insert into orbit, one more while still orbiting. OrbitTime is
+        // 400ms = 2 frames, so a fourth tick would already have started the departure.
+        for (var i = 0; i < 3; i++)
         {
             game.Step();
         }
@@ -368,7 +374,9 @@ End
         var gunship = SpawnActivatedGunship(game);
 
         var module = ModuleOf(gunship);
-        for (var i = 0; i < 4; i++)
+        // Three ticks: two to insert into orbit, one more while still orbiting. OrbitTime is
+        // 400ms = 2 frames, so a fourth tick would already have started the departure.
+        for (var i = 0; i < 3; i++)
         {
             game.Step();
         }
