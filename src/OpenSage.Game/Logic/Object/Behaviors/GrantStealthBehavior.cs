@@ -58,6 +58,10 @@ public sealed class GrantStealthBehavior : UpdateModule
     /// FinalRadius (GPL m_currentScanRadius).</summary>
     private Fix64 _currentScanRadius;
 
+    /// <summary>Whether the one-shot radius particle system has already been requested.
+    /// Sim state so a save/load mid-behavior does not re-fire it.</summary>
+    private bool _radiusParticleSystemFired;
+
     public GrantStealthBehavior(GameObject gameObject, ISimContext context, GrantStealthBehaviorModuleData data)
         : base(gameObject, context)
     {
@@ -65,23 +69,31 @@ public sealed class GrantStealthBehavior : UpdateModule
 
         _currentScanRadius = _data.StartRadius;
 
-        // GPL ctor: create the radius particle system once, at the object's own position.
-        // Output-only event (S8) - the client owns the emitter's lifetime, same posture as
-        // TransitionDamageFX (F-TDF-1); this module keeps no particle-system id.
-        if (_data.RadiusParticleSystemName != null)
-        {
-            Context.Events.FireParticleSystemAtObject(
-                _data.RadiusParticleSystemName.Value.Name,
-                GameObject.Id,
-                bone: string.Empty,
-                randomBone: false);
-        }
-
         SetWakeFrame(UpdateSleepTime.None);
     }
 
     public override UpdateSleepTime Update()
     {
+        // GPL ctor creates the radius particle system once, at the object's own position.
+        // It is requested here on the first tick rather than in the constructor: GameObject.Id
+        // is assigned by GameLogic only AFTER the behavior modules are constructed, so a
+        // constructor-time request would carry ObjectId.Invalid and address nothing.
+        // Output-only event (S8) - the client owns the emitter's lifetime, same posture as
+        // TransitionDamageFX (F-TDF-1); this module keeps no particle-system id.
+        if (!_radiusParticleSystemFired)
+        {
+            _radiusParticleSystemFired = true;
+
+            if (_data.RadiusParticleSystemName != null)
+            {
+                Context.Events.FireParticleSystemAtObject(
+                    _data.RadiusParticleSystemName.Value.Name,
+                    GameObject.Id,
+                    bone: string.Empty,
+                    randomBone: false);
+            }
+        }
+
         if (GameObject.IsEffectivelyDead)
         {
             return UpdateSleepTime.Forever;
@@ -155,6 +167,7 @@ public sealed class GrantStealthBehavior : UpdateModule
     {
         xfer.XferVersion(1);
         xfer.XferFix64("CurrentScanRadius", ref _currentScanRadius, Tolerance.Exact);
+        xfer.XferBool("RadiusParticleSystemFired", ref _radiusParticleSystemFired);
     }
 
     // ---- legacy retail-save reader (outside the contract, F9): kept byte-for-byte so the
@@ -177,6 +190,10 @@ public sealed class GrantStealthBehavior : UpdateModule
         var currentScanRadiusBits = 0u;
         reader.PersistUInt32(ref currentScanRadiusBits);
         _currentScanRadius = Fix64.FromWireFloat(currentScanRadiusBits);
+
+        // A retail save is always mid-behavior: the emitter was already created before the
+        // save (its client id is the four bytes skipped above), so do not re-request it.
+        _radiusParticleSystemFired = true;
     }
 }
 

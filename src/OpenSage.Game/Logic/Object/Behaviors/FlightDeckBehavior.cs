@@ -674,7 +674,9 @@ public sealed class FlightDeckBehavior : UpdateModule, IDieModule
 
     private (Vector3 Position, Transform Transform) ResolveBonePoseAndTransform(string boneName)
     {
-        if (!string.IsNullOrEmpty(boneName))
+        // Drawable is null on a headless host (no client model is built at all), so the
+        // skeleton lookup is only attempted when there is one to look in.
+        if (!string.IsNullOrEmpty(boneName) && GameObject.Drawable != null)
         {
             var (_, bone) = GameObject.Drawable.FindBone(boneName);
             if (bone != null)

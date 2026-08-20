@@ -66,6 +66,19 @@ End
         return game;
     }
 
+    /// <summary>
+    /// Steps the carrier's deck module to its first real Update(). A module constructed at
+    /// frame 0 with SetWakeFrame(UpdateSleepTime.None) does not tick on the first Step():
+    /// GameLogic.Update() reads CurrentFrame before incrementing it, so the module's first
+    /// tick lands on the SECOND Step() (the frame-accounting convention the other R12
+    /// contract tests document). buildInfo's initial payload spawn happens on that tick.
+    /// </summary>
+    private static void Prime(HeadlessSimGame game)
+    {
+        game.Step();
+        game.Step();
+    }
+
     private static FlightDeckBehavior DeckOf(GameObject carrier) =>
         carrier.BehaviorModules.OfType<FlightDeckBehavior>().Single();
 
@@ -90,7 +103,7 @@ End
 
         // Arming tick (SetWakeFrame(None)'s 1-frame minimum latency): buildInfo's initial
         // payload spawn happens on the module's first real Update().
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[0].ObjectInSpace;
         Assert.True(jetId.IsValid);
@@ -117,7 +130,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[0].ObjectInSpace;
         var jet = game.GameLogic.GetObjectById(jetId);
@@ -143,7 +156,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[0].ObjectInSpace; // front space, runway 0
 
@@ -173,7 +186,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[1].ObjectInSpace; // front space, runway 1
         Assert.True(deck.ReserveRunway(jetId, forLanding: false));
@@ -192,7 +205,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[0].ObjectInSpace;
 
@@ -215,7 +228,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jet0 = deck.Spaces[0].ObjectInSpace; // runway 0
         var jet2 = deck.Spaces[2].ObjectInSpace; // runway 0 (R1S2)
@@ -233,7 +246,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         // R1S1, R2S1, R1S2, R2S2 - GPL's own "sort the spaces" comment in buildInfo().
         Assert.Equal(4, deck.Spaces.Count);
@@ -256,7 +269,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var jetId = deck.Spaces[0].ObjectInSpace;
         var jet = game.GameLogic.GetObjectById(jetId);
@@ -289,7 +302,7 @@ End
         var game = NewGame();
         var carrier = game.SpawnObject("TestCarrier", game.CivilianPlayer, Vector3.Zero);
         var deck = DeckOf(carrier);
-        game.Step();
+        Prime(game);
 
         var groundedId = deck.Spaces[0].ObjectInSpace;
         var airborneId = deck.Spaces[1].ObjectInSpace;

@@ -158,9 +158,26 @@ End
     public void OnlyAllies_ReceiveTheGrant_NotEnemiesOrNeutrals()
     {
         var game = NewGame();
-        var granter = game.SpawnObject("Granter", game.CivilianPlayer, Vector3.Zero);
-        var allyPlayer = game.PlayerManager.Players[0];
-        var enemyPlayer = game.PlayerManager.Players[1];
+
+        // The default headless roster is exactly [Neutral, Civilian], so Players[0]/[1] are
+        // the neutral player and the granter's OWN owner - three genuinely distinct players
+        // have to be registered to tell own/allied/unrelated apart (the same registration
+        // LeafletDropBehaviorContractTests does).
+        game.PlayerManager.OnNewGame(
+            [
+                OpenSage.Data.Map.Player.CreateNeutralPlayer(),
+                OpenSage.Data.Map.Player.CreateCivilianPlayer(),
+                new OpenSage.Data.Map.Player { Name = "GranterPlayer", Faction = "FactionOne", DisplayName = "GranterPlayer" },
+                new OpenSage.Data.Map.Player { Name = "AllyPlayer", Faction = "FactionTwo", DisplayName = "AllyPlayer" },
+                new OpenSage.Data.Map.Player { Name = "EnemyPlayer", Faction = "FactionThree", DisplayName = "EnemyPlayer" },
+            ],
+            GameType.Skirmish);
+
+        var granterPlayer = game.PlayerManager.GetPlayerByIndex(2);
+        var allyPlayer = game.PlayerManager.GetPlayerByIndex(3);
+        var enemyPlayer = game.PlayerManager.GetPlayerByIndex(4);
+
+        var granter = game.SpawnObject("Granter", granterPlayer, Vector3.Zero);
         granter.Owner.AddAlly(allyPlayer);
 
         var ally = game.SpawnObject("Sneakable", allyPlayer, new Vector3(5, 0, 0));
@@ -189,18 +206,28 @@ End
     }
 
     [Fact]
-    public void RadiusParticleSystem_FiresOnceAtConstruction()
+    public void RadiusParticleSystem_FiresOnceOnFirstTick()
     {
         var game = NewGame();
         var events = RecordingSimEvents.InstallOn(game);
 
         var granter = game.SpawnObject("Granter", game.CivilianPlayer, Vector3.Zero);
 
+        // Not at construction: GameObject.Id is only assigned once GameLogic has registered
+        // the object, i.e. after its behavior modules are built, so the request is made on
+        // the module's first tick instead.
+        Assert.Empty(events.ParticleSystems);
+
+        // Two steps: a module built at frame 0 first ticks on the second Step() (GameLogic
+        // reads CurrentFrame before incrementing it).
+        game.Step();
+        game.Step();
+
         var ps = Assert.Single(events.ParticleSystems);
         Assert.Equal("PS_Grant", ps.ParticleSystemName);
         Assert.Equal(granter.Id, ps.ObjectId);
 
-        // The request is fire-and-forget at construction; further ticks do not repeat it.
+        // The request is fire-and-forget; further ticks do not repeat it.
         game.Step();
         game.Step();
         Assert.Single(events.ParticleSystems);
