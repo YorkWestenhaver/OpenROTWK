@@ -358,6 +358,15 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         Geometry.Shapes[0].MinorRadius = radius.ToFloatForDisplay();
     }
 
+    // ---- R12 HeightDieUpdate port: Fix64 structure-height facade (additive) ----
+    /// <summary>
+    /// Fix64 view of the geometry's max height above the object's canonical position (the
+    /// original's <c>GeometryInfo::getMaxHeightAbovePosition</c>), quantized through the same
+    /// F4 wire boundary as <see cref="CollisionMinorRadius"/> so no float reaches the caller.
+    /// </summary>
+    public SimCore.Numerics.Fix64 MaxHeightAbovePosition =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(Geometry.MaxZ));
+
     /// <summary>
     /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
     /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
@@ -1526,17 +1535,28 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         IsSelectable = false;
         Owner.DeselectUnit(this);
 
+        var dieModules = FindBehaviors<IDieModule>().ToList();
+
         if (!construction)
         {
             ExecuteRandomSlowDeathBehavior(damageInput);
         }
 
-        foreach (var module in FindBehaviors<IDieModule>())
+        foreach (var module in dieModules)
         {
             module.OnDie(damageInput);
         }
 
         PlayDieSound(damageInput.DeathType);
+
+        // Nothing on this object manages its corpse (no SlowDeathBehavior, no other Die
+        // module) - remove it immediately rather than leaving a killed-but-never-destroyed
+        // object behind. Objects that DO have such a module rely on it (or a follow-up
+        // LifetimeUpdate/DeletionUpdate) to call Destroy() in its own time.
+        if (!construction && dieModules.Count == 0 && !IsDestroyed)
+        {
+            Destroy();
+        }
     }
 
     public void DoStatusDamage(ObjectStatus status, LogicFrameSpan duration)

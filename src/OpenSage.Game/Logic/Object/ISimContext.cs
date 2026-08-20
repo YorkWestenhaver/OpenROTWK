@@ -297,4 +297,16 @@ public interface ISimEvents
     /// particle-system id (F-TDF-1).
     /// </summary>
     void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone);
+
+    /// <summary>
+    /// Request that every particle system attached to an object be torn down (GPL
+    /// <c>TheParticleSystemManager-&gt;destroyAttachedSystems(obj)</c>). Grown for the
+    /// HeightDieUpdate port (R12): a fire-and-forget cleanup event, same S8 posture as the FX
+    /// requests above - output only, never a sim input, so it carries no determinism
+    /// obligation. NOTE: OpenSAGE's <c>ParticleSystemManager</c> does not yet track which
+    /// emitters are attached to which object (finding F-HDU-1), so the adapter has nothing to
+    /// tear down today; the request itself, and the module's own once-only "destroyed"
+    /// bookkeeping, are still faithfully modeled.
+    /// </summary>
+    void DestroyAttachedParticleSystems(ObjectId objectId);
 }
