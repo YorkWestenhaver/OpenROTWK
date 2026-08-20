@@ -177,7 +177,10 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
 
     public GameObject GetObjectById(ObjectId id)
     {
-        return _objects[(int)id.Index];
+        // Ids that were never allocated (ObjectId.Invalid, or an id from a save that outran
+        // this table) resolve to null rather than throwing - every caller already null-checks.
+        var index = (int)id.Index;
+        return index >= 0 && index < _objects.Count ? _objects[index] : null;
     }
 
     public bool TryGetObjectByName(string name, out GameObject gameObject)
