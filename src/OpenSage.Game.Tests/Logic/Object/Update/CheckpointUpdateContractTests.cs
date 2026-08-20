@@ -165,7 +165,13 @@ End
         // must start growing back, not keep shrinking.
         var enemy = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
-        for (var i = 0; i < 6; i++) // guarantee another 1000ms/5-frame scan window
+        // The scan is throttled to once per ScanDelayTime (5 frames): in the worst case the
+        // countdown has just re-armed the instant the enemy appears, so detection (and the
+        // resulting reversal to growth) can be delayed by up to 5 more frames of continued
+        // shrinking. Step past that worst case (5 frames) plus enough growth frames afterward
+        // (10) that the growth unambiguously outpaces whatever extra shrinking happened while
+        // waiting for the next scan window.
+        for (var i = 0; i < 15; i++)
         {
             game.Step();
         }

@@ -652,6 +652,12 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         ModelTransform = Transform.CreateIdentity();
         Transform.Scale = Definition.Scale;
 
+        // Must be assigned before the behavior-construction loop below: some ported
+        // [SimState] modules (e.g. CheckpointUpdate, R12) read GameObject.Geometry from
+        // their own constructor via the CollisionMinorRadius facade, and behavior modules
+        // are constructed while this GameObject constructor is still running.
+        Geometry = Definition.Geometry.Clone();
+
         // TODO: Instead of GameObject owning the drawable, which makes logic tests a little awkward,
         // perhaps create Drawable somewhere else and attach it to this GameObject?
         Drawable = gameEngine.GameClient?.CreateDrawable(objectDefinition, this);
@@ -755,8 +761,6 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         {
             behavior.OnObjectCreated();
         }
-
-        Geometry = Definition.Geometry.Clone();
 
         Colliders = new List<Collider>();
         foreach (var geometry in Geometry.Shapes)

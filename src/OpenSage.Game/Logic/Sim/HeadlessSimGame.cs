@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using OpenSage.Audio;
@@ -127,7 +128,7 @@ internal sealed class HeadlessSimGame : IGame
         parser.ParseFile();
         if (parser.ParseErrors.Count > 0)
         {
-            throw new InvalidOperationException($"INI parse errors: {string.Join("; ", parser.ParseErrors)}");
+            throw new InvalidOperationException($"INI parse errors: {string.Join("; ", parser.ParseErrors.Select(e => $"{e.Position}: {e.Message}"))}");
         }
     }
 

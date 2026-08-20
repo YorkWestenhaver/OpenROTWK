@@ -139,7 +139,8 @@ public sealed class VeterancyCrateCollide : CrateCollide
         if (_moduleData.IsPilot)
         {
             // Transfer the crate's name to the vehicle, so designers can keep scripting it.
-            GameEngine.Game.Scripting.TransferObjectName(GameObject.Name, other);
+            // Null-tolerant: the headless sim host has no ScriptingSystem.
+            GameEngine.Game.Scripting?.TransferObjectName(GameObject.Name, other);
         }
 
         _moduleData.ExecuteFX?.Value?.Execute(new FXListExecutionContext(

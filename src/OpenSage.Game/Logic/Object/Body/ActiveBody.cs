@@ -648,7 +648,9 @@ public class ActiveBody : BodyModule
                     VeterancyLevel.Heroic => GameObject.Definition.SoundPromotedHero?.Value,
                     _ => throw new ArgumentOutOfRangeException(nameof(newLevel))
                 };
-                GameEngine.AudioSystem.PlayAudioEvent(GameObject, veterancyChanged);
+                // Null-tolerant so the headless sim host (no audio system) can promote units,
+                // same convention as GameObject.OnVeterancyLevelChanged's own client-audio call.
+                GameEngine.AudioSystem?.PlayAudioEvent(GameObject, veterancyChanged);
             }
 
             // Also mark the UI dirty, in case the object is selected or contained.

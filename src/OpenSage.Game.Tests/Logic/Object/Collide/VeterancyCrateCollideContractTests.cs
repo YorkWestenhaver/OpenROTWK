@@ -58,7 +58,7 @@ Object VetCrateTestVehicleGround
   End
   IsTrainable = Yes
   ExperienceRequired = 0 100 200 300
-  Behavior = AIUpdate ModuleTag_AI
+  Behavior = AIUpdateInterface ModuleTag_AI
   End
   Locomotor = SET_NORMAL TestGroundLoco
 End
@@ -70,7 +70,7 @@ Object VetCrateTestVehicleAir
   End
   IsTrainable = Yes
   ExperienceRequired = 0 100 200 300
-  Behavior = AIUpdate ModuleTag_AI
+  Behavior = AIUpdateInterface ModuleTag_AI
   End
   Locomotor = SET_NORMAL TestAirLoco
 End
