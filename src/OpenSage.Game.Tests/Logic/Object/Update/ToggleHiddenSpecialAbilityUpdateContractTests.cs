@@ -46,6 +46,7 @@ Object PersistentWatcher
     UnpackTime = 0
     PreparationTime = 1000
     PersistentPrepTime = 1000
+    EffectDuration = 1000
     PackTime = 0
   End
 End
