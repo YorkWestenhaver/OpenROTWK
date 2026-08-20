@@ -16,11 +16,31 @@ desync-free online play between Mac and PC.
 
 ## Design decisions, and why
 
-Three decisions define this engine, all downstream of one observation: the retail
-engine's determinism comes from same-binary x87 floating point, which means **retail
-byte-fidelity and cross-platform play are mutually exclusive**. You can match the
-original binary, or you can run one simulation across a Mac and a PC — never both.
-OpenROTWK chooses the second, and rebuilds correctness on different foundations:
+Like every SAGE RTS, ROTWK is a **lockstep** game: the network carries only player
+orders, and every machine independently simulates the entire world, trusting that
+identical inputs produce identical state. If two machines ever disagree by a single
+bit — one unit's position off by the last decimal place — the simulations fork and
+the match desyncs. So the whole design question is: *what makes two computers
+compute exactly the same bits?*
+
+The retail engine's answer is **"be the same binary on the same CPU family."** It
+runs its simulation on the x87 floating-point unit of 32-bit x86 processors, with
+the FPU explicitly pinned to a fixed precision mode (`_controlfp`) so that every
+player's machine executes the identical instruction sequence with identical
+rounding. That works — and it is also a trap. Floating-point results are only
+reproducible when the *exact same* instructions run in the *exact same* order:
+a different compiler, a different optimization pass, or a different architecture
+will reorder operations and round intermediates differently, all while being
+perfectly IEEE-correct. And Apple Silicon doesn't even have an x87 unit — ARM64
+does its float math on NEON, with different instruction selection and none of
+x87's 80-bit intermediate behavior. Even x86 emulation layers don't reproduce
+x87's bit-exact quirks. The consequence is stark: **retail byte-fidelity and
+cross-platform play are mutually exclusive.** You can match the original binary,
+or you can run one simulation across a Mac and a PC — never both.
+
+OpenROTWK chooses the second, and rebuilds correctness on foundations that don't
+depend on any FPU at all — integer arithmetic, which is bit-identical on every
+CPU ever made:
 
 1. **Fixed-point deterministic simulation.** All game logic runs on a `Fix64`
    fixed-point numeric core (custom div/sqrt/trig, deterministic RNG, lockstep tick
@@ -177,8 +197,7 @@ Further thanks to:
 * [OpenSAGE](https://github.com/OpenSAGE/OpenSAGE) — general SAGE engine
   reimplementation focused on Generals / Zero Hour; this project's parent.
 * [Open-BFME-1](https://github.com/Open-BFME/Open-BFME-1) — byte-matching source
-  recovery of BFME1: the complementary approach (recovering *the* original program,
-  where OpenROTWK builds *a* verified one).
+  recovery of the first Battle for Middle-earth game.
 * [openbfme-godot](https://github.com/Open-BFME/openbfme-godot) — a BFME2 remake in
   Godot using converted original assets.
 * [OpenRA](https://www.openra.net/) — the model for what "Open-" engines can become.
