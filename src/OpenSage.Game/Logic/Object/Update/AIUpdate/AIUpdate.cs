@@ -24,6 +24,18 @@ public class AIUpdate : UpdateModule
 
     public Locomotor CurrentLocomotor { get; protected set; }
 
+    /// <summary>
+    /// The object this unit's current AI order is directed at (GPL
+    /// <c>AIUpdateInterface::getGoalObject</c>/<c>setGoalObject</c>), or null if there isn't
+    /// one. Used by e.g. sabotage collide handlers to confirm a collision matches an explicit
+    /// order rather than incidental proximity.
+    /// </summary>
+    public GameObject GoalObject
+    {
+        get => StateMachine.GoalObject;
+        set => StateMachine.GoalObject = value;
+    }
+
     internal virtual AIUpdateModuleData ModuleData { get; }
 
     private readonly TurretAIUpdate _turretAIUpdate;

@@ -839,6 +839,17 @@ public partial class Player : IPersistableObject
     {
         // TODO(Port): Implement this.
     }
+
+    /// <summary>
+    /// Sets this player's personal relationship override towards <paramref name="that"/>
+    /// player (checked by <see cref="GetRelationship(Team?)"/> when there is no team-level
+    /// override). Map data loading does not populate this yet (TODO(Port)), so tests that
+    /// need a non-Neutral relationship (e.g. Enemies) must set it explicitly.
+    /// </summary>
+    public void SetPlayerRelationship(Player that, RelationshipType relationship)
+    {
+        _playerToPlayerRelationships.Set(that.Id, relationship);
+    }
 }
 
 public sealed class SupplyManager : IPersistableObject
@@ -980,6 +991,11 @@ public sealed class PlayerRelationships : IPersistableObject
     public bool TryGetValue(uint playerOrTeamid, out RelationshipType relationship)
     {
         return _store.TryGetValue(playerOrTeamid, out relationship);
+    }
+
+    public void Set(uint playerOrTeamId, RelationshipType relationship)
+    {
+        _store[playerOrTeamId] = relationship;
     }
 
     public void Persist(StatePersister reader)
