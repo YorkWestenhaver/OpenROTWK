@@ -35,6 +35,20 @@ public abstract class OpenContainModule : UpdateModule, IHasRallyPoint
     public int OccupiedSlots => ContainedObjectIds.Sum(id => SlotValueForUnit(GameObjectForId(id)));
     public bool Full => OccupiedSlots >= TotalSlots;
 
+    /// <summary>
+    /// Runtime override, distinct from any INI-parsed default on a concrete contain module
+    /// (e.g. TransportContainModuleData.PassengersAllowedToFire). Off by default; flipped on
+    /// by PassengersFireUpgrade when applied. Persisted by this module's own Load walk
+    /// (version 2) so save/load round-trips it.
+    /// </summary>
+    public bool PassengersAllowedToFire => _passengersAllowedToFire;
+
+    /// <summary>Sets the runtime passengers-allowed-to-fire override. See <see cref="PassengersAllowedToFire"/>.</summary>
+    internal void SetPassengersAllowedToFire(bool value)
+    {
+        _passengersAllowedToFire = value;
+    }
+
     protected const string ExitBoneStartName = "ExitStart";
     protected const string ExitBoneEndName = "ExitEnd";
 
