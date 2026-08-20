@@ -61,6 +61,16 @@ Object PlainDelayedUnit
     MaxHealth = 100
   End
 End
+
+Object DelayedUnitDefaultHealth
+  KindOf = INFANTRY
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = DelayedDeathBody ModuleTag_Body
+    MaxHealth = 150
+  End
+End
 ";
 
     private static HeadlessSimGame NewGame(uint seed = 0xDEAD)
@@ -187,6 +197,29 @@ End
 
         Assert.False(victim.IsEffectivelyDead);
         Assert.Equal(new Fix64(100), BodyOf(victim).DamageCore.CurrentHealth);
+    }
+
+    // ================================================================
+    // ModuleData audit (F-R7-2 InitialHealth default carried through the shadowing Parse)
+    // ================================================================
+
+    [Fact]
+    public void InitialHealth_DefaultsToMaxHealth_WhenOmitted()
+    {
+        // F-R7-2 carry: the shadowing DelayedDeathBodyModuleData.Parse must re-apply
+        // ApplyHealthDefaults, else a block that omits InitialHealth spawns at 0 HP.
+        // DelayedUnitDefaultHealth omits InitialHealth.
+        var game = NewGame();
+        var data = Assert.IsType<DelayedDeathBodyModuleData>(
+            game.AssetStore.ObjectDefinitions.GetByName("DelayedUnitDefaultHealth")
+                .Behaviors["ModuleTag_Body"].Data);
+
+        Assert.Equal(new Fix64(150), data.MaxHealth);
+        Assert.Equal(new Fix64(150), data.InitialHealth);
+
+        // And the spawned body actually starts at full (150), not 0.
+        var unit = Spawn(game, "DelayedUnitDefaultHealth");
+        Assert.Equal(new Fix64(150), BodyOf(unit).DamageCore.CurrentHealth);
     }
 
     // ================================================================

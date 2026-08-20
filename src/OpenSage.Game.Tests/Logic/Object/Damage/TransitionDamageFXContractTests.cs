@@ -41,6 +41,20 @@ End
 FXParticleSystem PS_ReallyDamaged
 End
 
+ObjectCreationList OCL_Debris
+  CreateObject
+    ObjectNames = Debris
+    Count = 1
+  End
+End
+
+Object Debris
+  KindOf = IMMOBILE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 10
+  End
+End
+
 Object Tower
   KindOf = STRUCTURE
   Body = ActiveBody ModuleTag_Body
@@ -49,8 +63,10 @@ Object Tower
   Behavior = TransitionDamageFX ModuleTag_FX
     DamagedFXList1 = Loc: X:0 Y:0 Z:0 FXList:FX_Damaged
     DamagedParticleSystem1 = Bone:None RandomBone:No PSys:PS_Damaged
+    DamagedOCL1 = Loc: X:0 Y:0 Z:0 OCL:OCL_Debris
     ReallyDamagedFXList1 = Loc: X:0 Y:0 Z:0 FXList:FX_ReallyDamaged
     ReallyDamagedParticleSystem1 = Bone:None RandomBone:No PSys:PS_ReallyDamaged
+    ReallyDamagedOCL1 = Loc: X:0 Y:0 Z:0 OCL:OCL_Debris
   End
 End
 
@@ -191,6 +207,41 @@ End
         Assert.Single(events.Events);
         var ps = Assert.Single(events.ParticleSystems);
         Assert.Equal("PS_Damaged", ps.ParticleSystemName);
+    }
+
+    [Fact]
+    public void DamagedOcl1_ParsesLocAndReference()
+    {
+        // F-R7-3: the per-state OCL slot is parse-only (audited, same Loc:/OCL: shape as the
+        // FXList slots). Confirms the key is now recognized and resolves the referenced OCL.
+        var game = NewGame();
+        var data = Assert.IsType<TransitionDamageFXModuleData>(
+            game.AssetStore.ObjectDefinitions.GetByName("Tower").Behaviors["ModuleTag_FX"].Data);
+
+        Assert.NotNull(data.DamagedOcl1);
+        Assert.Equal("OCL_Debris", data.DamagedOcl1.OCL.Value.Name);
+        Assert.NotNull(data.ReallyDamagedOcl1);
+        Assert.Equal("OCL_Debris", data.ReallyDamagedOcl1.OCL.Value.Name);
+        Assert.Null(data.RubbleOcl1); // not set on this object -> unparsed slot stays null
+    }
+
+    [Fact]
+    public void DamagedOcl1_ParsedButNotSpawned_RuntimeDeferredToOclRound()
+    {
+        // F-R7-3: parse-only. The OCL effect spawns sim objects (out of scope for a parse-only
+        // fix, and sim-affecting), so OnBodyDamageStateChange must not act on it yet - only the
+        // FXList/particle-system effects fire, exactly as before this change.
+        var game = NewGame();
+        var tower = game.SpawnObject("Tower", game.CivilianPlayer, Vector3.Zero);
+        var events = RecordingSimEvents.InstallOn(game);
+
+        Damage(tower, 40f); // -> Damaged: DamagedOCL1 is configured but must not spawn
+
+        Assert.Single(events.Events);            // FXList still fires
+        Assert.Single(events.ParticleSystems);   // particle system still fires
+        Assert.DoesNotContain(
+            game.GameLogic.Objects,
+            obj => obj.Definition?.Name == "Debris");
     }
 
     [Fact]

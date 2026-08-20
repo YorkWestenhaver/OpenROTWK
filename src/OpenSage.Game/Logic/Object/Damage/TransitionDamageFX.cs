@@ -34,6 +34,15 @@
 // select which sub-objects/geometry the client shows per state; they are parsed (audited
 // vocabulary) but have no GPL reference for their runtime effect and are a client-render
 // concern, so they are deliberately not acted on here (finding F-TDF-3).
+//
+// F-R7-3 (carried): the per-state OCL slot (DamagedOCL1 / ReallyDamagedOCL1 / RubbleOCL1) is a
+// gap this port left open - the parse table had no OCL keys at all, though GPL's per-state slot
+// array covers FXLists, particle systems, AND OCLs alike. Unlike the other two effect kinds, the
+// GPL OCL effect (ObjectCreationList::create) SPAWNS SIM OBJECTS, so acting on it is sim-affecting
+// and out of scope for a parse-only fix. This pass adds the parse-side keys/fields (audited, same
+// Loc:/OCL: attribute shape as the existing FXList slots) so the data round-trips and the gapmap
+// stays byte-identical (every corpus occurrence is commented out); OnBodyDamageStateChange
+// deliberately does NOT spawn from it yet - that is scheduled with the OCL/BoneFXUpdate round.
 
 using System.Collections.Generic;
 using System.Numerics;
@@ -184,6 +193,14 @@ public sealed class TransitionDamageFXModuleData : DamageModuleData
 
         { "RubbleFXList1", (parser, x) => x.RubbleFXList1 = TransitionDamageFXList.Parse(parser) },
 
+        // F-R7-3: per-state OCL slot, audited to the same Loc:/OCL: attribute shape as the
+        // FXList slots above (ParseObjectCreationListReference, the shared OCL-reference parse
+        // helper). Parse-only - see the file-header note on why OnBodyDamageStateChange does not
+        // act on it yet.
+        { "DamagedOCL1", (parser, x) => x.DamagedOcl1 = TransitionDamageOcl.Parse(parser) },
+        { "ReallyDamagedOCL1", (parser, x) => x.ReallyDamagedOcl1 = TransitionDamageOcl.Parse(parser) },
+        { "RubbleOCL1", (parser, x) => x.RubbleOcl1 = TransitionDamageOcl.Parse(parser) },
+
         { "DamageParticleTypes", (parser, x) => x.DamageParticleTypes = parser.ParseEnumBitArray<DamageType>() },
 
         { "DamagedParticleSystem1", (parser, x) => x.DamagedParticleSystems.Add(TransitionDamageParticleSystem.Parse(parser)) },
@@ -227,6 +244,19 @@ public sealed class TransitionDamageFXModuleData : DamageModuleData
     public TransitionDamageFXList ReallyDamagedFXList1 { get; private set; }
 
     public TransitionDamageFXList RubbleFXList1 { get; private set; }
+
+    /// <summary>
+    /// Per-state OCL slot (F-R7-3, parse-only). GPL's OCL effect spawns sim objects and is
+    /// therefore not driven by <see cref="TransitionDamageFX.OnBodyDamageStateChange"/> yet -
+    /// see the file-header note; deferred to the OCL/BoneFXUpdate round.
+    /// </summary>
+    public TransitionDamageOcl DamagedOcl1 { get; private set; }
+
+    /// <inheritdoc cref="DamagedOcl1"/>
+    public TransitionDamageOcl ReallyDamagedOcl1 { get; private set; }
+
+    /// <inheritdoc cref="DamagedOcl1"/>
+    public TransitionDamageOcl RubbleOcl1 { get; private set; }
 
     /// <summary>Damage types that enable the particle-system effects; null = all (GPL default).</summary>
     public BitArray<DamageType> DamageParticleTypes { get; private set; }
@@ -277,6 +307,27 @@ public sealed class TransitionDamageFXList
 
     public Vector3 Location { get; private set; }
     public LazyAssetReference<FXList> FXList { get; private set; }
+}
+
+/// <summary>
+/// F-R7-3 (parse-only): a per-state OCL slot. Same shape as <see cref="TransitionDamageFXList"/>
+/// (a Loc: placement plus one asset reference), but the referenced asset spawns sim objects
+/// (<c>ObjectCreationList</c>) rather than a client-only effect, so it is not fired from
+/// <see cref="TransitionDamageFX.OnBodyDamageStateChange"/> here - see the file-header note.
+/// </summary>
+public sealed class TransitionDamageOcl
+{
+    internal static TransitionDamageOcl Parse(IniParser parser)
+    {
+        return new TransitionDamageOcl
+        {
+            Location = parser.ParseAttribute("Loc", () => parser.ParseVector3()),
+            OCL = parser.ParseAttribute("OCL", parser.ParseObjectCreationListReference)
+        };
+    }
+
+    public Vector3 Location { get; private set; }
+    public LazyAssetReference<ObjectCreationList> OCL { get; private set; }
 }
 
 public sealed class TransitionDamageParticleSystem

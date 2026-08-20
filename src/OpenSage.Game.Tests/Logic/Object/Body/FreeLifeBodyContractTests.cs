@@ -241,6 +241,22 @@ End
     }
 
     [Fact]
+    public void DuringInvincibility_HealingThroughAttemptDamage_IsNotSwallowed()
+    {
+        // F-INT-R8-2: the invincibility gate used to block every non-Unresistable damage type,
+        // including Healing routed (mis-routed, per ActiveBody's "shouldn't happen" comment)
+        // through AttemptDamage rather than called directly as AttemptHealing. That silently ate
+        // heals for up to FreeLifeTime. Healing must land like Unresistable already did.
+        var game = NewGame();
+        var obj = Spawn(game);
+
+        obj.AttemptCombatDamage(Damage(500));                 // free life -> 50 HP, invincible
+        obj.AttemptCombatDamage(Damage(20, DamageType.Healing)); // must not be swallowed
+
+        Assert.Equal(Fix(70), BodyOf(obj).DamageCore.CurrentHealth);
+    }
+
+    [Fact]
     public void Invincibility_HoldsUntilFreeLifeTime_ThenExpires()
     {
         var game = NewGame();
