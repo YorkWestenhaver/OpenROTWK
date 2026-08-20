@@ -80,24 +80,39 @@ Here's a rough roadmap:
 * [x] `.wav`
 * [x] `.mp3`
 
+> **Note:** the checkboxes below reflect the state of *this fork's* branch
+> (`simcore-scaffolding`), whose sim-layer items are deterministic fixed-point
+> implementations as described in the fork section above — not upstream `master`.
+
 ### Rendering
 
 * [x] Render 3D models loaded from `.w3d`, including animations
-* [ ] Render maps loaded from `.map` (in progress)
-* [ ] Render particle systems (in progress)
-* [ ] Render GUI loaded from `.wnd` (in progress)
+* [x] Render maps loaded from `.map` (terrain, roads, water)
+* [x] Render particle systems
+* [ ] Render GUI loaded from `.wnd` (Generals-era UI; BFME2 uses APT)
+* [ ] W3D skinned-mesh completeness for BFME2-era assets
+* [ ] BFME2 in-game HUD
+* [ ] APT menu screens (18 of 40 AotR screens currently fail to load)
 
 ### Game logic
 
-* [x] Scripting engine (deterministic runtime subset in this fork)
-* [ ] APT virtual machine (in progress)
-* [ ] AI - Path finding (done in this fork), base building, fighting
-* [x] Physics engine (deterministic locomotor/movement in this fork)
-* [x] Weapons (deterministic pipeline in this fork)
-* [x] Locomotors (deterministic, in this fork)
-* [ ] Input (keyboard, mouse)
-* [ ] Network play (lockstep core exists; lobby/recovery pending)
-* [ ] Much more...
+* [x] Scripting engine (deterministic runtime subset)
+* [x] Physics / movement (locomotors)
+* [x] Weapons, damage, and armor
+* [x] Pathfinding (retail-timing conformance pending oracle validation)
+* [x] Economy, production, and veterancy
+* [x] Partition, vision, and shroud
+* [x] Hordes and formations
+* [x] Castles and build plots
+* [ ] Remaining behavior modules (95 of 169; see fork section)
+* [ ] APT virtual machine completeness (menus/HUD scripting)
+* [ ] Skirmish AI (base building, fighting)
+* [ ] Network play (lockstep core exists; lobby, match flow, desync recovery pending)
+* [ ] Audio wiring (music, SFX, voice hookup to sim events)
+* [x] Input (keyboard, mouse)
+* [ ] Campaign and living world
+* [ ] War of the Ring meta-game
+* [ ] Create-a-Hero
 
 ### Platforms
 
