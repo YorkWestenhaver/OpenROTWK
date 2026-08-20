@@ -14,7 +14,50 @@ Generals and Command & Conquer: Generals Zero Hour. Support for other SAGE-based
 games may come later. The primary development target is Windows, with support
 planned for macOS at a later date.
 
-## Work in progress
+## This fork: deterministic BFME2 sim core (`simcore-scaffolding`)
+
+This fork builds a **deterministic, fixed-point simulation core** on top of OpenSAGE,
+targeting bit-conformant *The Battle for Middle-earth II: Rise of the Witch-king*
+gameplay and desync-free cross-architecture multiplayer (Apple Silicon ↔ x86). Engine
+behavior is graded against the retail engine via an external conformance oracle.
+
+### Deterministic foundation
+
+* [x] Fix64 fixed-point numeric layer (custom div/sqrt/trig)
+* [x] Float-quarantine Roslyn analyzer (no floats in sim code)
+* [x] SAGE-compatible deterministic RNG (`LogicRandom`)
+* [x] Deterministic tick loop + order pipeline (`SimLoop`)
+* [x] `XferCrc` checksum / sync framework
+* [x] Run-twice determinism test suites
+
+### Core sim systems
+
+* [x] S1 — Weapon / damage / armor pipeline
+* [x] S2 — Locomotor / movement physics
+* [x] S3 — Partition / vision / line-of-sight / shroud
+* [x] S4 — Economy / production / veterancy
+* [x] S5 — Pathfinding (deterministic A*; retail-timing conformance oracle-gated)
+* [x] S6 — Hordes (BFME formation system, clean-room spec)
+* [x] S7 — Castles / build plots (clean-room spec)
+* [x] S8 — Script-engine runtime subset
+* [ ] S9 — Skirmish AI (design doc complete, implementation pending)
+* [ ] S10 — Object lifecycle hardening (partial, ongoing)
+* [ ] S11 — Netcode / lockstep completion (M3 critical path)
+
+### Behavior modules
+
+* [x] 74 / 169 runtime behavior modules implemented (was 12 at fork baseline)
+* [ ] 95 remaining (69 gated on clean-room behavioral specs)
+
+### Conformance oracle
+
+* [x] Target-A self-diff harness
+* [x] Retail memory-probe state capture (v2/v3) + canonical ddump schema
+* [x] First full-battle pointwise diff vs. retail executed (divergence fix list active)
+* [ ] Full-battle conformance within tolerance (M1)
+* [ ] Cross-architecture replay conformance (M3)
+
+## Work in progress (upstream roadmap)
 
 This project is in the *very* early stages. There is still a long way to go before there's anything playable. 
 The initial focus is on understanding the data formats used in Command & Conquer: Generals and Zero Hour.
@@ -46,14 +89,14 @@ Here's a rough roadmap:
 
 ### Game logic
 
-* [ ] Scripting engine (in progress)
+* [x] Scripting engine (deterministic runtime subset in this fork)
 * [ ] APT virtual machine (in progress)
-* [ ] AI - Path finding, base building, fighting
-* [ ] Physics engine
-* [ ] Weapons
-* [ ] Locomotors
+* [ ] AI - Path finding (done in this fork), base building, fighting
+* [x] Physics engine (deterministic locomotor/movement in this fork)
+* [x] Weapons (deterministic pipeline in this fork)
+* [x] Locomotors (deterministic, in this fork)
 * [ ] Input (keyboard, mouse)
-* [ ] Network play
+* [ ] Network play (lockstep core exists; lobby/recovery pending)
 * [ ] Much more...
 
 ### Platforms
