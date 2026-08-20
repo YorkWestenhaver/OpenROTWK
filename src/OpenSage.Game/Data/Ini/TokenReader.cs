@@ -172,6 +172,13 @@ internal sealed class TokenReader
             return peekedToken;
         }
 
+        // A peeked token that was read with a *different* separator set is now stale: this
+        // call advances the cursor past it, so leaving it cached would let a later peek/read
+        // using those original separators hand back a token from before the cursor moved.
+        // (Seen with attribute lists: "Frames:3 RequiredMC:MOVING" peeks "RequiredMC:MOVING"
+        // with the default separators, then reads "RequiredMC" with the colon separators.)
+        _peekedToken = null;
+
         var (token, nextIndex) = ReadToken(separators);
         _currentLineCharIndex = nextIndex;
         return token;

@@ -93,7 +93,11 @@ End
     [Fact]
     public void ParsesRequired_BitArrayCompositionWithMultipleFlags()
     {
-        var (game, _) = Spawn("ModelCondition = REQUIRED:MOVING+ATTACKING Sound:UnitMoveLoop");
+        // Multiple flags are space-separated tokens after the REQUIRED: keyword; the in-line
+        // bit-array scan consumes flag tokens until it hits one that is not a flag name (here
+        // the following "Sound" attribute). '+'/'-' are per-token set/clear prefixes, not an
+        // infix joiner, so "MOVING ATTACKING" - not "MOVING+ATTACKING" - is the composition form.
+        var (game, _) = Spawn("ModelCondition = REQUIRED:MOVING ATTACKING Sound:UnitMoveLoop");
         var required = GetData(game).ModelCondition.Required;
 
         Assert.True(required.Get(ModelConditionFlag.Moving));

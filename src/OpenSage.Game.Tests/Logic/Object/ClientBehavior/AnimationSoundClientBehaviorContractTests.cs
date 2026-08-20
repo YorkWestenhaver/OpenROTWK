@@ -162,6 +162,10 @@ End
             game.Step();
         }
         Assert.False(unit.IsDestroyed);
-        Assert.Empty(unit.BehaviorModules.OfType<AnimationSoundClientBehavior>());
+
+        // The ClientBehaviors instantiation seam (F-R11-9) has since landed, so the module is
+        // now a live module on the spawned object - and, being permanently parked, stepping it
+        // ten frames changes nothing about the object.
+        Assert.Single(unit.BehaviorModules.OfType<AnimationSoundClientBehavior>());
     }
 }

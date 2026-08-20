@@ -125,6 +125,7 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
         }
 
         var oldLevel = _currentLevel;
+        _currentLevel = newLevel;
         _currentExperience = _parent.Definition.ExperienceRequired?[_currentLevel] ?? 0;
         // Original code checks if parent is null here, but I don't think it can ever be null
         OnVeterancyLevelChanged(oldLevel, newLevel);
