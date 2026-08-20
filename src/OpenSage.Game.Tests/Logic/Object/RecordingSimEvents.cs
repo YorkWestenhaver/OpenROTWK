@@ -55,6 +55,12 @@ internal sealed class RecordingSimEvents : ISimEvents
     public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId) =>
         Sounds.Add((unitSpecificSoundKey, objectId));
 
+    /// <summary>Literal AudioEvent requests, in order (HordeSiegeEngineContain's EnterSound/ExitSound, R12).</summary>
+    public List<(string AudioEventName, ObjectId ObjectId)> AudioEvents { get; } = new();
+
+    public void FireAudioEventAtObject(string audioEventName, ObjectId objectId) =>
+        AudioEvents.Add((audioEventName, objectId));
+
     /// <summary>Free-unit crate-pickup sting requests, in order (UnitCrateCollide, R12).</summary>
     public int CrateFreeUnitPickupSoundCount { get; private set; }
 
