@@ -17,6 +17,18 @@ public class AIUpdate : UpdateModule
 
     private protected AIUpdateStateMachine StateMachine => _stateMachine ??= CreateStateMachine();
 
+    /// <summary>
+    /// The state machine's current goal object (GPL <c>AIUpdateInterface::getGoalObject</c>),
+    /// surfaced publicly so collide-time checks (e.g. crate execution) can verify a unit is
+    /// still actively pursuing the object it collided with, rather than having wandered into
+    /// it incidentally.
+    /// </summary>
+    public GameObject GoalObject
+    {
+        get => StateMachine.GoalObject;
+        set => StateMachine.GoalObject = value;
+    }
+
     private readonly LocomotorSet _locomotorSet;
     private LocomotorSetType _currentLocomotorSetType;
 
