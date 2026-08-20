@@ -110,7 +110,57 @@ public partial class Player : IPersistableObject
     public void LogicTick()
     {
         Rank.Update();
+
+        // GPL Player::update: once an active power sabotage's duration has elapsed, the
+        // player's own tick is what turns the brownout back off again (there is no other
+        // scheduled callback for it).
+        if (_hasInsufficientPower && _powerSabotagedTillFrame != LogicFrame.Zero
+            && _game.GameLogic.CurrentFrame >= _powerSabotagedTillFrame)
+        {
+            OnPowerBrownOutChange(false);
+        }
     }
+
+    /// <summary>
+    /// Logic frame at which an active power sabotage (SabotagePowerPlantCrateCollide) ends
+    /// and the brownout it caused is lifted. <see cref="LogicFrame.Zero"/> means none is
+    /// pending. Runtime-only: deliberately NOT added to the legacy positional Persist walk
+    /// below (F9) - inserting a field there would shift every field that follows it and
+    /// break compatibility with existing retail-format saves.
+    /// </summary>
+    private LogicFrame _powerSabotagedTillFrame;
+
+    /// <summary>True while this player is suffering a power brownout (GPL Energy::hasSufficientPower, negated).</summary>
+    public bool HasInsufficientPower => _hasInsufficientPower;
+
+    /// <summary>
+    /// GPL <c>Player::onPowerBrownOutChange</c>: flips the running brownout flag. Called
+    /// immediately when a sabotage takes effect, and again by <see cref="LogicTick"/> once
+    /// <see cref="_powerSabotagedTillFrame"/> is reached.
+    /// </summary>
+    internal void OnPowerBrownOutChange(bool broken)
+    {
+        _hasInsufficientPower = broken;
+    }
+
+    /// <summary>
+    /// GPL <c>player->getEnergy()->setPowerSabotagedTillFrame(frame)</c> followed
+    /// unconditionally by <c>player->onPowerBrownOutChange(TRUE)</c>: records when the
+    /// sabotage should end and immediately triggers the brownout.
+    /// </summary>
+    internal void SetPowerSabotagedTillFrame(LogicFrame frame)
+    {
+        _powerSabotagedTillFrame = frame;
+        OnPowerBrownOutChange(true);
+    }
+
+    /// <summary>
+    /// EVA events requested for this player, queued for the (not yet ported, S8-excluded
+    /// from the sim - audio is deliberately absent from ISimContext) client-side EVA
+    /// playback system to drain (GPL <c>TheEva-&gt;setShouldPlay</c>). Names match the
+    /// EvaEvent asset name (e.g. "BuildingSabotaged").
+    /// </summary>
+    public List<string> PendingEvaEvents { get; } = new();
 
     public bool SpecialPowerAvailable(SpecialPower specialPower)
     {
