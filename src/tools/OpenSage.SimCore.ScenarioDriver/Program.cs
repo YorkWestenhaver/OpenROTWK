@@ -39,6 +39,13 @@ internal static class Program
         var scenarioName = "scripted-v1";
         string? mapPath = null;
         var iniPaths = new List<string>();
+        // Target-B full-battle coverage: a retail memprobe capture keeps sampling
+        // after the map script's telemetry exit fires (job-009: our MapExitFrame
+        // 501 vs the capture's 619), so the conformance window is longer than the
+        // scripted run. This flag keeps ticking to --until-frame regardless of the
+        // exit request; the exit frame is still reported. Default OFF - every
+        // existing run keeps stopping exactly where it stopped before.
+        var ignoreMapExit = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -47,6 +54,7 @@ internal static class Program
                 case "--schedule": schedulePath = args[++i]; break;
                 case "--out": outPath = args[++i]; break;
                 case "--until-frame": untilFrame = uint.Parse(args[++i], CultureInfo.InvariantCulture); break;
+                case "--ignore-map-exit": ignoreMapExit = true; break;
                 case "--checkpoint-interval": checkpointInterval = uint.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--seed": seed = ParseUInt(args[++i]); break;
                 case "--scenario": scenarioName = args[++i]; break;
@@ -62,7 +70,7 @@ internal static class Program
         {
             Console.Error.WriteLine(
                 "usage: scenariodriver --schedule <injection-schedule.json> --out <dump> " +
-                "[--until-frame N] [--checkpoint-interval K] [--seed S] " +
+                "[--until-frame N] [--checkpoint-interval K] [--seed S] [--ignore-map-exit] " +
                 "[--scenario NAME] [--map <file.map> [--ini <file.ini>]...]");
             return 2;
         }
@@ -140,7 +148,8 @@ internal static class Program
         using (var stream = new StreamWriter(outPath, append: false, new UTF8Encoding(false)) { NewLine = "\n" })
         {
             scenario.AttachWriter(new DeepCrcWriter(stream, leaveOpen: true));
-            while (loop.CurrentFrame.Value <= stopAfter && mapScenario is not { MapExitRequested: true })
+            while (loop.CurrentFrame.Value <= stopAfter
+                   && (ignoreMapExit || mapScenario is not { MapExitRequested: true }))
             {
                 loop.Advance();
             }
