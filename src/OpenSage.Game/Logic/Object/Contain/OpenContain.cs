@@ -78,7 +78,7 @@ public abstract class OpenContainModule : UpdateModule, IHasRallyPoint
         unit.AddToContainer(GameObject.Id);
         if (!initial)
         {
-            GameEngine.AudioSystem.PlayAudioEvent(unit, GetEnterVoiceLine(unit.Definition.UnitSpecificSounds));
+            GameEngine.AudioSystem?.PlayAudioEvent(unit, GetEnterVoiceLine(unit.Definition.UnitSpecificSounds));
         }
     }
 
@@ -103,7 +103,7 @@ public abstract class OpenContainModule : UpdateModule, IHasRallyPoint
 
     public void Evacuate()
     {
-        GameEngine.AudioSystem.PlayAudioEvent(GameObject,
+        GameEngine.AudioSystem?.PlayAudioEvent(GameObject,
             GameObject.Definition.UnitSpecificSounds.VoiceUnload?.Value);
         foreach (var id in ContainedObjectIds)
         {
@@ -183,7 +183,7 @@ public abstract class OpenContainModule : UpdateModule, IHasRallyPoint
         }
         else
         {
-            GameEngine.AudioSystem.PlayAudioEvent(GameObject.Definition.SoundExit?.Value);
+            GameEngine.AudioSystem?.PlayAudioEvent(GameObject.Definition.SoundExit?.Value);
         }
 
         unit.RemoveFromContainer();

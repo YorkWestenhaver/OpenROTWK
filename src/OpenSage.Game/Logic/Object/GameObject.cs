@@ -1474,7 +1474,7 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     // todo: this probably is not correct
     public bool IsAirborne(float groundDelta = 0.1f)
     {
-        return Translation.Z - _gameEngine.Terrain.HeightMap.GetHeight(Translation.X, Translation.Y) > groundDelta;
+        return HeightAboveTerrain > groundDelta;
     }
 
     public bool IsUsingAirborneLocomotor()

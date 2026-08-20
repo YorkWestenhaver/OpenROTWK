@@ -24,6 +24,16 @@ internal static class CombatLegacyBridge
         return Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(value));
     }
 
+    /// <summary>
+    /// WeaponTemplate.AttackRange, quantized once at the substrate boundary (D-7). Grown for
+    /// the PointDefenseLaserUpdate port (R12): its firing-range gate is Fix64 end to end on
+    /// the module side, and the template's float AttackRange crosses exactly once, here.
+    /// </summary>
+    public static Fix64 QuantizeAttackRange(WeaponTemplate template)
+    {
+        return QuantizeFloat(template.AttackRange);
+    }
+
     /// <summary>Legacy float damage request -> the Fix64 pipeline request.</summary>
     public static CombatDamageInput ToCombatInput(in DamageInfoInput legacy)
     {
