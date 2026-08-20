@@ -269,7 +269,10 @@ End
         // deterministic pathfind grid), and it can be queued for a path exactly like any
         // other live object - the same observable ReplaceObjectUpdate itself drives via
         // Context.GameLogic.PathfindQueueForPath post-creation.
-        Assert.True(game.GameLogic.SimPathfind.Grid.WorldToCell(
+        // WorldToCell's bool result is the overflow flag (true = clamped outside the grid
+        // extent, per its own doc comment / GPL Pathfinder::worldToCell) - False here is
+        // exactly "in bounds, grid-visible".
+        Assert.False(game.GameLogic.SimPathfind.Grid.WorldToCell(
             new FixVector3(
                 new Fix64((int)replacement.Translation.X),
                 new Fix64((int)replacement.Translation.Y),
