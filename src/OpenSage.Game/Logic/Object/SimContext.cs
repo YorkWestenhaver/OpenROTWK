@@ -98,6 +98,32 @@ internal sealed class SimContext : ISimContext
             return created;
         }
 
+        public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, in FixVector3 offset, Fix64 orientation)
+        {
+            var created = _engine.GameLogic.CreateObject(definition, owner);
+            if (created is null)
+            {
+                return null;
+            }
+
+            // Float boundary (D-7, R12): the donor's translation is copied verbatim, then the
+            // Fix64 offset - computed entirely module-side - is converted to float exactly
+            // once, here, and added on top. Same single-crossing shape as the orientation-only
+            // overload above.
+            var donor = at.Transform.Translation;
+            var translation = donor + new Vector3(
+                offset.X.ToFloatForDisplay(),
+                offset.Y.ToFloatForDisplay(),
+                offset.Z.ToFloatForDisplay());
+
+            created.UpdateTransform(
+                translation,
+                Quaternion.CreateFromAxisAngle(Vector3.UnitZ, orientation.ToFloatForDisplay()));
+            created.Layer = at.Layer;
+            created.UpdateColliders();
+            return created;
+        }
+
         // GameLogic's backing list is indexed by ObjectId, so its iteration is already
         // ascending ObjectId; nulls (destroyed slots) are filtered by the property.
         public IEnumerable<GameObject> ObjectsAscendingId => _engine.GameLogic.Objects;
@@ -299,6 +325,21 @@ internal sealed class SimContext : ISimContext
         {
             // Same story as FireFXAtObject: the client-bound event queue does not exist yet.
             // Recording the call is what a ported module owes; playing it is the client's.
+        }
+
+        // R12 (UnitCrateCollide): a global MiscAudio sting, not per-object, so unlike the FX
+        // methods above there is no transform to read - PlayAudioEvent(string) resolves the
+        // event by name directly. Null-tolerant (AudioSystem, MiscAudio scope) so the headless
+        // sim host can collect crates same as GameObject.OnVeterancyLevelChanged does for
+        // UnitPromoted.
+        public void FireCrateFreeUnitPickupSound()
+        {
+            var soundName = _engine.AssetLoadContext.AssetStore.MiscAudio.Current?.CrateFreeUnit;
+            if (string.IsNullOrEmpty(soundName))
+            {
+                return;
+            }
+            _engine.AudioSystem?.PlayAudioEvent(soundName);
         }
 
         public void FireParticleSystemAtObject(string particleSystemName, ObjectId objectId, string bone, bool randomBone)
