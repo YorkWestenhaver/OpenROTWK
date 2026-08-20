@@ -80,8 +80,11 @@ internal sealed class HeadlessSimGame : IGame
         // A real ObjectCreationListManager: the Die batch's spawning classes (CreateObjectDie,
         // CreateCrateDie, EjectPilotDie) reach it through ISimContext, and it is pure logic -
         // it creates GameObjects through GameLogic, touching no graphics.
+        // A real Radar (not null): sabotage/infiltration-style collide handlers report
+        // through IGameEngine.Radar, and a port that only compiles against a null Radar
+        // would never notice a missing null-guard until it ran in a real game.
         GameEngine = new GameEngine(
-            AssetStore.LoadContext, null, null, new ObjectCreationListManager(), null, null, null,
+            AssetStore.LoadContext, null, null, new ObjectCreationListManager(), null, null, new Radar(),
             Quadtree, new HeadlessScene3D(this), this);
 
         AssetStore.PushScope();
@@ -156,6 +159,17 @@ internal sealed class HeadlessSimGame : IGame
     }
 
     public Player CivilianPlayer => PlayerManager.GetCivilianPlayer();
+
+    /// <summary>
+    /// The "local player" a legacy module reads through <c>IGameEngine.Scene3D.LocalPlayer</c>
+    /// (e.g. an EVA/UI feedback gate on "is this happening to ME"). Null by default, matching
+    /// a host with no seated local player; tests that exercise a local-player branch set it.
+    /// </summary>
+    public Player LocalPlayer
+    {
+        get => ((HeadlessScene3D)Scene3D).LocalPlayer;
+        set => ((HeadlessScene3D)Scene3D).LocalPlayer = value;
+    }
 
     // ---- the mocked-game IGame surface (TestGame pattern) ----
 
@@ -287,7 +301,7 @@ internal sealed class HeadlessSimGame : IGame
         public ShadowSettings Shadows => null;
         public WaterSettings Waters => null;
         public IReadOnlyList<Player> Players => null;
-        public Player LocalPlayer => null;
+        public Player LocalPlayer { get; set; }
         public Navigation.Navigation Navigation => null;
         public AudioSystem Audio => null;
         public AssetLoadContext AssetLoadContext => _game.AssetStore.LoadContext;

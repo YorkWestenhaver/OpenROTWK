@@ -96,9 +96,14 @@ public sealed class ArmorTemplate : BaseAsset
             return damage;
         }
 
+        // A caller-supplied negative amount is an intentional reduction (e.g. a subdual
+        // heal tick), not combat damage that could round negative from an odd armor
+        // coefficient - only the latter gets floored at zero.
+        var wasNegative = damage < Fix64.Zero;
+
         damage *= Values[(int)damageType];
 
-        if (damage < Fix64.Zero)
+        if (!wasNegative && damage < Fix64.Zero)
         {
             damage = Fix64.Zero;
         }

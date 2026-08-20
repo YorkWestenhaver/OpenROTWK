@@ -17,6 +17,18 @@ public class AIUpdate : UpdateModule
 
     private protected AIUpdateStateMachine StateMachine => _stateMachine ??= CreateStateMachine();
 
+    /// <summary>
+    /// The state machine's current goal object (GPL <c>AIUpdateInterface::getGoalObject</c>),
+    /// surfaced publicly so collide-time checks (e.g. crate execution) can verify a unit is
+    /// still actively pursuing the object it collided with, rather than having wandered into
+    /// it incidentally.
+    /// </summary>
+    public GameObject GoalObject
+    {
+        get => StateMachine.GoalObject;
+        set => StateMachine.GoalObject = value;
+    }
+
     private readonly LocomotorSet _locomotorSet;
     private LocomotorSetType _currentLocomotorSetType;
 
@@ -42,6 +54,20 @@ public class AIUpdate : UpdateModule
     private bool _isRecruitable;
     private uint _nextEnemyScanTime;
     private ObjectId _currentVictimId;
+
+    /// <summary>
+    /// This unit's current AI victim/target object, when it has one (GPL's nearest
+    /// equivalent to <c>AIUpdateInterface::getGoalObject</c> - the full goal-object concept
+    /// belongs to the still-unported order-issuing AI, api-freeze-v1 §7). Exposed for
+    /// modules that must veto acting on an object their owner didn't actually order this
+    /// unit against (e.g. SabotagePowerPlantCrateCollide's "don't trigger just by walking
+    /// too close" guard).
+    /// </summary>
+    public ObjectId CurrentVictimId => _currentVictimId;
+
+    /// <summary>Test/order-issuing seam for <see cref="CurrentVictimId"/> (see its doc).</summary>
+    internal void SetCurrentVictim(ObjectId id) => _currentVictimId = id;
+
     private float _desiredSpeed;
     private CommandSourceType _lastCommandSource;
     private GuardTargetType _guardTargetType0;

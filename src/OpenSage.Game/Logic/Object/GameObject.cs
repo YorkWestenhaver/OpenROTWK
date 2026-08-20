@@ -195,7 +195,7 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     }
 
     private BitArray<DisabledType> _disabledTypes = new();
-    private readonly LogicFrame[] _disabledTypesFrames = new LogicFrame[9];
+    private readonly LogicFrame[] _disabledTypesFrames = new LogicFrame[Enum.GetValues<DisabledType>().Length];
 
     internal BitArray<DisabledType> DisabledFlags => _disabledTypes;
 
@@ -629,6 +629,19 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         ModelTransform = Transform.CreateIdentity();
         Transform.Scale = Definition.Scale;
 
+        // Geometry/Colliders must exist before any behavior module is constructed below:
+        // some body-module constructors (e.g. ActiveBody's initial damage-state side effects)
+        // touch GameObject.SetGeometryInfoZ synchronously during construction.
+        Geometry = Definition.Geometry.Clone();
+
+        Colliders = new List<Collider>();
+        foreach (var geometry in Geometry.Shapes)
+        {
+            Colliders.Add(Collider.Create(geometry, Transform));
+        }
+
+        RoughCollider = Collider.Create(Colliders);
+
         // TODO: Instead of GameObject owning the drawable, which makes logic tests a little awkward,
         // perhaps create Drawable somewhere else and attach it to this GameObject?
         Drawable = gameEngine.GameClient?.CreateDrawable(objectDefinition, this);
@@ -732,16 +745,6 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         {
             behavior.OnObjectCreated();
         }
-
-        Geometry = Definition.Geometry.Clone();
-
-        Colliders = new List<Collider>();
-        foreach (var geometry in Geometry.Shapes)
-        {
-            Colliders.Add(Collider.Create(geometry, Transform));
-        }
-
-        RoughCollider = Collider.Create(Colliders);
 
         _visionRange = Definition.VisionRange;
         _shroudRevealSomething1.VisionRange = Definition.VisionRange;

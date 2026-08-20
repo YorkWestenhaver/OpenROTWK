@@ -5,6 +5,7 @@
 // shadow-copy CRC, and the plain save/load continuation).
 
 using System.Numerics;
+using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
 using OpenSage.SimCore.Numerics;
@@ -20,6 +21,7 @@ public class ActiveBodyContractTests
 GameData
   UnitDamagedThreshold = 0.5
   UnitReallyDamagedThreshold = 0.1
+  HealthBonus_Veteran = 150%
 End
 
 Armor BaseArmor
@@ -57,6 +59,18 @@ Object Fractional
   GeometryHeight = 10
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 37.5
+  End
+End
+
+; no Contain module - exercises ActiveBody's non-RiderChangeContain KillPilot branch
+; (GPL's ""else"" arm: unmanned + neutral team).
+Object KillPilotVehicle
+  KindOf = VEHICLE
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
   End
 End
 ";
@@ -159,5 +173,80 @@ End
             liveBody.DamageCore.CurrentHealth,
             BodyOf(restored).DamageCore.CurrentHealth);
         Assert.True(BodyOf(restored).TestArmorSetFlag(ArmorSetCondition.Veteran));
+    }
+
+    // ---- subdual recovery: the heal side of internalAddSubdualDamage, driven the same way
+    // GPL's SubdualDamageHelper drives it - a negative-amount subdual hit through the same
+    // AttemptCombatDamage entry point (SubdualDamageHelper itself is a separate, unported
+    // module; this exercises the recovery arithmetic ActiveBody already owns). ----
+
+    [Fact]
+    public void SubdualDamage_HealTickBelowCap_ReEnablesTheUnit()
+    {
+        var game = NewGame();
+        var hero = Spawn(game, "ArmoredHero");
+        var body = BodyOf(hero);
+
+        // Cap is 80: push past it so the unit is subdued and disabled.
+        hero.AttemptCombatDamage(Damage(90, DamageType.SubdualMissile));
+        Assert.True(body.DamageCore.IsSubdued);
+        Assert.True(hero.IsDisabledByType(DisabledType.Subdued));
+
+        // A heal tick removes subdual damage (GPL: attemptDamage with a negative amount of
+        // the same subdual type). Enough to drop back under the cap.
+        hero.AttemptCombatDamage(Damage(-30, DamageType.SubdualMissile));
+
+        Assert.False(body.DamageCore.IsSubdued);
+        Assert.False(hero.IsDisabledByType(DisabledType.Subdued));
+    }
+
+    // ---- veterancy bonus: OnVeterancyLevelChanged scales MaxHealth by GameData.HealthBonus
+    // and PreserveRatio carries CurrentHealth along proportionally (BodyDamageCore.SetMaxHealth). ----
+
+    [Fact]
+    public void VeterancyPromotion_ScalesMaxHealthAndCurrentHealthProportionally()
+    {
+        var game = NewGame();
+        var hero = Spawn(game, "ArmoredHero");
+        var body = BodyOf(hero);
+
+        // Damage first so CurrentHealth < MaxHealth, to prove the ratio (not just the max)
+        // carries through the promotion.
+        hero.AttemptCombatDamage(Damage(100, DamageType.Unresistable));
+        Assert.Equal(100.0f, body.Health);
+
+        // provideFeedback:false - the headless host has no AudioSystem, matching the promotion
+        // sound's null-unsafe call (recorded the same way EjectPilotDieContractTests does).
+        hero.ExperienceTracker.SetVeterancyLevel(VeterancyLevel.Veteran, provideFeedback: false);
+
+        // Regular's HealthBonus defaults to 1.0; Veteran is set to 150% above, so
+        // OnVeterancyLevelChanged's mult = 1.5 is exactly the 50% max-health bonus.
+        Assert.Equal(300.0f, body.MaxHealth);
+        // PreserveRatio: 100/200 = 50% carries onto the new max (150/300).
+        Assert.Equal(150.0f, body.Health);
+    }
+
+    // ---- KillPilot: the non-RiderChangeContain branch (no Contain module ported for this
+    // test's vehicle) - the unit is made Unmanned and reassigned to the neutral team without
+    // being destroyed. The RiderChangeContain bike branch is not exercised here: that Contain
+    // implementation has not been ported yet (out of this packet's scope). ----
+
+    [Fact]
+    public void KillPilot_OnUnmannedVehicle_DisablesAndNeutralizesWithoutDestroying()
+    {
+        var game = NewGame();
+        var vehicle = game.SpawnObject("KillPilotVehicle", game.CivilianPlayer, new Vector3(0, 0, 0));
+
+        Assert.False(vehicle.IsEffectivelyDead);
+
+        vehicle.AttemptCombatDamage(new CombatDamageInput
+        {
+            DamageType = DamageType.KillPilot,
+            Amount = Fix64.Zero,
+        });
+
+        Assert.True(vehicle.IsDisabledByType(DisabledType.Unmanned));
+        Assert.Equal(game.PlayerManager.NeutralPlayer.DefaultTeam, vehicle.Team);
+        Assert.False(vehicle.IsEffectivelyDead);
     }
 }

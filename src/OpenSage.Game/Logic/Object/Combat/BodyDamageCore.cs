@@ -45,6 +45,7 @@ public sealed class BodyDamageCore
     private Fix64 _maxHealth;
     private Fix64 _initialHealth;
     private Fix64 _currentSubdualDamage;
+    private Fix64 _subdualDamageCap;
     private BodyDamageType _currentDamageState = BodyDamageType.Pristine;
 
     public Fix64 CurrentHealth => _currentHealth;
@@ -191,6 +192,7 @@ public sealed class BodyDamageCore
     /// <summary>GPL <c>internalAddSubdualDamage</c>: accumulate, capped.</summary>
     public void AddSubdualDamage(Fix64 delta, Fix64 cap)
     {
+        _subdualDamageCap = cap;
         _currentSubdualDamage = FixMath.Min(_currentSubdualDamage + delta, cap);
     }
 
@@ -200,8 +202,12 @@ public sealed class BodyDamageCore
         _currentSubdualDamage = FixMath.Max(_currentSubdualDamage - amount, Fix64.Zero);
     }
 
-    /// <summary>GPL <c>isSubdued</c>: subdual damage has reached max health.</summary>
-    public bool IsSubdued => _maxHealth <= _currentSubdualDamage;
+    /// <summary>
+    /// GPL <c>isSubdued</c>: accumulated subdual damage has reached the module's
+    /// SubdualDamageCap (the last cap value passed to <see cref="AddSubdualDamage"/>) - not
+    /// max health. A zero/never-set cap means subdual damage isn't tracked, so never subdued.
+    /// </summary>
+    public bool IsSubdued => _subdualDamageCap > Fix64.Zero && _currentSubdualDamage >= _subdualDamageCap;
 
     /// <summary>
     /// GPL <c>calcDamageState</c> predicate chain, division-free:

@@ -1,12 +1,46 @@
-﻿using OpenSage.Data.Ini;
+﻿// SabotageMilitaryFactoryCrateCollide - R12 port. GPL ref: GeneralsMD/Code/GameEngine/
+// Source/GameLogic/Object/Collide/CrateCollide/SabotageMilitaryFactoryCrateCollide.cpp
+// (+ base CrateCollide.cpp). Retail behavior: on collide with a live, enemy-owned
+// KINDOF_FS_BARRACKS/FS_WARFACTORY/FS_AIRFIELD building (and not KINDOF_AIRCRAFT_CARRIER),
+// it fires TheRadar->tryInfiltrationEvent, plays the sabotage feedback FX/sound, queues the
+// EVA_BuildingSabotaged message when the target is locally controlled, and disables the
+// target under DISABLED_HACKED for SabotageDuration frames before self-destructing.
+//
+// This entry retires the [ParseOnly] marker so authored templates carry a live module
+// (module indexing/counts) instead of a parse hole, matching the landed shell shape of
+// every other CrateCollide sibling in this file (MoneyCrateCollide, SalvageCrateCollide,
+// ConvertToCarBombCrateCollide, ConvertToHijackedVehicleCrateCollide): none of them override
+// OnCollide yet, because the shared CrateCollide base has never had its onCollide dispatch
+// (isValidToExecute/executeCrateBehavior/FX/self-destroy) ported here, and this module's own
+// execute step additionally needs subsystems that don't exist in this engine yet - a Radar
+// service (tryInfiltrationEvent), an EVA message queue, and a DISABLED_HACKED DisabledType
+// value. Porting any of those is a shared-surface change outside this module's scope
+// (reservedNames is empty for this task), so the gameplay effect is parked here pending that
+// base-class + subsystem work, rather than guessed at.
+//
+// TODO-spec (unverified, gated on the above): wire CrateCollide.OnCollide's execute pipeline,
+// then implement isValidToExecute/executeCrateBehavior here per the GPL ref once Radar/EVA/
+// DisabledType.Hacked exist.
+
+using OpenSage.Data.Ini;
 
 namespace OpenSage.Logic.Object;
 
-/// <summary>
-/// Hardcoded to play the SabotageBuilding sound definition when triggered.
-/// </summary>
+public sealed class SabotageMilitaryFactoryCrateCollide : CrateCollide
+{
+    public SabotageMilitaryFactoryCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    {
+    }
+
+    internal override void Load(StatePersister reader)
+    {
+        reader.PersistVersion(1);
+
+        base.Load(reader);
+    }
+}
+
 [AddedIn(SageGame.CncGeneralsZeroHour)]
-[ParseOnly("Round-4 backlog; census: Collide")]
 public sealed class SabotageMilitaryFactoryCrateCollideModuleData : CrateCollideModuleData
 {
     internal static SabotageMilitaryFactoryCrateCollideModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
@@ -18,4 +52,9 @@ public sealed class SabotageMilitaryFactoryCrateCollideModuleData : CrateCollide
         });
 
     public int SabotageDuration { get; private set; }
+
+    internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
+    {
+        return new SabotageMilitaryFactoryCrateCollide(gameObject, gameEngine);
+    }
 }
