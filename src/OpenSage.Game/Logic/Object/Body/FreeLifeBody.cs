@@ -94,7 +94,13 @@ public sealed class FreeLifeBody : ActiveBody
         RefreshInvincibility();
 
         // While invincible, ignore all damage. Unresistable still bypasses (finding F-FLB-2).
-        if (_invincibleActive && damageInput.DamageType != DamageType.Unresistable)
+        // Healing also bypasses (F-INT-R8-2): the base redirects Healing-typed AttemptDamage
+        // calls to AttemptHealing (ActiveBody's GPL "shouldn't happen" compatibility path), so
+        // blocking it here silently swallowed heals mis-routed through AttemptDamage for the
+        // whole invincibility window even though direct AttemptHealing calls worked fine.
+        if (_invincibleActive
+            && damageInput.DamageType != DamageType.Unresistable
+            && damageInput.DamageType != DamageType.Healing)
         {
             return new DamageInfoOutput();
         }

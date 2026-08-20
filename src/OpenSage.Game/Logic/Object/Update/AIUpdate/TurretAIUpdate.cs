@@ -1,4 +1,21 @@
-﻿using System;
+﻿// TurretAIUpdate - R12 port (Round-4 backlog; census: Update). Legacy (pre-SimCore) runtime
+// module: it is owned directly by AIUpdate (moduleData.Turret / AltTurret), not created
+// through the generic ModuleData.CreateModule dispatch, so it lives on the float/IGameEngine
+// substrate like the rest of the legacy Weapon/AIUpdate machinery it reads
+// (GameObject.CurrentWeapon, WeaponTarget, ModelConditionFlags) - this directory has not
+// migrated into the SimCore Fix64 quarantine (SimCoreScopedDirs.txt has no Update/AIUpdate
+// entry yet), so float math here is in policy, matching every other file it touches.
+//
+// State machine (api-freeze-v1 grep target - the [ParseOnly] deletion below is the actual
+// porting deliverable): Disabled -> Idle (stalled while InitiallyDisabled) -> ScanningForTargets
+// (idle-scan timer) -> Turning (target acquired; FiresWhileTurning gates the Attacking model
+// condition while turning) -> Attacking (rotation complete) -> Recentering (target lost, or the
+// object started moving - either way RecenterTime frames are waited before rotating back to
+// NaturalTurretAngle) -> Idle. FoundTargetWhileScanning stays a false-returning stub: the
+// idle-scan target search needs a scene/quadtree query seam this legacy AIUpdate surface does
+// not have wired (its GPL-faithful body is left commented as a filed TODO, not deleted).
+
+using System;
 using System.Collections.Generic;
 using OpenSage.Data.Ini;
 using OpenSage.Mathematics;
@@ -32,6 +49,12 @@ public class TurretAIUpdate : UpdateModule
         Recentering
     }
 
+    /// <summary>Test/inspector-only view of the state machine; not part of the save contract.</summary>
+    internal TurretAIStates State => _turretAIstate;
+
+    /// <summary>Test/inspector-only view of the pending wake frame; not part of the save contract.</summary>
+    internal LogicFrame WaitUntil => _waitUntil;
+
     internal TurretAIUpdate(GameObject gameObject, IGameEngine gameEngine, TurretAIUpdateModuleData moduleData)
         : base(gameObject, gameEngine)
     {
@@ -59,6 +82,7 @@ public class TurretAIUpdate : UpdateModule
         if (GameObject.ModelConditionFlags.Get(ModelConditionFlag.Moving))
         {
             _turretAIstate = TurretAIStates.Recentering;
+            _waitUntil = currentFrame + _moduleData.RecenterTime;
             GameObject.CurrentWeapon?.SetTarget(null);
         }
 
@@ -235,7 +259,6 @@ public class TurretAIUpdate : UpdateModule
     }
 }
 
-[ParseOnly("Round-4 backlog; census: Update")]
 public sealed class TurretAIUpdateModuleData : UpdateModuleData
 {
     internal static TurretAIUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

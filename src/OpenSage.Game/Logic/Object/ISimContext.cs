@@ -61,6 +61,19 @@ public interface IGameLogic
     GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, Fix64 orientation);
 
     /// <summary>
+    /// Spawns a new object of <paramref name="definition"/> owned by <paramref name="owner"/>,
+    /// standing at <paramref name="at"/>'s position plus <paramref name="offset"/> (a
+    /// donor-relative displacement in the object's own X/Y plane; Z is added verbatim), facing
+    /// <paramref name="orientation"/> radians. Grown for the UnitCrateCollide port (R12): the
+    /// first module that must place spawned members around an anchor rather than exactly at
+    /// the donor's feet. Same donor-based float crossing as the other <c>CreateObjectAt</c>
+    /// overload (D-7): the offset is Fix64 end to end on the
+    /// module side, and is converted to float exactly once, here, at the seam. Returns null
+    /// when the definition is null.
+    /// </summary>
+    GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, in FixVector3 offset, Fix64 orientation);
+
+    /// <summary>
     /// Live objects in ascending ObjectId order - the one blessed whole-world iteration
     /// (iteration order is never a desync source, design-module-api §6).
     /// </summary>
@@ -259,6 +272,16 @@ public interface ISimEvents
     /// deliberately absent from the context; only the event is not).
     /// </summary>
     void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId);
+
+    /// <summary>
+    /// Requests the MiscAudio "free unit" crate-pickup sting (INI key CrateFreeUnit). Grown
+    /// for the UnitCrateCollide port (R12): unlike <see cref="FireUnitSoundAtObject"/>, the
+    /// sound is a single global MiscAudio entry rather than a per-object UnitSpecificSounds
+    /// key, so the request carries no object id - it is scoped to "this match", not "this
+    /// object". Output-only (S8): a missing MiscAudio scope (e.g. the headless sim host) is
+    /// silently nothing.
+    /// </summary>
+    void FireCrateFreeUnitPickupSound();
 
     /// <summary>
     /// Request a named particle system attached to an object, placed at a bone (or the

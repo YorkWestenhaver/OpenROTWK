@@ -55,6 +55,11 @@ internal sealed class RecordingSimEvents : ISimEvents
     public void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId) =>
         Sounds.Add((unitSpecificSoundKey, objectId));
 
+    /// <summary>Free-unit crate-pickup sting requests, in order (UnitCrateCollide, R12).</summary>
+    public int CrateFreeUnitPickupSoundCount { get; private set; }
+
+    public void FireCrateFreeUnitPickupSound() => CrateFreeUnitPickupSoundCount++;
+
     /// <summary>Attached-particle-system requests, in order (TransitionDamageFX).</summary>
     public List<RecordedParticleSystem> ParticleSystems { get; } = new();
 

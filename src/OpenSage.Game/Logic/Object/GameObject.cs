@@ -335,6 +335,29 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     public SimCore.Numerics.Fix64 VisionRange =>
         SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(_visionRange));
 
+    // ---- R12 CheckpointUpdate port: Fix64 collision-radius facade (additive) ----
+    /// <summary>
+    /// Fix64 view of the geometry's minor radius for ported [SimState] modules (the
+    /// original's <c>GeometryInfo::getMinorRadius</c>), quantized through the same F4 wire
+    /// boundary as <see cref="VisionRange"/> so no float reaches the caller.
+    /// </summary>
+    public SimCore.Numerics.Fix64 CollisionMinorRadius =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(Geometry.Shapes[0].MinorRadius));
+
+    /// <summary>
+    /// Writes a new minor radius from a Fix64 sim value (the original's
+    /// <c>GeometryInfo::setMinorRadius</c> via <c>Object::setGeometryInfo</c>), through the
+    /// single blessed Fix64-to-float display escape (<see cref="SimCore.Numerics.Fix64.ToFloatForDisplay"/>).
+    /// This is the one write-back exception to that escape's "never re-enters sim state"
+    /// contract: the geometry radius is presentation/collision substrate, not itself part of
+    /// the sim CRC (same-binary deterministic today, matching the <see cref="VisionRange"/>
+    /// D-7 boundary rationale, bit-deterministic cross-arch when geometry migrates to Fix64).
+    /// </summary>
+    public void SetCollisionMinorRadius(SimCore.Numerics.Fix64 radius)
+    {
+        Geometry.Shapes[0].MinorRadius = radius.ToFloatForDisplay();
+    }
+
     /// <summary>
     /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
     /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
@@ -629,18 +652,16 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         ModelTransform = Transform.CreateIdentity();
         Transform.Scale = Definition.Scale;
 
-        // Geometry/Colliders must exist before any behavior module is constructed below:
-        // some body-module constructors (e.g. ActiveBody's initial damage-state side effects)
-        // touch GameObject.SetGeometryInfoZ synchronously during construction.
+        // Must be assigned before the behavior-construction loop below: some body-module
+        // constructors (e.g. ActiveBody's initial damage-state side effects) touch
+        // GameObject.SetGeometryInfoZ synchronously during construction, and some ported
+        // [SimState] modules (e.g. CheckpointUpdate, R12) read GameObject.Geometry from
+        // their own constructor via the CollisionMinorRadius facade — behavior modules are
+        // constructed while this GameObject constructor is still running. Colliders don't
+        // need to exist yet for either of these, so their creation stays below, after the
+        // behavior-construction loop.
         Geometry = Definition.Geometry.Clone();
 
-        Colliders = new List<Collider>();
-        foreach (var geometry in Geometry.Shapes)
-        {
-            Colliders.Add(Collider.Create(geometry, Transform));
-        }
-
-        RoughCollider = Collider.Create(Colliders);
 
         // TODO: Instead of GameObject owning the drawable, which makes logic tests a little awkward,
         // perhaps create Drawable somewhere else and attach it to this GameObject?
@@ -745,6 +766,15 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         {
             behavior.OnObjectCreated();
         }
+
+        Colliders = new List<Collider>();
+        foreach (var geometry in Geometry.Shapes)
+        {
+            Colliders.Add(Collider.Create(geometry, Transform));
+        }
+
+        RoughCollider = Collider.Create(Colliders);
+
 
         _visionRange = Definition.VisionRange;
         _shroudRevealSomething1.VisionRange = Definition.VisionRange;

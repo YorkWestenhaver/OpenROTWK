@@ -8,6 +8,16 @@ public abstract class CollideModule : BehaviorModule, ICollideModule
     {
     }
 
+    /// <summary>
+    /// The frozen contract ctor (api-freeze-v1 §3 item 1), grown for the UnitCrateCollide
+    /// port (R12): the first Collide module ported onto the ISimContext seam (see that file's
+    /// header, F-UCC-1, for why it is not [SimState]-marked). See BehaviorModule's matching
+    /// ctor.
+    /// </summary>
+    protected CollideModule(GameObject gameObject, ISimContext context) : base(gameObject, context)
+    {
+    }
+
     // TODO: Make this abstract.
     public virtual void OnCollide(GameObject other, in Vector3 location, in Vector3 normal) { }
 
