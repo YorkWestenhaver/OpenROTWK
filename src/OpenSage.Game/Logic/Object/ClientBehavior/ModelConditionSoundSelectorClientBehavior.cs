@@ -1,9 +1,48 @@
-﻿using OpenSage.Data.Ini;
+// ModelConditionSoundSelectorClientBehavior - R12 port. Client-side audio-selection module
+// that maps a single unit model-condition flag to a bundle of voice/sound asset references
+// (SoundState). Audio selection and playback are deliberately absent from ISimContext (S8;
+// see LargeGroupAudioUpdate's header for the same finding), and the parsed state has no
+// sim-visible effect - it only tells a client-side audio host which voice/sound assets to
+// prefer while the owning object is in a given model condition. This is therefore a
+// permanently-parked module, following the LargeGroupAudioUpdate template: it exists so
+// authored objects carry a live module (module indexing, module counts, CRC walk) instead of
+// a [ParseOnly] hole, with an empty mutable-state inventory (the parsed SoundState is
+// immutable config, not sim state).
+//
+// TODO-spec (unverified, the whole audio behavior): the retail per-condition voice/sound
+// selection and playback lives client-side; model it when an audio host exists.
+//
+// Documented in scaffolding-log.md (Task A0.1, Finding 2) as one of six known ClientBehavior
+// audio modules outside the simulation contract.
+
+using OpenSage.Data.Ini;
+using OpenSage.SimCore;
+using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
 
+[SimState]
+public sealed class ModelConditionSoundSelectorClientBehavior : BehaviorModule
+{
+    public ModelConditionSoundSelectorClientBehavior(GameObject gameObject, ISimContext context, ModelConditionSoundSelectorClientBehaviorData data)
+        : base(gameObject, context)
+    {
+        // Audio-only module (S8): the parsed SoundState is immutable config consumed by a
+        // client-side audio host, not sim state. Nothing to schedule.
+    }
+
+    // ---- the single walk: no mutable sim state (the audio selection is client-side). ----
+
+    internal override bool HasSimXfer => true;
+
+    public override void Xfer(IXfer xfer)
+    {
+        xfer.XferVersion(1);
+    }
+}
+
 [AddedIn(SageGame.Bfme)]
-[ParseOnly("Round-4 backlog; census: ClientBehavior")]
+[SimDataAudited]
 public class ModelConditionSoundSelectorClientBehaviorData : ClientBehaviorModuleData
 {
     internal static ModelConditionSoundSelectorClientBehaviorData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
@@ -14,6 +53,11 @@ public class ModelConditionSoundSelectorClientBehaviorData : ClientBehaviorModul
     };
 
     public SoundState SoundState { get; private set; }
+
+    internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
+    {
+        return new ModelConditionSoundSelectorClientBehavior(gameObject, gameEngine.SimContext, this);
+    }
 }
 
 public sealed class SoundState
