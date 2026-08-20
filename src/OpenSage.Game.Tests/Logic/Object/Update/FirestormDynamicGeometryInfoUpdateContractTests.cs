@@ -8,6 +8,7 @@ using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
+using OpenSage.SimCore.Numerics;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Update;
@@ -57,17 +58,17 @@ End
         var data = (FirestormDynamicGeometryInfoUpdateModuleData)game.AssetStore.ObjectDefinitions
             .GetByName("FirestormMine").Behaviors["ModuleTag_Firestorm"].Data;
         Assert.Equal(15, data.InitialDelay);
-        Assert.Equal(10.0f, data.InitialMajorRadius);
-        Assert.Equal(60.0f, data.FinalMajorRadius);
+        Assert.Equal(Fix64.FromDecimalLiteral("10.0"), data.InitialMajorRadius);
+        Assert.Equal(Fix64.FromDecimalLiteral("60.0"), data.FinalMajorRadius);
         Assert.Equal(30, data.TransitionTime);
         Assert.True(data.ReverseAtTransitionTime);
-        Assert.Equal(100.0f, data.ScorchSize);
-        Assert.Equal(5.0f, data.ParticleOffsetZ);
+        Assert.Equal(Fix64.FromDecimalLiteral("100.0"), data.ScorchSize);
+        Assert.Equal(Fix64.FromDecimalLiteral("5.0"), data.ParticleOffsetZ);
         Assert.Equal("FirestormSmall", data.ParticleSystem1);
         Assert.Equal("FirestormLarge", data.ParticleSystem2);
         Assert.Equal("FX_FirestormStart", data.FXList);
         Assert.Equal(5, data.DelayBetweenDamageFrames);
-        Assert.Equal(25.0f, data.DamageAmount);
+        Assert.Equal(Fix64.FromDecimalLiteral("25.0"), data.DamageAmount);
     }
 
     [Fact]

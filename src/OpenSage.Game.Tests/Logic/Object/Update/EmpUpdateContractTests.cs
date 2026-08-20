@@ -44,7 +44,7 @@ Object EmpBomb
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
-  Behavior = EmpUpdate ModuleTag_Emp
+  Behavior = EMPUpdate ModuleTag_Emp
     Lifetime = 2000
     StartFadeTime = 1000
     DisabledDuration = 1000
@@ -61,7 +61,7 @@ Object EmpBombFiltered
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
-  Behavior = EmpUpdate ModuleTag_Emp
+  Behavior = EMPUpdate ModuleTag_Emp
     Lifetime = 2000
     StartFadeTime = 1000
     DisabledDuration = 1000
@@ -370,6 +370,13 @@ End
         // candidate.GetRelationship(self) resolves through the CANDIDATE's owner, so the
         // override belongs on the transport's player, pointed at the EMP's player.
         game.PlayerManager.NeutralPlayer.SetRelationship(game.CivilianPlayer, RelationshipType.Allies);
+
+        // GetRelationship also short-circuits to Neutral whenever either object's Team is
+        // null - and HeadlessSimGame.SpawnObject never assigns one - so give both a
+        // singleton team (same construction SabotageSupplyCenterCrateCollideContractTests
+        // uses) or the SetRelationship override above is never actually observed.
+        emp.Team = new Team(new TeamTemplate(game.TeamFactory, 901, "EmpTeam", game.CivilianPlayer, isSingleton: true), 901);
+        alliedTransport.Team = new Team(new TeamTemplate(game.TeamFactory, 902, "TransportTeam", game.PlayerManager.NeutralPlayer, isSingleton: true), 902);
 
         for (var i = 0; i < 6; i++)
         {

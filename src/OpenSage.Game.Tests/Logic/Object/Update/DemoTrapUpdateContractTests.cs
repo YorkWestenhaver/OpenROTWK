@@ -88,8 +88,28 @@ End
 
     private static void MakeEnemies(Player a, Player b)
     {
-        a.AddEnemy(b);
-        b.AddEnemy(a);
+        // GetRelationship reads Player.SetPlayerRelationship's table, not the Enemies/Allies
+        // list AddEnemy populates (that list is unrelated bookkeeping) - see
+        // Player.SetPlayerRelationship's doc comment.
+        a.SetPlayerRelationship(b, RelationshipType.Enemies);
+        b.SetPlayerRelationship(a, RelationshipType.Enemies);
+    }
+
+    /// <summary>
+    /// GameObject.GetRelationship (which DemoTrapUpdate's proximity scan calls) short-circuits
+    /// to Neutral whenever either object's Team is null - and HeadlessSimGame.SpawnObject never
+    /// assigns one (same gap EmpUpdateContractTests documents for its own relationship-gated
+    /// cases). Give each object its own singleton team, the same construction
+    /// SabotageSupplyCenterCrateCollideContractTests uses, so a real (non-Neutral) relationship
+    /// is actually observable.
+    /// </summary>
+    private static uint _nextTestTeamId = 900;
+
+    private static void AssignSingletonTeam(HeadlessSimGame game, GameObject obj, Player owner)
+    {
+        var id = _nextTestTeamId++;
+        var template = new TeamTemplate(game.TeamFactory, id, $"TestTeam{id}", owner, isSingleton: true);
+        obj.Team = new Team(template, id);
     }
 
     /// <summary>
@@ -114,9 +134,15 @@ End
         var trap = game.SpawnObject("DemoTrap", game.CivilianPlayer, Vector3.Zero);
         var enemy = game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+        AssignSingletonTeam(game, trap, game.CivilianPlayer);
+        AssignSingletonTeam(game, enemy, game.PlayerManager.NeutralPlayer);
 
         // Current weapon slot defaults to PRIMARY (== ProximityModeWeaponSlot): the trap is
-        // in proximity mode, m_nextScanFrames starts at 0, so the very first tick scans.
+        // in proximity mode, m_nextScanFrames starts at 0, so its very first live tick scans.
+        // That first live tick is the second Step() - the module's sleepy-update registration
+        // (SetWakeFrame(None)) wakes it one frame after spawn, the same shape
+        // HeightDieUpdateContractTests uses.
+        game.Step();
         game.Step();
 
         Assert.True(Fired(trap, WeaponSlot.Tertiary));   // DetonationWeaponSlot
@@ -135,6 +161,9 @@ End
 
         SelectWeaponSlot(trap, WeaponSlot.Tertiary); // DetonationWeaponSlot
 
+        // See EnemyInRange_ProximityMode_DetonatesAndFiresWeapon: the module's first live
+        // tick is the second Step().
+        game.Step();
         game.Step();
 
         Assert.True(Fired(trap, WeaponSlot.Tertiary));
@@ -200,6 +229,10 @@ End
         // uses. DetonateWhenKilled = Yes (INI): the next tick must still fire the weapon.
         trap.IsEffectivelyDead = true;
 
+        // The module's freshly-constructed sleepy-update registration wakes it on the frame
+        // after spawn (SetWakeFrame(None) semantics - see HeightDieUpdateContractTests for
+        // the same shape), so its first live tick is the second Step(), not the first.
+        game.Step();
         game.Step();
 
         Assert.True(Fired(trap, WeaponSlot.Tertiary));

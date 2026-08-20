@@ -1535,17 +1535,28 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         IsSelectable = false;
         Owner.DeselectUnit(this);
 
+        var dieModules = FindBehaviors<IDieModule>().ToList();
+
         if (!construction)
         {
             ExecuteRandomSlowDeathBehavior(damageInput);
         }
 
-        foreach (var module in FindBehaviors<IDieModule>())
+        foreach (var module in dieModules)
         {
             module.OnDie(damageInput);
         }
 
         PlayDieSound(damageInput.DeathType);
+
+        // Nothing on this object manages its corpse (no SlowDeathBehavior, no other Die
+        // module) - remove it immediately rather than leaving a killed-but-never-destroyed
+        // object behind. Objects that DO have such a module rely on it (or a follow-up
+        // LifetimeUpdate/DeletionUpdate) to call Destroy() in its own time.
+        if (!construction && dieModules.Count == 0 && !IsDestroyed)
+        {
+            Destroy();
+        }
     }
 
     public void DoStatusDamage(ObjectStatus status, LogicFrameSpan duration)

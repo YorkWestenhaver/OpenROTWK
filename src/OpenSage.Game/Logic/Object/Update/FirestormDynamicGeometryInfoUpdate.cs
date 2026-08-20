@@ -40,6 +40,7 @@
 
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
+using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
@@ -74,43 +75,43 @@ public sealed class FirestormDynamicGeometryInfoUpdateModuleData : UpdateModuleD
     private static readonly IniParseTable<FirestormDynamicGeometryInfoUpdateModuleData> FieldParseTable = new IniParseTable<FirestormDynamicGeometryInfoUpdateModuleData>
     {
         { "InitialDelay", (parser, x) => x.InitialDelay = parser.ParseInteger() },
-        { "InitialHeight", (parser, x) => x.InitialHeight = parser.ParseFloat() },
-        { "InitialMajorRadius", (parser, x) => x.InitialMajorRadius = parser.ParseFloat() },
+        { "InitialHeight", (parser, x) => x.InitialHeight = parser.ParseFix64() },
+        { "InitialMajorRadius", (parser, x) => x.InitialMajorRadius = parser.ParseFix64() },
 
-        { "FinalHeight", (parser, x) => x.FinalHeight = parser.ParseFloat() },
-        { "FinalMajorRadius", (parser, x) => x.FinalMajorRadius = parser.ParseFloat() },
+        { "FinalHeight", (parser, x) => x.FinalHeight = parser.ParseFix64() },
+        { "FinalMajorRadius", (parser, x) => x.FinalMajorRadius = parser.ParseFix64() },
 
         { "TransitionTime", (parser, x) => x.TransitionTime = parser.ParseInteger() },
         { "ReverseAtTransitionTime", (parser, x) => x.ReverseAtTransitionTime = parser.ParseBoolean() },
 
-        { "ScorchSize", (parser, x) => x.ScorchSize = parser.ParseFloat() },
-        { "ParticleOffsetZ", (parser, x) => x.ParticleOffsetZ = parser.ParseFloat() },
+        { "ScorchSize", (parser, x) => x.ScorchSize = parser.ParseFix64() },
+        { "ParticleOffsetZ", (parser, x) => x.ParticleOffsetZ = parser.ParseFix64() },
         { "ParticleSystem1", (parser, x) => x.ParticleSystem1 = parser.ParseAssetReference() },
         { "ParticleSystem2", (parser, x) => x.ParticleSystem2 = parser.ParseAssetReference() },
         { "FXList", (parser, x) => x.FXList = parser.ParseAssetReference() },
 
         { "DelayBetweenDamageFrames", (parser, x) => x.DelayBetweenDamageFrames = parser.ParseInteger() },
-        { "DamageAmount", (parser, x) => x.DamageAmount = parser.ParseFloat() },
+        { "DamageAmount", (parser, x) => x.DamageAmount = parser.ParseFix64() },
     };
 
     public int InitialDelay { get; private set; }
-    public float InitialHeight { get; private set; }
-    public float InitialMajorRadius { get; private set; }
+    public Fix64 InitialHeight { get; private set; }
+    public Fix64 InitialMajorRadius { get; private set; }
 
-    public float FinalHeight { get; private set; }
-    public float FinalMajorRadius { get; private set; }
+    public Fix64 FinalHeight { get; private set; }
+    public Fix64 FinalMajorRadius { get; private set; }
 
     public int TransitionTime { get; private set; }
     public bool ReverseAtTransitionTime { get; private set; }
 
-    public float ScorchSize { get; private set; }
-    public float ParticleOffsetZ { get; private set; }
+    public Fix64 ScorchSize { get; private set; }
+    public Fix64 ParticleOffsetZ { get; private set; }
     public string ParticleSystem1 { get; private set; }
     public string ParticleSystem2 { get; private set; }
     public string FXList { get; private set; }
 
     public int DelayBetweenDamageFrames { get; private set; }
-    public float DamageAmount { get; private set; }
+    public Fix64 DamageAmount { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {

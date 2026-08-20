@@ -88,7 +88,7 @@ Object FloodSpawnerRelative
       ControlPointOffsetTwo = X:10 Y:0 Z:0
       ControlPointOffsetThree = X:20 Y:0 Z:0
       ControlPointOffsetFour = X:30 Y:0 Z:0
-      MemberSpeed = 30
+      MemberSpeed = 5
     End
   End
 End
@@ -198,6 +198,11 @@ End
         var spawner = game.SpawnObject("FloodSpawnerCurve", game.CivilianPlayer, new Vector3(1000, 1000, 0));
         var flood = ModuleOf(spawner);
 
+        // The module's sleepy-update registration wakes it on the frame after spawn (the
+        // same shape HeightDieUpdateContractTests/DemoTrapUpdateContractTests document), so
+        // this first Step() is a no-op; EnsureInitialized (which spawns the members) runs on
+        // the second.
+        game.Step();
         game.Step();
 
         Assert.Equal(2, flood.MemberCount);
@@ -214,6 +219,8 @@ End
         // First entry's control points bow through Y:+20 then Y:-20 around a Y:0 chord -
         // a straight-line mover would sit at Y:1000 (spawner Y) the whole way; a genuine
         // Bezier follower must leave that line partway through.
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step();
         var member = FindMemberByTemplate(game, spawner, memberIndex: 0);
         Assert.NotNull(member);
@@ -239,6 +246,8 @@ End
         var game = NewLoadedGame();
         var spawnerPos = new Vector3(2000, 2000, 0);
         var spawner = game.SpawnObject("FloodSpawnerRotate90", game.CivilianPlayer, spawnerPos);
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step();
 
         var member = SoleMember(game, spawner);
@@ -266,6 +275,8 @@ End
         // EnsureInitialized reads the transform directly (not a locomotor), so this is
         // visible on frame 0 regardless of module update order.
         spawner.UpdateTransform(rotation: Quaternion.CreateFromAxisAngle(Vector3.UnitZ, System.MathF.PI));
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step();
 
         var member = SoleMember(game, spawner);
@@ -283,6 +294,8 @@ End
         var game = NewLoadedGame();
         var spawnerPos = new Vector3(3500, 3500, 0);
         var spawner = game.SpawnObject("FloodSpawnerRelative", game.CivilianPlayer, spawnerPos);
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step();
 
         var member = SoleMember(game, spawner);
@@ -304,7 +317,11 @@ End
         var spawner = game.SpawnObject("FloodSpawnerSpeeds", game.CivilianPlayer, new Vector3(4000, 4000, 0));
         var flood = ModuleOf(spawner);
 
-        game.Step(); // frame 1: EnsureInitialized + first advance
+        // Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve - the
+        // module's sleepy-update registration wakes it one frame after spawn, so this first
+        // Step() is a no-op.
+        game.Step();
+        game.Step(); // EnsureInitialized + first advance
         var memberId = flood.GetMember(memberIndex).MemberId;
         var member = game.GameLogic.GetObjectById(memberId);
         Assert.NotNull(member);
@@ -327,6 +344,8 @@ End
     {
         var game = NewLoadedGame();
         var spawner = game.SpawnObject("FloodSpawnerElevated", game.CivilianPlayer, new Vector3(5000, 5000, 0));
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step();
         var member = SoleMember(game, spawner);
         Assert.NotNull(member);
@@ -351,6 +370,8 @@ End
         var spawner = game.SpawnObject("FloodSpawnerSlow", game.CivilianPlayer, new Vector3(6000, 6000, 0));
         var flood = ModuleOf(spawner);
 
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
         game.Step(); // member spawns and takes its first (small) step - far from the endpoint
         var memberId = flood.GetMember(0).MemberId;
         var member = game.GameLogic.GetObjectById(memberId);

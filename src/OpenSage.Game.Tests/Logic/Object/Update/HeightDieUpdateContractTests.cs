@@ -169,7 +169,13 @@ End
         var game = NewGame();
         var obj = game.SpawnObject("FallerMovingDownOnly", game.CivilianPlayer, new Vector3(0, 0, 100));
 
-        game.Step(); // seeds lastPosition at 100, stays alive (100 >= 50)
+        // The module's sleepy-update registration wakes it on the frame after spawn (see
+        // OnlyWhenMovingDown_RisingBelowTarget_DoesNotDie), so this first Step() is a no-op;
+        // the module's actual first-ever tick is the second Step() below, which is therefore
+        // the ctor-sentinel tick (directionOK forced false, matches GPL) - it seeds
+        // lastPosition at 100 and stays alive (100 >= 50) regardless.
+        game.Step();
+        game.Step();
         Assert.False(obj.IsDestroyed);
 
         SetZ(obj, 40); // genuinely falling: 40 < lastPosition (100), and 40 < target (50)

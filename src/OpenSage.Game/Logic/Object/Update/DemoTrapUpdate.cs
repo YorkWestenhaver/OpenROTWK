@@ -53,6 +53,9 @@ public sealed class DemoTrapUpdate : UpdateModule
         : base(gameObject, gameEngine)
     {
         _moduleData = moduleData;
+
+        // Register with the sleepy-update queue; without this Update() never runs.
+        SetWakeFrame(UpdateSleepTime.None);
     }
 
     public override UpdateSleepTime Update()

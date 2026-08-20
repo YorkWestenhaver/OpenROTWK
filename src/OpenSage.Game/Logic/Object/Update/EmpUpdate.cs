@@ -24,8 +24,10 @@
 //         exempt (GPL's own-structure guard).
 //       - DoesNotAffect: candidates matching the authored filter are exempt (see F-EMP-2 below
 //         on why ObjectFilter.Matches is the exemption test here).
-//       - non-vehicle, non-structure, non-SPAWNS_ARE_THE_WEAPONS candidates are skipped
-//         entirely (GPL: "DONT DISABLE PEOPLE, EXCEPT FOR STINGER SOLDIERS").
+//       - non-vehicle, non-structure, non-SPAWNS_ARE_THE_WEAPONS, non-AIRCRAFT candidates
+//         are skipped entirely (GPL: "DONT DISABLE PEOPLE, EXCEPT FOR STINGER SOLDIERS");
+//         AIRCRAFT passes this guard so the dedicated airborne-aircraft branch below is
+//         reachable.
 //       - an airborne AIRCRAFT is killed outright (GPL "this should use some sort of DEADSTICK
 //         DIE"), UNLESS it is EMP_HARDENED (ZH patch exemption) or it is an allied TRANSPORT
 //         (GPL "DONT DISABLE YOUR OWN TRANSPORT PLANES").
@@ -204,9 +206,13 @@ public sealed class EmpUpdate : UpdateModule
 
             if (!candidate.IsKindOf(ObjectKinds.Vehicle)
                 && !candidate.IsKindOf(ObjectKinds.Structure)
-                && !candidate.IsKindOf(ObjectKinds.SpawnsAreTheWeapons))
+                && !candidate.IsKindOf(ObjectKinds.SpawnsAreTheWeapons)
+                && !candidate.IsKindOf(ObjectKinds.Aircraft))
             {
-                // GPL: "DONT DISABLE PEOPLE, EXCEPT FOR STINGER SOLDIERS".
+                // GPL: "DONT DISABLE PEOPLE, EXCEPT FOR STINGER SOLDIERS". Aircraft must
+                // still pass through here - the dedicated airborne-AIRCRAFT branch right
+                // below (kill outright / EMP_HARDENED / allied-TRANSPORT exemptions) would
+                // otherwise be unreachable dead code.
                 continue;
             }
 
