@@ -358,6 +358,15 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         Geometry.Shapes[0].MinorRadius = radius.ToFloatForDisplay();
     }
 
+    // ---- R12 HeightDieUpdate port: Fix64 structure-height facade (additive) ----
+    /// <summary>
+    /// Fix64 view of the geometry's max height above the object's canonical position (the
+    /// original's <c>GeometryInfo::getMaxHeightAbovePosition</c>), quantized through the same
+    /// F4 wire boundary as <see cref="CollisionMinorRadius"/> so no float reaches the caller.
+    /// </summary>
+    public SimCore.Numerics.Fix64 MaxHeightAbovePosition =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(Geometry.MaxZ));
+
     /// <summary>
     /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
     /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
