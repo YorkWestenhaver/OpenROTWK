@@ -885,6 +885,19 @@ public partial class Player : IPersistableObject
         return RelationshipType.Neutral;
     }
 
+    /// <summary>
+    /// Sets this player's (one-directional) relationship override toward another player
+    /// (mirrors the retail player-to-player alliance table; <see cref="GetRelationship"/>
+    /// reads it back via <see cref="_playerToPlayerRelationships"/>). PlayerManager's map/
+    /// script alliance wiring is still a TODO (see the "TODO: Setup player relationships"
+    /// note in PlayerManager.OnNewGame), so this is currently the only way to establish a
+    /// non-neutral relationship between two players.
+    /// </summary>
+    public void SetRelationship(Player other, RelationshipType relationship)
+    {
+        _playerToPlayerRelationships.Set(other.Id, relationship);
+    }
+
     public void SetAttackedBy(uint playerIndex)
     {
         // TODO(Port): Implement this.
