@@ -29,6 +29,8 @@ using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
 using Xunit;
+using Player = OpenSage.Logic.Player;
+using Team = OpenSage.Logic.Team;
 
 namespace OpenSage.Tests.Logic.Object.Behaviors;
 

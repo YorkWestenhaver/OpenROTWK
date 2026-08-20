@@ -1519,8 +1519,10 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
             ModelConditionFlags.Set(ModelConditionFlag.DestroyedWhilstBeingConstructed, true);
 
             var mostRecentConstructor = _gameEngine.GameLogic.GetObjectById(BuiltByObjectID);
-            // mostRecentConstructor is set to the unit currently or most recently building us
-            if (mostRecentConstructor.AIUpdate is IBuilderAIUpdate builderAiUpdate && builderAiUpdate.BuildTarget == this)
+            // mostRecentConstructor is set to the unit currently or most recently building us.
+            // It can legitimately be null: BuiltByObjectID is unset for objects that were
+            // placed rather than constructed, and the builder may already have been destroyed.
+            if (mostRecentConstructor?.AIUpdate is IBuilderAIUpdate builderAiUpdate && builderAiUpdate.BuildTarget == this)
             {
                 // mostRecentConstructor is still trying to build us
                 mostRecentConstructor.AIUpdate.Stop();

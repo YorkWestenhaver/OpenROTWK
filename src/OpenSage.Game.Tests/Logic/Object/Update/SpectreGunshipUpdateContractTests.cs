@@ -8,6 +8,7 @@
 // itself), so tests drive it through its public Activate/SetOverrideDestination/Disconnect
 // entry points directly rather than through a SpecialPowerAtLocationApplicator order.
 
+using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using OpenSage.Logic;
