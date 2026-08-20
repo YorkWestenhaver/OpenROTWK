@@ -249,6 +249,11 @@ internal sealed class SimContext : ISimContext
         // data behind the seam; no float crossing.
         public ObjectDefinition GetObjectDefinition(string name) =>
             _engine.AssetLoadContext.AssetStore.ObjectDefinitions.GetByName(name);
+
+        // R12 (HordeSiegeEngineContain): UpgradeCreationTrigger names an upgrade template to
+        // grant. Same posture as GetObjectDefinition - immutable parsed data, no float crossing.
+        public UpgradeTemplate GetUpgradeTemplate(string name) =>
+            _engine.AssetLoadContext.AssetStore.Upgrades.GetByName(name);
     }
 
     /// <summary>
@@ -325,6 +330,32 @@ internal sealed class SimContext : ISimContext
         {
             // Same story as FireFXAtObject: the client-bound event queue does not exist yet.
             // Recording the call is what a ported module owes; playing it is the client's.
+        }
+
+        // R12 (HordeSiegeEngineContain): unlike FireUnitSoundAtObject, the name is a literal
+        // AudioEvent reference, so it can resolve and play directly - same shape as
+        // FireCrateFreeUnitPickupSound below, just per-object. Null-tolerant (AudioSystem) so
+        // the headless sim host can drive passenger entry/exit without an audio backend.
+        public void FireAudioEventAtObject(string audioEventName, ObjectId objectId)
+        {
+            if (string.IsNullOrEmpty(audioEventName))
+            {
+                return;
+            }
+
+            var subject = _engine.GameLogic.GetObjectById(objectId);
+            if (subject is null)
+            {
+                return;
+            }
+
+            var audioEvent = _engine.AssetStore.AudioEvents.GetByName(audioEventName);
+            if (audioEvent is null)
+            {
+                return;
+            }
+
+            _engine.AudioSystem?.PlayAudioEvent(subject, audioEvent);
         }
 
         // R12 (UnitCrateCollide): a global MiscAudio sting, not per-object, so unlike the FX

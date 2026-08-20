@@ -235,6 +235,13 @@ public interface IAssetStore
     /// parsed data, so the read carries no determinism hazard; null when no such template.
     /// </summary>
     ObjectDefinition GetObjectDefinition(string name);
+
+    /// <summary>
+    /// Upgrade template lookup by name (grown for the HordeSiegeEngineContain port, R12:
+    /// UpgradeCreationTrigger names an upgrade to grant on activation). Immutable parsed data,
+    /// so the read carries no determinism hazard; null when no such template.
+    /// </summary>
+    UpgradeTemplate GetUpgradeTemplate(string name);
 }
 
 /// <summary>Fire-and-forget client-bound events (S8): outputs only, never sim inputs.</summary>
@@ -272,6 +279,16 @@ public interface ISimEvents
     /// deliberately absent from the context; only the event is not).
     /// </summary>
     void FireUnitSoundAtObject(string unitSpecificSoundKey, ObjectId objectId);
+
+    /// <summary>
+    /// Request a named AudioEvent asset played at an object's position - unlike
+    /// <see cref="FireUnitSoundAtObject"/>, the name is a literal AudioEvent reference (e.g.
+    /// HordeSiegeEngineContain's EnterSound/ExitSound, parser.ParseAssetReference), not a key
+    /// into the object's UnitSpecificSounds table. Grown for the HordeSiegeEngineContain port
+    /// (R12): the first module whose sound field names an AudioEvent directly rather than
+    /// indirecting through UnitSpecificSounds.
+    /// </summary>
+    void FireAudioEventAtObject(string audioEventName, ObjectId objectId);
 
     /// <summary>
     /// Requests the MiscAudio "free unit" crate-pickup sting (INI key CrateFreeUnit). Grown
