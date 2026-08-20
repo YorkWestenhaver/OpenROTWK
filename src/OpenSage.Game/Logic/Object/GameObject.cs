@@ -728,7 +728,14 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
             AddBehavior("ModuleTag_TempWeaponBonusHelper", new TempWeaponBonusHelper(this, gameEngine));
         }
 
-        foreach (var behaviorDataContainer in objectDefinition.Behaviors.Values)
+        // R12: ClientBehaviors (parsed from the "ClientBehavior =" INI keyword, e.g.
+        // RandomSoundSelectorClientBehavior) share the BehaviorModuleData/CreateModule
+        // contract with Behaviors but were parsed into a separate dictionary and never
+        // reached this instantiation loop, so every ClientBehavior module - ported or still
+        // [ParseOnly] - silently vanished at spawn instead of becoming a live (possibly
+        // parked) module. Folding them into the same walk here is the minimal fix; parked
+        // [ParseOnly] entries stay inert because their CreateModule still returns null.
+        foreach (var behaviorDataContainer in objectDefinition.Behaviors.Values.Concat(objectDefinition.ClientBehaviors.Values))
         {
             var behaviorModuleData = (BehaviorModuleData)behaviorDataContainer.Data;
             var module = AddDisposable(behaviorModuleData.CreateModule(this, gameEngine));
