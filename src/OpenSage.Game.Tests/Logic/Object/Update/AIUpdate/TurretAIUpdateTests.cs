@@ -346,7 +346,12 @@ End
         SetCurrentFrame(game, 0);
         source.Update(null); // ScanningForTargets -> Turning
         source.Update(null); // Turning -> Attacking (both hosts at Vector3.Zero: already aligned)
+        // The ScanningForTargets path reaches Turning without latching _currentTarget; it is the
+        // Attacking case's `target != _currentTarget` re-acquire that records the live target.
+        source.Update(null); // Attacking -> Turning, latching _currentTarget = target
+        source.Update(null); // Turning -> Attacking, now with _currentTarget set
         Assert.Equal(TurretAIUpdate.TurretAIStates.Attacking, source.State);
+        Assert.NotNull(GetPrivate<WeaponTarget>(source, "_currentTarget"));
 
         using var stream = new MemoryStream();
         using (var writer = new StateWriter(stream, game))
