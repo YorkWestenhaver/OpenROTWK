@@ -146,6 +146,35 @@ internal static class SidesListUtility
         return CreateTeam($"team{owner}", owner, true);
     }
 
+    /// <summary>
+    /// Finds the map's SidesList entry whose Faction matches <paramref name="sideName"/>. If none
+    /// matches (e.g. a caller-requested faction that the map's SidesList never defines), logs a
+    /// warning and degrades to a placeholder <see cref="Player"/> carrying just the requested side
+    /// name (and an empty build list) instead of returning null, so callers don't NRE on the
+    /// unmatched lookup.
+    /// </summary>
+    private static Player ResolveFactionPlayerOrDegrade(IReadOnlyList<Player> originalMapPlayers, string sideName, int playerIndex)
+    {
+        var factionPlayer = originalMapPlayers.FirstOrDefault(x => x.Faction == sideName);
+
+        if (factionPlayer == null)
+        {
+            Logger.Warn(
+                $"SetupSkirmishGameSides: map's SidesList has no player with faction '{sideName}' " +
+                $"(requested for player slot {playerIndex}); degrading to a placeholder player with an " +
+                "empty build list instead of throwing a NullReferenceException.");
+
+            factionPlayer = new Player
+            {
+                Faction = sideName,
+                Name = sideName,
+                DisplayName = sideName,
+            };
+        }
+
+        return factionPlayer;
+    }
+
     private static void SetupSkirmishGameSides(
         IGame game,
         MapFile mapFile,
@@ -169,22 +198,7 @@ internal static class SidesListUtility
         {
             var playerSetting = playerSettings[i];
 
-            var factionPlayer = originalMapPlayers.FirstOrDefault(x => x.Faction == playerSetting.SideName);
-
-            if (factionPlayer == null)
-            {
-                Logger.Warn(
-                    $"SetupSkirmishGameSides: map's SidesList has no player with faction '{playerSetting.SideName}' " +
-                    $"(requested for player slot {i}); degrading to a placeholder player with an empty build list " +
-                    "instead of throwing a NullReferenceException.");
-
-                factionPlayer = new Player
-                {
-                    Faction = playerSetting.SideName,
-                    Name = playerSetting.SideName,
-                    DisplayName = playerSetting.SideName,
-                };
-            }
+            var factionPlayer = ResolveFactionPlayerOrDegrade(originalMapPlayers, playerSetting.SideName, i);
 
             var isHuman = playerSetting.Owner == PlayerOwner.Player;
 
