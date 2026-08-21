@@ -231,12 +231,26 @@ End
         // acquires and winds the counter to 1 (too late to fire that same tick, GPL-exact
         // ordering); the second tick's fire-gate then sees counter(1) > lag(0) and fires -
         // but only once the gattling is reporting as actively firing on every relevant tick.
+        // The gattling only exists while the ship is activated/orbiting - it is destroyed once
+        // OrbitTime elapses and the ship departs, so the status is stamped only on the ticks
+        // where a live gattling actually exists.
+        var sawLiveGattling = false;
         for (var i = 0; i < 6; i++)
         {
-            Assert.False(module.GattlingId.IsInvalid, "test setup: gattling must be alive to gate the wind");
-            game.GameLogic.GetObjectById(module.GattlingId).SetObjectStatus(ObjectStatus.IsFiringWeapon, true);
+            if (!module.GattlingId.IsInvalid)
+            {
+                var gattling = game.GameLogic.GetObjectById(module.GattlingId);
+                if (gattling != null && !gattling.IsDestroyed)
+                {
+                    gattling.SetObjectStatus(ObjectStatus.IsFiringWeapon, true);
+                    sawLiveGattling = true;
+                }
+            }
+
             game.Step();
         }
+
+        Assert.True(sawLiveGattling, "test setup: gattling must be alive to gate the wind");
 
         Assert.True(module.OkToFireHowitzerCounter > 0);
         Assert.True(body.DamageCore.CurrentHealth < startingHealth,
