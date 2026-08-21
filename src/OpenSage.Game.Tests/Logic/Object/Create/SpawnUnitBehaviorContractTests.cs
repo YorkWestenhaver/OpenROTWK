@@ -109,6 +109,9 @@ End
     {
         var game = NewGame();
         var unit = game.SpawnObject("SpawnUnitCitadel", game.CivilianPlayer, Origin);
+        // BankAccount.Withdraw() clamps to the balance, so the account has to be funded for the
+        // BuildCost withdrawal to be observable at all.
+        game.CivilianPlayer.BankAccount.Money = 1000;
         var startingMoney = game.CivilianPlayer.BankAccount.Money;
 
         var result = ModuleOf(unit).TryQueueUnit();

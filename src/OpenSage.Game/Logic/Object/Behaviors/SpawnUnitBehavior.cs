@@ -38,6 +38,7 @@
 // contract is a batch-wide change out of scope here - same, already-filed scope boundary
 // GrantUpgradeCreate.cs carries at its own header, inherited rather than re-filed.
 
+using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 
@@ -87,7 +88,10 @@ public sealed class SpawnUnitBehavior : CreateModule
         }
 
         var unitDefinition = _data.UnitName.Value;
-        GameObject.Owner.BankAccount.Withdraw((uint)unitDefinition.BuildCost);
+        // playSound: false - sim lane; audio is a client concern and BankAccount's sound path
+        // dereferences the (headless-absent) audio system. Same posture as the landed
+        // SabotageSupplyCenterCrateCollide withdrawal.
+        GameObject.Owner.BankAccount.Withdraw((uint)unitDefinition.BuildCost, playSound: false);
         productionUpdate.QueueProduction(unitDefinition);
 
         if (_data.SpawnOnce)

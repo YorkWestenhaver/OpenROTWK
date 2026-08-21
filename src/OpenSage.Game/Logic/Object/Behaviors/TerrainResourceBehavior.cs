@@ -80,7 +80,10 @@ public sealed class TerrainResourceBehavior : UpdateModule
             amount += bonus;
         }
 
-        GameObject.Owner.BankAccount.Deposit((uint)amount);
+        // playSound: false - this is the sim lane; audio is a client concern and BankAccount's
+        // sound path dereferences the (headless-absent) audio system. Same posture as the landed
+        // SlaughterHordeContain refund deposit.
+        GameObject.Owner.BankAccount.Deposit((uint)amount, playSound: false);
 
         return UpdateSleepTime.Frames(_data.IncomeInterval);
     }

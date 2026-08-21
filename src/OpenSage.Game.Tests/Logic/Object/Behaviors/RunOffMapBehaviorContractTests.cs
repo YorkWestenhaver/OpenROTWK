@@ -165,7 +165,11 @@ End
         module.Trigger();
         module.Trigger(); // idempotent: no crash, no double goal-position write
 
-        Step(game, 1);
+        // Sleepy-update frame accounting: Trigger() is called from OUTSIDE a frame here, so
+        // SetWakeFrame(UpdateSleepTime.None) arms CurrentFrame+1, which the next Step() (still
+        // processing CurrentFrame) does not reach - the wake lands on the Step() after that.
+        // In-sim callers trigger from inside a frame and see the move on the very next one.
+        Step(game, 2);
         Assert.Equal(SimMoveMode.MoveToPosition, loco.Mode);
     }
 

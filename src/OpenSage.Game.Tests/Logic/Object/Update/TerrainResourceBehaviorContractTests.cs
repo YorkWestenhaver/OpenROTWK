@@ -16,6 +16,7 @@
 // Update() is guaranteed to have executed).
 
 using System.Numerics;
+using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
 using Xunit;
@@ -81,9 +82,9 @@ End
         return game;
     }
 
-    private static void StepFrames(HeadlessSimGame game, int frames)
+    private static void StepFrames(HeadlessSimGame game, uint frames)
     {
-        for (var i = 0; i < frames; i++)
+        for (uint i = 0; i < frames; i++)
         {
             game.Step();
         }
