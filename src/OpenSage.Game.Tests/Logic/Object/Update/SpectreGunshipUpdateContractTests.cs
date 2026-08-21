@@ -53,6 +53,7 @@ Object SpectreGunship
   End
   Behavior = SpectreGunshipUpdate ModuleTag_Gunship
     GattlingTemplateName = Gattling
+    GattlingStrafeFXParticleSystem = FX_GattlingStrafe
     HowitzerWeaponTemplate = TestHowitzer
     GunshipOrbitRadius = 200
     AttackAreaRadius = 300
@@ -208,8 +209,15 @@ End
     // ------------------------------------------------------------------ howitzer volley
 
     [Fact]
-    public void HowitzerFiresAfterLagThreshold_DamagingAcquiredTarget()
+    public void HowitzerFiresAfterLagThreshold_DamagingAcquiredTarget_WhileGattlingIsActivelyFiring()
     {
+        // GPL (SpectreGunshipUpdate.cpp:622) only winds m_gattlingTargetPosition / grows
+        // m_okToFireHowitzerCounter while `tmp && gattling &&
+        // gattling->testStatus(OBJECT_STATUS_IS_FIRING_WEAPON)` - a configured strafe FX
+        // template AND the contained gattling unit actively firing its own weapon. This test
+        // sets that status explicitly (a real production caller does the equivalent once the
+        // gattling-firing seam lands) so the fire-cadence assertions below exercise the
+        // GPL-conditional path, not an always-on shortcut.
         var game = NewGame();
         var gunship = SpawnActivatedGunship(game);
         var module = ModuleOf(gunship);
@@ -221,9 +229,12 @@ End
 
         // HowitzerFollowLag=0, HowitzerFiringRate=1 frame: the first re-evaluation tick
         // acquires and winds the counter to 1 (too late to fire that same tick, GPL-exact
-        // ordering); the second tick's fire-gate then sees counter(1) > lag(0) and fires.
+        // ordering); the second tick's fire-gate then sees counter(1) > lag(0) and fires -
+        // but only once the gattling is reporting as actively firing on every relevant tick.
         for (var i = 0; i < 6; i++)
         {
+            Assert.False(module.GattlingId.IsInvalid, "test setup: gattling must be alive to gate the wind");
+            game.GameLogic.GetObjectById(module.GattlingId).SetObjectStatus(ObjectStatus.IsFiringWeapon, true);
             game.Step();
         }
 
@@ -235,6 +246,32 @@ End
         var delta = module.HowitzerImpactPosition - module.GattlingTargetPosition;
         Assert.True(Fix64.Abs(delta.X) <= Fix64.FromDecimalLiteral("10"));
         Assert.True(Fix64.Abs(delta.Y) <= Fix64.FromDecimalLiteral("10"));
+    }
+
+    [Fact]
+    public void HowitzerNeverFires_WhileGattlingIsNotActivelyFiring()
+    {
+        // The GPL-correct negative space of the above test: with the gattling never reporting
+        // OBJECT_STATUS_IS_FIRING_WEAPON (today's reality, since this port has no AI-attack
+        // dispatch to command the gattling to fire - see the module's file header), the aim
+        // wind never advances, m_okToFireHowitzerCounter never grows past its zero default,
+        // and the howitzer volley - a real, damage-dealing effect - must never fire.
+        var game = NewGame();
+        var gunship = SpawnActivatedGunship(game);
+        var module = ModuleOf(gunship);
+        var enemy = game.SpawnObject("Enemy", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+
+        var body = BodyOf(enemy);
+        var startingHealth = body.DamageCore.CurrentHealth;
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+        }
+
+        Assert.Equal(0u, module.OkToFireHowitzerCounter);
+        Assert.Equal(startingHealth, body.DamageCore.CurrentHealth);
     }
 
     // ------------------------------------------------------------------ departure
