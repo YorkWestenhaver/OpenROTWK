@@ -11,6 +11,7 @@
 // port of the same generator); the two streams collapse into one when GameLogic itself
 // migrates onto the context. Recorded as a pilot finding.
 
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using OpenSage.SimCore.Numerics;
@@ -212,6 +213,35 @@ internal sealed class SimContext : ISimContext
 
         public OpenSage.Logic.Object.Pathfind.SimPathfindGrid PathfindGrid
             => _engine.GameLogic.SimPathfind.Grid;
+
+        // RunOffMapBehavior port (R13): the first module needing a raw named-waypoint
+        // lookup. Float boundary (D-7): waypoint positions are unmigrated
+        // Scene3D/WaypointCollection substrate, quantized through the F4 wire boundary
+        // exactly once, here - same idiom as SimTransformBridge's float32-bits ->
+        // Fix64.FromWireFloat crossing, but localized to this adapter member rather than
+        // reused from that (internal, locomotor-only) file, matching every other
+        // ISimContext adapter member's own-crossing discipline.
+        public bool TryGetWaypointPosition(string waypointName, out FixVector3 position)
+        {
+            position = default;
+            if (string.IsNullOrEmpty(waypointName))
+            {
+                return false;
+            }
+
+            var waypoints = _engine.Scene3D?.Waypoints;
+            if (waypoints == null || !waypoints.TryGetByName(waypointName, out var waypoint) || waypoint == null)
+            {
+                return false;
+            }
+
+            var p = waypoint.Position;
+            position = new FixVector3(
+                Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(p.X)),
+                Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(p.Y)),
+                Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(p.Z)));
+            return true;
+        }
     }
 
     private sealed class PartitionAdapter : IPartitionQuery

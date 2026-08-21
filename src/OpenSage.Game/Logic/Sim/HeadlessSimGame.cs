@@ -146,6 +146,23 @@ internal sealed class HeadlessSimGame : IGame
         return gameObject;
     }
 
+    private readonly List<Waypoint> _testWaypoints = [];
+
+    /// <summary>
+    /// Registers a named waypoint on the headless map (R13, RunOffMapBehaviorModuleData port,
+    /// spec §4 prerequisite): every contract test that exercises
+    /// <c>IGameLogic.TryGetWaypointPosition</c> needs a way to put a waypoint on the map
+    /// first, and <see cref="HeadlessScene3D.Waypoints"/> is otherwise always null. Additive -
+    /// callers wanting more than one waypoint can call this repeatedly with distinct ids; the
+    /// dictionary-backed <c>WaypointCollection</c> holds all of them, keyed independently by
+    /// id and by name.
+    /// </summary>
+    public void RegisterWaypoint(string name, in Vector3 position, int id = 1)
+    {
+        _testWaypoints.Add(new Waypoint(id, name, position));
+        ((HeadlessScene3D)Scene3D).Waypoints = new WaypointCollection(_testWaypoints, []);
+    }
+
     /// <summary>
     /// Runs one 5 Hz logic frame: sleepy module updates, the frame advances, then the
     /// destroy list is reaped - the same two halves a real frame runs (GameLogic.Update
@@ -297,7 +314,7 @@ internal sealed class HeadlessSimGame : IGame
         public IGameObjectCollection GameObjects => null;
         public bool ShowObjects { get; set; }
         public CameraCollection Cameras => null;
-        public WaypointCollection Waypoints => null;
+        public WaypointCollection Waypoints { get; set; }
         public WorldLighting Lighting => null;
         public ShadowSettings Shadows => null;
         public WaterSettings Waters => null;
