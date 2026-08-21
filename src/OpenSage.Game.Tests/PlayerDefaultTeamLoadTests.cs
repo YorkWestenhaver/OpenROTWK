@@ -1,4 +1,4 @@
-// Regression test for a load-path NRE in Player.Persist's DefaultTeam block (Player.cs, in the
+﻿// Regression test for a load-path NRE in Player.Persist's DefaultTeam block (Player.cs, in the
 // Mode == Read branch): DefaultTeam was resolved via
 // reader.Game.TeamFactory.FindTeamById(defaultTeamId) and then DefaultTeam.Template was
 // dereferenced unconditionally. FindTeamById returns null when the id doesn't resolve to a

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageSuperweaponCrateCollide port (R12, R13-fixed): the
+﻿// Mocked-game contract tests for the SabotageSuperweaponCrateCollide port (R12, R13-fixed): the
 // real 'SabotageSuperweaponCrateCollide' INI name must produce a live runtime that gates on the
 // full CrateCollide::isValidToExecute base chain (neutral-owner rejection, AIUpdate-or-
 // BuildingPickup requirement, ForbiddenKindOf, IsEffectivelyDead, IsAboveTerrain,

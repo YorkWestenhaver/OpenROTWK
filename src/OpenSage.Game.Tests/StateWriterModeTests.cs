@@ -1,4 +1,4 @@
-// Regression tests for a StateWriter ctor bug: the ctor passed StatePersistMode.Read to the
+﻿// Regression tests for a StateWriter ctor bug: the ctor passed StatePersistMode.Read to the
 // base StatePersister ctor instead of .Write, so `writer.Mode` reported Read while writing.
 // Any Persist() implementation that branches on `Mode == StatePersistMode.Read` (there are
 // dozens across the codebase) would incorrectly run its read branch during a write pass.

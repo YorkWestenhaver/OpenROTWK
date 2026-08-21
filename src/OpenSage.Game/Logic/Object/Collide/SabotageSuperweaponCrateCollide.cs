@@ -1,4 +1,4 @@
-// SabotageSuperweaponCrateCollide - R12 port (R13-fixed). GPL ref: GeneralsMD/Code/GameEngine/
+﻿// SabotageSuperweaponCrateCollide - R12 port (R13-fixed). GPL ref: GeneralsMD/Code/GameEngine/
 // {Include,Source}/GameLogic/{Module,Object/Collide/CrateCollide}/SabotageSuperweaponCrateCollide.
 // {h,cpp}, plus the shared CrateCollide::onCollide / CrateCollide::isValidToExecute base
 // (CrateCollide.cpp). The runtime is a mobile saboteur "crate" whose OnCollide resets every
