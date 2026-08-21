@@ -328,5 +328,8 @@ public abstract class OpenContainModuleData : UpdateModuleData
     public bool AllowAlliesInside { get; private set; }
     public bool AllowNeutralInside { get; private set; }
     public bool AllowEnemiesInside { get; private set; }
-    public bool ShouldDrawPips { get; private set; } = true;
+    // Derived module data (e.g. HordeTransportContain, whose INI spells this field "ShowPips")
+    // maps its own parse-table entry onto this inherited flag, so the setter is protected rather
+    // than private.
+    public bool ShouldDrawPips { get; protected set; } = true;
 }
