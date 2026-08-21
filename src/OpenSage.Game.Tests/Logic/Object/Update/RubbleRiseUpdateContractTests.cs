@@ -64,6 +64,7 @@ Object RubbleNonZeroDelay
     MaxBurstDelay       = 250
     BigBurstFrequency   = 4
     FXList              = INITIAL FX_Initial
+    FXList              = BURST FX_Burst
   End
 End
 
@@ -239,10 +240,15 @@ End
         var rubble = game.SpawnObject("RubbleNonZeroDelay", game.CivilianPlayer, OnGround);
         var module = ModuleOf(rubble);
 
+        // Step N executes logic frame N-1 (GameLogic.Update runs the module loop on
+        // _currentFrame, then increments), so a 3-frame rise delay armed at spawn frame 0
+        // becomes due on frame 3, i.e. the FOURTH Step() - the same one-step offset the
+        // zero-delay test above documents, carried through the delay.
+        game.Step(); // frame 0
         game.Step(); // frame 1
         game.Step(); // frame 2 (one less than the rise frame)
         Assert.Equal("WaitingForRiseStart", StateOf(module));
-        Assert.Single(events.Events); // only the ctor's Initial fire
+        Assert.Single(events.Events); // only the creation-time Initial fire
 
         game.Step(); // frame 3: rise frame reached
         Assert.Equal("Rising", StateOf(module));

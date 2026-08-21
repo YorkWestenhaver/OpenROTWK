@@ -68,7 +68,7 @@ using OpenSage.SimCore.Ticking;
 namespace OpenSage.Logic.Object;
 
 [SimState]
-public sealed class RubbleRiseUpdate : UpdateModule
+public sealed class RubbleRiseUpdate : UpdateModule, ICreateModule
 {
     private readonly RubbleRiseUpdateModuleData _data;
 
@@ -102,15 +102,28 @@ public sealed class RubbleRiseUpdate : UpdateModule
         _riseFrame = now + new LogicFrameSpan((uint)Context.GameLogicRandom.Next(
             (int)data.MinRubbleRiseDelay.Value, (int)data.MaxRubbleRiseDelay.Value));
 
-        // GPL L142: doPhaseStuff(SCPHASE_INITIAL, ...) unconditionally, before the delay check.
-        FirePhaseFx(StructureCollapsePhase.Initial);
-
         _state = RubbleRiseState.WaitingForRiseStart;
 
         // Sleep until the frame that matters (AutoHealBehavior idiom) rather than GPL's literal
         // every-frame tick (F-RRU-2: the shudder that motivates that cadence is unmodeled here).
         SetWakeFrame(UpdateSleepTime.Frames(_riseFrame - now));
     }
+
+    /// <summary>
+    /// GPL L142: doPhaseStuff(SCPHASE_INITIAL, ...) unconditionally at creation, before the
+    /// delay check. Integrate-lane fixup: this fires from the engine's designated creation seam
+    /// (<see cref="ICreateModule.OnCreate"/>, run by GameLogic.CreateObject) rather than from
+    /// the module constructor, because behavior modules are constructed inside the GameObject
+    /// ctor - before GameLogic assigns the object its ObjectId - so a ctor-time fire emitted an
+    /// FX event carrying ObjectId.Invalid. OnCreate still runs synchronously within the spawn
+    /// call, so the "no Step() needed" timing of the Initial fire is unchanged.
+    /// </summary>
+    public void OnCreate()
+    {
+        FirePhaseFx(StructureCollapsePhase.Initial);
+    }
+
+    public void OnBuildComplete() { }
 
     public override UpdateSleepTime Update()
     {

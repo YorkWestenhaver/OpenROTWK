@@ -191,10 +191,9 @@ public sealed class OneRingPenaltyUpdate : UpdateModule
 
         _phase = OneRingPenaltyPhase.Discovered;
 
-        var discoveredSound = _data.DiscoveredSound?.Value?.Name;
-        if (!string.IsNullOrEmpty(discoveredSound))
+        if (!string.IsNullOrEmpty(_data.DiscoveredSound))
         {
-            Context.Events.FireAudioEventAtObject(discoveredSound, GameObject.Id);
+            Context.Events.FireAudioEventAtObject(_data.DiscoveredSound, GameObject.Id);
         }
 
         return true;
@@ -260,7 +259,7 @@ public sealed class OneRingPenaltyUpdateModuleData : UpdateModuleData
         { "TimeRingPowerSuppressed", (parser, x) => x.TimeRingPowerSuppressed = parser.ParseDurationLogicFrames() },
         { "StartingDistanceFromMe", (parser, x) => x.StartingDistanceFromMe = parser.ParseFix64() },
         { "TimeFrozenFromPenalty", (parser, x) => x.TimeFrozenFromPenalty = parser.ParseDurationLogicFrames() },
-        { "DiscoveredSound", (parser, x) => x.DiscoveredSound = parser.ParseAudioEventReference() },
+        { "DiscoveredSound", (parser, x) => x.DiscoveredSound = parser.ParseAssetReference() },
     };
 
     /// <summary>The wandering pickup object spawned after <see cref="RingTimeBeforeSpawning"/>.</summary>
@@ -281,8 +280,16 @@ public sealed class OneRingPenaltyUpdateModuleData : UpdateModuleData
     /// <summary>Duration DisabledType.Paralyzed is applied for when the penalty triggers (ms in INI, ceil-quantized).</summary>
     public LogicFrameSpan TimeFrozenFromPenalty { get; private set; }
 
-    /// <summary>One-shot cue played on <see cref="OneRingPenaltyUpdate.NotifyRingDiscovered"/> success.</summary>
-    public LazyAssetReference<BaseAudioEventInfo> DiscoveredSound { get; private set; }
+    /// <summary>
+    /// One-shot cue played on <see cref="OneRingPenaltyUpdate.NotifyRingDiscovered"/> success.
+    /// Integrate-lane fixup: held as the literal AudioEvent asset NAME (parser.ParseAssetReference),
+    /// matching the two landed users of this same seam - HordeSiegeEngineContain's
+    /// EnterSound/ExitSound and WeaponModeSpecialPowerUpdate's InitiateSound - because
+    /// ISimEvents.FireAudioEventAtObject takes a name, and a LazyAssetReference resolves to null
+    /// (silently dropping the cue) whenever the AudioEvent asset is not present in the loaded
+    /// scope. Keeping the name on the sim side removes that asset-scope dependency entirely.
+    /// </summary>
+    public string DiscoveredSound { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {

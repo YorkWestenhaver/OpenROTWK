@@ -254,8 +254,10 @@ End
         Assert.True(module.InitiateIntentToDoSpecialPower("SpecialPower_Disguise", null));
         Assert.True(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
 
-        // UnpackTime = 600ms = 3 frames.
-        Step(game, 3);
+        // UnpackTime = 600ms = 3 frames. The initiating call above runs BETWEEN steps, so the
+        // window is armed on the frame the next Step() is about to execute: the phase ends on
+        // initiation-frame + 3, which is the FOURTH Step() from here, not the third.
+        Step(game, 4);
 
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
     }
@@ -280,10 +282,16 @@ End
         // the window closed before this test's own Trigger() call gets a chance to run).
         Step(game, 2);
 
+        // AwardXPForTriggering is asserted as a DELTA, not an absolute total: a trainable
+        // object accrues a small amount of ambient experience on its own while the game steps
+        // (pre-existing engine behavior, nothing to do with this module), so pinning the
+        // absolute total would be testing that unrelated accrual rather than this award.
+        var heroXpBeforeTrigger = hero.ExperienceTracker.CurrentExperience;
+
         Assert.True(module.Trigger(hero));
         Assert.True(disguiser.TestStatus(ObjectStatus.Disguised));
         Assert.True(disguiser.ModelConditionFlags.Get(ModelConditionFlag.Disguised));
-        Assert.Equal(50, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(heroXpBeforeTrigger + 50, hero.ExperienceTracker.CurrentExperience);
 
         var fx = Assert.Single(recorder.Events);
         Assert.Equal("FX_Disguise", fx.FXListName);
@@ -323,8 +331,10 @@ End
 
         Assert.True(module.InitiateIntentToDoSpecialPower("SpecialPower_Disguise", null));
 
-        // UnpackTime = 0 -> Prepared immediately. PreparationTime = 400ms = 2 frames.
-        Step(game, 2);
+        // UnpackTime = 0 -> Prepared immediately. PreparationTime = 400ms = 2 frames, armed
+        // between steps, so the window closes on the THIRD Step() (same off-by-one accounting
+        // as case 4 above).
+        Step(game, 3);
 
         // The window closed with no Trigger(): skips Active entirely, straight to Packing.
         Assert.True(autoPacker.ModelConditionFlags.Get(ModelConditionFlag.Packing));
@@ -385,8 +395,9 @@ End
 
         // PackTime = 600ms = 3 frames: the Active window is tied to PackTime (F-SDU-2 - see
         // the file header on SpecialDisguiseUpdate.cs), so this module owns the Mounted flag
-        // and pack-out clears it after exactly PackTime frames.
-        Step(game, 3);
+        // and pack-out clears it after exactly PackTime frames - which, with Trigger() called
+        // between steps, is the FOURTH Step() from here (same accounting as case 4).
+        Step(game, 4);
 
         Assert.False(forcer.ModelConditionFlags.Get(ModelConditionFlag.Mounted));
     }
