@@ -422,7 +422,7 @@ public sealed class StateWriter : StatePersister
     private readonly BinaryWriter _binaryWriter;
 
     internal StateWriter(Stream stream, IGame game)
-        : base(game, StatePersistMode.Read)
+        : base(game, StatePersistMode.Write)
     {
         _binaryWriter = AddDisposable(new BinaryWriter(stream, Encoding.Unicode, true));
     }
