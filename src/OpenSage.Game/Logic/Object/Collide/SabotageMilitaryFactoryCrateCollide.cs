@@ -23,6 +23,7 @@
 // DisabledType.Hacked exist.
 
 using OpenSage.Data.Ini;
+using OpenSage.SimCore.Ticking;
 
 namespace OpenSage.Logic.Object;
 
@@ -48,10 +49,10 @@ public sealed class SabotageMilitaryFactoryCrateCollideModuleData : CrateCollide
     private static new readonly IniParseTable<SabotageMilitaryFactoryCrateCollideModuleData> FieldParseTable = CrateCollideModuleData.FieldParseTable
         .Concat(new IniParseTable<SabotageMilitaryFactoryCrateCollideModuleData>
         {
-            { "SabotageDuration", (parser, x) => x.SabotageDuration = parser.ParseInteger() },
+            { "SabotageDuration", (parser, x) => x.SabotageDuration = parser.ParseDurationLogicFrames() },
         });
 
-    public int SabotageDuration { get; private set; }
+    public LogicFrameSpan SabotageDuration { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {

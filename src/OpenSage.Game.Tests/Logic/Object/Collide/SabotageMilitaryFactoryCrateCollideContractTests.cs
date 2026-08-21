@@ -14,6 +14,7 @@ using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
+using OpenSage.SimCore.Ticking;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Collide;
@@ -60,7 +61,10 @@ End
 
         var data = (SabotageMilitaryFactoryCrateCollideModuleData)game.AssetStore.ObjectDefinitions
             .GetByName("SaboteurCrate").Behaviors["ModuleTag_Sabotage"].Data;
-        Assert.Equal(9000, data.SabotageDuration);
+        // GPL parses this field via INI::parseDurationUnsignedInt: authored milliseconds ->
+        // ceil'd logic-frame count (INI::ParseDurationLogicFrames in this port), not a raw
+        // integer. At SageGame.Bfme2's 5 logic frames/sec, 9000ms -> 45 frames exactly.
+        Assert.Equal(new LogicFrameSpan(45), data.SabotageDuration);
     }
 
     [Fact]
