@@ -162,6 +162,47 @@ internal sealed class SimContext : ISimContext
             return spawned;
         }
 
+        // R13 fix (replace-object-update finding #1): team-aware donor-matrix overload. Routes
+        // through GameLogic.CreateObject(definition, owner, team) so Team is stamped on the
+        // object before its OnCreate() pass runs, matching GPL's newObject(template, myTeam)
+        // construction-time team assignment.
+        public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, Team team, GameObject at)
+        {
+            var spawned = _engine.GameLogic.CreateObject(definition, owner, team);
+            if (spawned is null)
+            {
+                return null;
+            }
+
+            spawned.SetTransformMatrix(at.TransformMatrix);
+            spawned.UpdateColliders();
+            return spawned;
+        }
+
+        // R13 fix (replace-object-update finding #1): team-aware offset-placement overload.
+        // Same team-before-OnCreate ordering as the overload above.
+        public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, Team team, GameObject at, in FixVector3 offset, Fix64 orientation)
+        {
+            var created = _engine.GameLogic.CreateObject(definition, owner, team);
+            if (created is null)
+            {
+                return null;
+            }
+
+            var donor = at.Transform.Translation;
+            var translation = donor + new Vector3(
+                offset.X.ToFloatForDisplay(),
+                offset.Y.ToFloatForDisplay(),
+                offset.Z.ToFloatForDisplay());
+
+            created.UpdateTransform(
+                translation,
+                Quaternion.CreateFromAxisAngle(Vector3.UnitZ, orientation.ToFloatForDisplay()));
+            created.Layer = at.Layer;
+            created.UpdateColliders();
+            return created;
+        }
+
         public void NotifyOfCompletedSpecialPower(int playerIndex, string specialPowerName, ObjectId sourceObjectId)
             => _completedSpecialPowers.Add(playerIndex, specialPowerName, sourceObjectId);
 

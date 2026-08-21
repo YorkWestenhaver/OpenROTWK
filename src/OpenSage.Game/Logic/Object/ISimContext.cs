@@ -124,6 +124,26 @@ public interface IGameLogic
     GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at);
 
     /// <summary>
+    /// R13 fix (replace-object-update finding #1): team-aware sibling of the donor-matrix
+    /// <see cref="CreateObjectAt(ObjectDefinition, Player, GameObject)"/> overload. GPL's
+    /// <c>TheThingFactory-&gt;newObject(replacementTemplate, myTeam)</c> constructs the object
+    /// WITH its team, so every <c>onCreate</c> handler the new object runs observes the correct
+    /// team from its first instruction. This overload stamps <paramref name="team"/> onto the
+    /// new object before its <see cref="ICreateModule.OnCreate"/> pass runs, instead of the
+    /// caller patching <c>GameObject.Team</c> on afterward. Use this overload (not the
+    /// team-less one plus a later assignment) whenever the replacement's team is known at spawn
+    /// time - e.g. an object replacing another in place and inheriting its team.
+    /// </summary>
+    GameObject CreateObjectAt(ObjectDefinition definition, Player owner, Team team, GameObject at);
+
+    /// <summary>
+    /// R13 fix (replace-object-update finding #1): team-aware sibling of the offset-placement
+    /// <see cref="CreateObjectAt(ObjectDefinition, Player, GameObject, in FixVector3, Fix64)"/>
+    /// overload. Same team-before-OnCreate ordering as the donor-matrix overload above.
+    /// </summary>
+    GameObject CreateObjectAt(ObjectDefinition definition, Player owner, Team team, GameObject at, in FixVector3 offset, Fix64 orientation);
+
+    /// <summary>
     /// Record that a special power ran to completion, for the script engine's
     /// "player completed special power" condition (GPL
     /// <c>ScriptEngine::notifyOfCompletedSpecialPower</c>: an append to a per-player
