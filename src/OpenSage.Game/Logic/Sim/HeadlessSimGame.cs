@@ -46,6 +46,7 @@ using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
 using OpenSage.Settings;
+using OpenSage.SimCore.Numerics;
 using OpenSage.Terrain;
 using OpenSage.Terrain.Roads;
 using OpenSage.Utilities;
@@ -148,9 +149,25 @@ internal sealed class HeadlessSimGame : IGame
         var definition = AssetStore.ObjectDefinitions.GetByName(definitionName)
             ?? throw new ArgumentException($"No object definition named {definitionName}");
         var gameObject = GameLogic.CreateObject(definition, owner);
-        gameObject.UpdateTransform(position);
+        gameObject.UpdateTransform(SnapToTerrain(position));
         gameObject.UpdateColliders();   // refresh collider bounds so spatial queries see the position
         return gameObject;
+    }
+
+    /// <summary>
+    /// Every non-bridge/non-road map-spawned object is placed at authored z PLUS terrain
+    /// height at (x,y), unconditionally - no KindOf/airborne gating (oracle exp-001 finding
+    /// #1: our engine left z at the authored value, retail snaps to terrain height added to
+    /// the authored z). Goes through the deterministic Fix64 terrain path (ISimContext.Terrain)
+    /// rather than sampling the float heightmap directly, so every peer quantizes the same
+    /// wire float to the same ground height.
+    /// </summary>
+    private Vector3 SnapToTerrain(in Vector3 position)
+    {
+        var x = Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(position.X));
+        var y = Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(position.Y));
+        var groundHeight = GameEngine.SimContext.Terrain.GetGroundHeight(new FixVector3(x, y, Fix64.Zero));
+        return new Vector3(position.X, position.Y, position.Z + groundHeight.ToFloatForDisplay());
     }
 
     private readonly List<Waypoint> _testWaypoints = [];
