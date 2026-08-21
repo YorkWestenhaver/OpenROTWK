@@ -35,11 +35,7 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
         _data = moduleData;
         _workerObjectName = moduleData.WorkerName;
 
-        // Worker path: SpawnTimer only ever gates a *respawn* after the assigned worker dies
-        // (§1.3) - the very first spawn always happens at the first opportunity, so the countdown
-        // starts pre-elapsed. No-worker self-tick path: SpawnTimer *is* the self-tick cadence
-        // itself, so counting starts immediately from the full interval.
-        _framesUntilWorkerAction = string.IsNullOrEmpty(_workerObjectName) ? SpawnTimerOrDisabledSentinel() : LogicFrameSpan.Zero;
+        ArmTimerForImmediateAction();
 
         // GameObject.IsBeingConstructed() is already true here whenever
         // CastleUnpackStamper.StartSelfBuild ran before this module's ctor (the confirmed caller,
@@ -49,15 +45,24 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
         // IsBeingConstructed() == true here, so this ctor is a no-op for it.
     }
 
-    private LogicFrameSpan SpawnTimerOrDisabledSentinel() =>
+    // One timer, one rule (§1.3): SpawnTimer is a single countdown whose two documented roles -
+    // the no-worker self-tick cadence and the post-death worker respawn delay - are the same
+    // countdown observed from different module states, never two independently seeded timers.
+    // It is pre-elapsed at every point construction (re)starts, so the module's *first* action
+    // (self-tick AdvanceConstruction, or the initial worker spawn) lands on its first Update()
+    // after that start; SpawnTimer then paces only the subsequent actions. Seeding the self-tick
+    // path with a full interval instead would make the first advance land one interval late and
+    // desync the two paths' first-action frame - the deviation that failed this module's
+    // contract tests.
+    private void ArmTimerForImmediateAction() => _framesUntilWorkerAction = LogicFrameSpan.Zero;
+
+    private void ArmTimerForNextAction() =>
         // SpawnTimer < 0 ("no autoheal") is captured as WorkerRespawnDisabled on the ModuleData
         // rather than folded into a LogicFrameSpan sentinel - LogicFrameSpan is unsigned, and
         // Zero already means "now", not "never" (spec §1.3 / ModuleData.ParseSpawnTimer). A huge
         // (but finite) frame count stands in for "never" so the countdown can still use ordinary
         // decrement/compare rather than a second branch everywhere it is read.
-        _data.WorkerRespawnDisabled ? new LogicFrameSpan(uint.MaxValue) : _data.SpawnTimer;
-
-    private void ResetWorkerTimer() => _framesUntilWorkerAction = SpawnTimerOrDisabledSentinel();
+        _framesUntilWorkerAction = _data.WorkerRespawnDisabled ? new LogicFrameSpan(uint.MaxValue) : _data.SpawnTimer;
 
     /// <summary>
     /// Decrements the shared SpawnTimer countdown (§1.3) and returns true exactly on the call
@@ -87,21 +92,38 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
 
         if (_isRebuilding)
         {
-            // F-GBB-3: RebuildTimeSeconds paces every frame, unconditionally - the same
+            // F-GBB-3: a rebuild advances 1/(RebuildTimeSeconds * LogicFramesPerSecond) *per
+            // frame*, so it is deliberately outside the SpawnTimer gate below - the same
             // unconditional per-frame percentage idiom RebuildHoleUpdate's own
-            // _healPercentagePerFrame uses - independent of the worker-respawn/self-tick cadence
-            // below, which only ever paces the *initial* (non-Rubble) build.
+            // _healPercentagePerFrame uses. The SpawnTimer cadence paces only the *initial*
+            // (non-Rubble) build and the worker respawn; folding the rebuild into it would
+            // stretch a rebuild to RebuildTimeSeconds * SpawnTimer, which contradicts the
+            // per-frame rate F-GBB-3 names.
             AdvanceRebuildProgress();
+
+            if (!GameObject.IsBeingConstructed())
+            {
+                // The rebuild completed on this very tick: release the worker that was carrying
+                // the rebuild's anim/approach state, and do not fall into the driver below - it
+                // would otherwise spawn a replacement worker for a build that is already done.
+                _isRebuilding = false;
+                ReleaseWorker();
+                return UpdateSleepTime.None;
+            }
         }
 
-        var result = string.IsNullOrEmpty(_workerObjectName) ? UpdateNoWorker() : UpdateWithWorker();
+        return string.IsNullOrEmpty(_workerObjectName) ? UpdateNoWorker() : UpdateWithWorker();
+    }
 
-        if (!GameObject.IsBeingConstructed())
+    private void ReleaseWorker()
+    {
+        if (_workerId.IsInvalid)
         {
-            _isRebuilding = false;
+            return;
         }
 
-        return result;
+        GameEngine.GameLogic.GetObjectById(_workerId)?.Destroy();
+        _workerId = ObjectId.Invalid;
     }
 
     private UpdateSleepTime UpdateNoWorker()
@@ -123,7 +145,7 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
         }
 
         GameObject.AdvanceConstruction(); // §1.3: SpawnTimer as the self-tick interval
-        _framesUntilWorkerAction = _data.SpawnTimer;
+        ArmTimerForNextAction();
         return UpdateSleepTime.None;
     }
 
@@ -136,10 +158,10 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
             if (!_workerId.IsInvalid)
             {
                 // Transition edge: the worker we had just died. Arm the SpawnTimer-frame respawn
-                // delay (§1.3) - a fresh module (never had a worker yet) starts this timer
-                // pre-elapsed via the ctor instead, so its very first spawn is immediate.
+                // delay (§1.3) - a fresh module (never had a worker yet) is pre-elapsed instead,
+                // via the same ctor arming the self-tick path uses, so its first spawn is immediate.
                 _workerId = ObjectId.Invalid;
-                ResetWorkerTimer();
+                ArmTimerForNextAction();
             }
 
             if (!TickSpawnTimer())
@@ -148,6 +170,16 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
             }
 
             worker = GameEngine.GameLogic.CreateObject(WorkerObjectDefinition, GameObject.Owner);
+
+            if (worker == null)
+            {
+                // WorkerName names a definition this asset set does not carry (CreateObject
+                // returns null for a null definition). Re-arm and retry on the next interval
+                // rather than dereferencing nothing.
+                ArmTimerForNextAction();
+                return UpdateSleepTime.None;
+            }
+
             worker.SetTransformMatrix(GameObject.TransformMatrix);
             worker.SetSelectable(false); // matches RebuildHoleUpdate.cs:102 precedent
             _workerId = worker.Id;
@@ -165,9 +197,9 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
 
         if (!GameObject.IsBeingConstructed())
         {
-            // Construction finished this tick (either driver): release the worker.
-            worker.Destroy();
-            _workerId = ObjectId.Invalid;
+            // Construction finished this tick (DozerAndWorkerState's own AdvanceConstruction call
+            // on the initial-build path): release the worker.
+            ReleaseWorker();
         }
 
         return UpdateSleepTime.None;
@@ -218,7 +250,10 @@ public sealed class GettingBuiltBehavior : UpdateModule, IDamageModule
         GameObject.BuildProgress = 0.0f;
         _isRebuilding = true;
         _workerId = ObjectId.Invalid;
-        ResetWorkerTimer();
+
+        // A Rubble restart is a construction start, so the timer arms exactly as it does in the
+        // ctor: the replacement worker spawns on the next Update(), not one SpawnTimer later.
+        ArmTimerForImmediateAction();
     }
 
     private bool DisallowedObjectInRange()

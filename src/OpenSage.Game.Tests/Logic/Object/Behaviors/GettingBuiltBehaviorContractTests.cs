@@ -4,10 +4,12 @@
 // R13 port spec (bfme2-workbench/research/modules-r13/specs/GettingBuiltBehaviorModuleData.md) for
 // the behavioral derivation (§1.3) and findings F-GBB-1..4 this test plan pins.
 //
-// Sleepy-update convention: a freshly spawned module's NextCallFrame floors to "now" at creation,
-// and its first Update() call happens on the Step() that advances CurrentFrame past that frame -
-// in practice, the very first Step() after spawning. Every frame count below is expressed against
-// this convention.
+// Sleepy-update convention: GameLogic.CreateObject floors a new update module's NextCallFrame to
+// frame 1 for an object created at frame 0 (a zero initial wake frame is illegal), while
+// GameLogic.Update runs the modules due on the *pre-increment* frame counter. So a module created
+// before any Step() is skipped by the first Step() (now == 0 < NextCallFrame == 1) and takes its
+// first Update() on the SECOND Step() - see StepToFirstModuleTick. Every frame count below is
+// expressed against this convention.
 
 using System.Linq;
 using System.Numerics;
@@ -100,6 +102,19 @@ End
         structure.BuildProgress = 0.0f;
     }
 
+    /// <summary>
+    /// Steps to (and through) the first frame on which a module spawned before any Step() actually
+    /// ticks: the second Step(), per the sleepy-update convention noted at the top of this file.
+    /// Every "the module acts on its first Update()" assertion goes through this rather than a bare
+    /// Step(), so an off-by-one in the host's spawn-frame flooring cannot be mistaken for the
+    /// module failing to act.
+    /// </summary>
+    private static void StepToFirstModuleTick(HeadlessSimGame game)
+    {
+        game.Step();
+        game.Step();
+    }
+
     [Fact]
     public void SelfBuild_AdvancesOnSpawnTimerCadence_NoWorkerSpawned()
     {
@@ -114,10 +129,40 @@ End
             game.Step();
         }
 
-        // BuildTime = 4.0s = 20 frames; exactly one 5-frame SpawnTimer cycle elapsed -> exactly
-        // one AdvanceConstruction() call (1 / 20 progress), not a partial/continuous advance.
+        // The SpawnTimer countdown is pre-elapsed at construction start, so the first self-tick
+        // AdvanceConstruction() lands on the module's first Update() (the 2nd Step) and the next
+        // one is 5 frames later - beyond this loop. BuildTime = 4.0s = 20 frames, so exactly one
+        // advance is 1/20 progress, not a partial/continuous advance.
         Assert.Equal(1.0f / 20.0f, wall.BuildProgress, 5);
         Assert.Equal(0, game.GameLogic.Objects.Count(o => o.Definition.Name == "TestWorker"));
+    }
+
+    /// <summary>
+    /// Pins the cadence *between* self-ticks, not just the first one: the second
+    /// AdvanceConstruction() lands exactly one SpawnTimer interval (5 frames at 5 Hz) after the
+    /// first, so progress is flat in between. Together with the case above this fixes both ends of
+    /// the interval, which a port that seeded the countdown with a full interval (first advance one
+    /// interval late, cadence otherwise identical) would otherwise still satisfy.
+    /// </summary>
+    [Fact]
+    public void SelfBuild_SecondAdvanceLandsOneSpawnTimerIntervalLater()
+    {
+        var game = NewGame();
+        var wall = game.SpawnObject("SelfBuiltWall", game.CivilianPlayer, Vector3.Zero);
+        StartSelfBuild(wall);
+
+        StepToFirstModuleTick(game);
+        Assert.Equal(1.0f / 20.0f, wall.BuildProgress, 5);
+
+        for (var i = 0; i < 4; i++)
+        {
+            game.Step();
+            Assert.Equal(1.0f / 20.0f, wall.BuildProgress, 5); // flat across the interval
+        }
+
+        game.Step(); // the 5th frame of the interval: the countdown reaches zero and fires
+
+        Assert.Equal(2.0f / 20.0f, wall.BuildProgress, 5);
     }
 
     [Fact]
@@ -127,7 +172,9 @@ End
         var tower = game.SpawnObject("WorkerBuiltTower", game.CivilianPlayer, Vector3.Zero);
         StartSelfBuild(tower);
 
-        game.Step();
+        // The worker spawns on the module's very first Update(), not one SpawnTimer later: the
+        // countdown is pre-elapsed at construction start and only paces respawns after that.
+        StepToFirstModuleTick(game);
 
         var worker = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker"));
         Assert.False(worker.IsSelectable);
@@ -209,11 +256,14 @@ End
         var tower = game.SpawnObject("WorkerBuiltTower", game.CivilianPlayer, Vector3.Zero);
         StartSelfBuild(tower);
 
-        game.Step();
+        StepToFirstModuleTick(game);
         var firstWorker = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker"));
 
         firstWorker.Kill();
 
+        // Same SpawnTimer field, different module state (§1.3): with a worker already assigned the
+        // countdown is a respawn delay, so the death is noticed on the next Update() and the
+        // replacement lands 5 frames (SpawnTimer = 1.0s at 5 Hz) after that - not immediately.
         for (var i = 0; i < 4; i++)
         {
             game.Step();
