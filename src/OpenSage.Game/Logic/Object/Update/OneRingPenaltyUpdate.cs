@@ -54,14 +54,11 @@
 //   F-RING-3 (fixed-radius vs randomized placement): StartingDistanceFromMe is modeled as an
 //     exact-radius, random-angle placement (a single scalar, not a min/max scatter pair).
 //   F-RING-4 (bad SpecialObjectName): silent no-op, no penalty applied.
-//   F-RING-5 (frozen penalty does not auto-clear): GameObject.CheckDisabledStates (the sweep
-//     that would auto-clear a timed DisabledType) is only ever called from the internal
-//     GameObject.Update(), which nothing in GameLogic.Update()'s sleepy-module loop calls today
-//     - same dead-code gap as EmpUpdate's F-EMP-6, not re-solved here (framework-level fix, out
-//     of this task's scope per api-freeze-v1 §6). The correct un-disable frame is still
-//     recorded so the fix is a one-line wiring change elsewhere. R14 UPDATE (respawn seam A0):
-//     GameObject.Update()'s duplicate module-dispatch half is now deleted, so that one-line
-//     wiring (A0') is safe to make; it stays a separate packet because it is CRC-visible.
+//   F-RING-5 (frozen penalty does not auto-clear) - CLOSED (A0-prime): GameObject.
+//     CheckDisabledStates (the sweep that auto-clears a timed DisabledType) is called from the
+//     internal GameObject.Update(), which A0-prime now wires into GameLogic.Update() - same
+//     shared fix as EmpUpdate's F-EMP-6. The correct un-disable frame recorded here now takes
+//     effect automatically once it passes.
 //   F-RING-6 (TimeRingPowerSuppressed has no consumer): tracked and exposed via
 //     IsRingPowerSuppressed, unconsumed by anything landed today - wire it into whatever
 //     special-power-invocation gate eventually checks "is this hero allowed to use the Ring

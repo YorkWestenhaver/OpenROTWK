@@ -247,15 +247,16 @@ End
     // ---- test case 3: vehicles within EffectRadius disabled, for DisabledDuration ----
 
     [Fact]
-    public void VehicleWithinRadius_GetsDisabled_WithCorrectUnDisableFrameRecorded()
+    public void VehicleWithinRadius_GetsDisabled_ThenAutoClearsAfterDisabledDuration()
     {
-        // F-EMP-6 (filed in EmpUpdate.cs): GameObject.CheckDisabledStates - the sweep that
-        // would auto-clear DisabledType.Emp once its recorded expiry frame passes - is only
-        // ever called from GameObject.Update(), which nothing in this engine snapshot's
-        // GameLogic sleepy-module loop invokes; it is dead code today; the auto-expiry sweep
-        // is a pre-existing engine gap, not part of this port. So this test asserts what this
-        // port actually controls - that the victim gets disabled at StartFadeTime and stays
-        // disabled - rather than an auto-recovery this engine snapshot cannot yet deliver.
+        // F-EMP-6 - CLOSED (A0-prime): GameObject.CheckDisabledStates (the sweep that
+        // auto-clears DisabledType.Emp once its recorded expiry frame passes) is now called
+        // from GameObject.Update(), which GameLogic.Update() wires in once per object per
+        // frame. This module's own Disable() call records
+        // Context.CurrentFrame(=5, StartFadeTime) + DisabledDuration(5) = expiry frame 10;
+        // GameLogic.Update() runs the auto-expiry sweep AFTER incrementing its frame counter
+        // (T-frame window clears at T+1), so the tank stays disabled through CurrentFrame 10
+        // and clears once CurrentFrame reaches 11.
         var game = NewGame();
         var emp = game.SpawnObject("EmpBomb", game.CivilianPlayer, OnGround);
         var tank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(50, 0, 0));
@@ -266,13 +267,14 @@ End
         }
         Assert.True(tank.IsDisabledByType(DisabledType.Emp));
 
-        // Step well past where DisabledDuration (5 frames) would expire it: still disabled,
-        // pinning the current (gap-affected) engine behavior rather than inventing a fix here.
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < 4; i++) // CurrentFrame 7..10: still within the recorded window
         {
             game.Step();
+            Assert.True(tank.IsDisabledByType(DisabledType.Emp));
         }
-        Assert.True(tank.IsDisabledByType(DisabledType.Emp));
+
+        game.Step(); // CurrentFrame 11: auto-expiry sweep clears it
+        Assert.False(tank.IsDisabledByType(DisabledType.Emp));
     }
 
     [Fact]
