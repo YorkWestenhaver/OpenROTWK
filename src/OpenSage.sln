@@ -80,6 +80,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSage.SimCore.DumpDiff",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSage.SimCore.ScenarioDriver.Tests", "tools\OpenSage.SimCore.ScenarioDriver.Tests\OpenSage.SimCore.ScenarioDriver.Tests.csproj", "{FE91DABB-237C-43C9-B313-1D7890280285}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSage.SimCore.DumpDiff.Tests", "tools\OpenSage.SimCore.DumpDiff.Tests\OpenSage.SimCore.DumpDiff.Tests.csproj", "{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -210,6 +212,10 @@ Global
 		{FE91DABB-237C-43C9-B313-1D7890280285}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FE91DABB-237C-43C9-B313-1D7890280285}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FE91DABB-237C-43C9-B313-1D7890280285}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -227,6 +233,7 @@ Global
 		{9CB04AC1-539C-46C8-BC04-091A9F8526F4} = {DA1B5AB5-4CC9-49CB-ACF1-34CF6A69D5BE}
 		{2571F7BA-0CD7-4FDD-B829-76A366D4C59A} = {DA1B5AB5-4CC9-49CB-ACF1-34CF6A69D5BE}
 		{FE91DABB-237C-43C9-B313-1D7890280285} = {DA1B5AB5-4CC9-49CB-ACF1-34CF6A69D5BE}
+		{15C6D52A-BDD7-4C4B-B0A8-35FE8F3BFF4A} = {DA1B5AB5-4CC9-49CB-ACF1-34CF6A69D5BE}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DBD83F1E-3F41-45D9-AACC-62E00826AD5C}
