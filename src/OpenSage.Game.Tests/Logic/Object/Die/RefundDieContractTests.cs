@@ -14,8 +14,10 @@
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
+using OpenSage.Mathematics;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Die;

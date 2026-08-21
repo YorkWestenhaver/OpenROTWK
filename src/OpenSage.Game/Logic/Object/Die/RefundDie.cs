@@ -71,7 +71,10 @@ public sealed class RefundDieModule : DieModule
         }
 
         var amount = (uint)(GameObject.Definition.BuildCost * _moduleData.RefundPercent);
-        GameObject.Owner.BankAccount.Deposit(amount);
+        // playSound: false - unlike AutoDepositUpdate's cited precedent, this deposit fires from
+        // inside a Die dispatch, which can run in headless/sim-only contexts with no game.Audio
+        // available; matches the other refund-shaped deposit call site, SlaughterHordeContain.cs.
+        GameObject.Owner.BankAccount.Deposit(amount, playSound: false);
     }
 
     // ---- the single walk: save/load + CRC + deep-dump + conformance. State inventory is
