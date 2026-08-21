@@ -3,7 +3,9 @@
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme)]
-[ParseOnly("Round-4 backlog; census: Update")]
+[ParseOnly("DROPPED-R15; census §3.3: sole AotR occurrence is commented out " +
+    "(object/system/system.ini:8776, ';  Behavior = RainOfFireUpdate ModuleTag_01'); zero " +
+    "occurrences in retail ROTWK or BFME2 INI.big. Never instantiated. Parse retained.")]
 public sealed class RainOfFireUpdateModuleData : UpdateModuleData
 {
     internal static RainOfFireUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

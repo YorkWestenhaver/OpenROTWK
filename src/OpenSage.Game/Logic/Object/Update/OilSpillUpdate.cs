@@ -4,7 +4,9 @@ using OpenSage.Data.Ini;
 namespace OpenSage.Logic.Object;
 
 [AddedIn(SageGame.Bfme2)]
-[ParseOnly("Round-4 backlog; census: Update")]
+[ParseOnly("DROPPED-R15; census §3.3: zero module-position uses in AotR and zero in retail " +
+    "ROTWK INI.big and zero in BFME2 INI.big — dead in all three shipped corpora. Parse " +
+    "retained.")]
 public sealed class OilSpillUpdateModuleData : UpdateModuleData
 {
     internal static OilSpillUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);

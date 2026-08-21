@@ -9,6 +9,19 @@
 //                    fields remaining in an audited sim ModuleData are contract errors.
 // ModuleNotPortedException - thrown by CreateModule of a [ParseOnly] class (debug loudness
 //                    beats a silent null module).
+//
+// DROPPED-R15 convention (R15 L5-P1; bfme2-workbench/research/skirmish-sufficiency-census.md
+// §3.3, "Dead weight — five"): a [ParseOnly] class whose Note begins with "DROPPED-R15" is a
+// FORMAL exposure verdict, not an ordinary backlog entry — the census's resolved-precedence
+// AotR corpus scan showed the class has zero live module-position uses (every authored
+// reference is commented out, or the token is unreachable/never instantiated), so it will
+// NOT be picked up by a future porting wave absent new content evidence. The class stays
+// [ParseOnly] rather than being deleted outright: retail/community .ini content may still
+// author the keyword (harmlessly, per the base ModuleData.CreateModule contract returning
+// null — see GameObject's behavior-instantiation loop), so parsing + keyword dispatch in
+// BehaviorModuleData's parse table must keep working even though the runtime module never
+// will. Grep `DROPPED-R15` to enumerate this list; do not schedule these for porting without
+// re-opening the census verdict that dropped them.
 
 using System;
 
