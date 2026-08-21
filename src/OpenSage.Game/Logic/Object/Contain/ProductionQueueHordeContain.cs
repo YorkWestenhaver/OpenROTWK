@@ -149,6 +149,14 @@ public sealed partial class ProductionQueueHordeContain : UpdateModule
         {
             return false;
         }
+        if (_slots.Contains(member.Id))
+        {
+            // Already seated in another slot - matches sibling SlaughterHordeContain.CanContain's
+            // duplicate-membership guard. Without this, a second TryAddMember for an already-seated
+            // member would seat a phantom second slot entry that TryRemoveMember (which only clears
+            // the first matching slot) could never reach, and ReleaseAll would double-release it.
+            return false;
+        }
         var slotIndex = _slots.IndexOf(ObjectId.Invalid);
         if (slotIndex < 0)
         {
