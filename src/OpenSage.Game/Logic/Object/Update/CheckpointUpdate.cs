@@ -19,15 +19,22 @@
 //          rejecting buildings, neither restricted to line-of-sight since CAN_SEE is not set
 //          in the qualifier mask (0) - see F-CKU-1/F-CKU-2 below for the parts genuinely
 //          unmodeled). Sets allyNear/enemyNear to whether either search found something.
-//          NOTE (F-CKU-3, deliberate deviation from the GPL text): the retail source reads
-//          `if (m_enemyScanDelay == 0 || TRUE)`, an unconditional-true guard that makes the
-//          scan run every single frame and leaves the decrement branch dead code, silently
-//          discarding the ScanDelayTime the module data still parses. The task's own contract
-//          (ScanDelayTime respected) and every other scan-delay module in this codebase
-//          (EnemyNearUpdate) implement the throttle as designed, so this port applies the
-//          throttle EnemyNearUpdate already establishes rather than replicating the retail
-//          typo. Filed as a finding, not invented: the delay field's INI default and semantics
-//          are otherwise translated verbatim.
+//          NOTE (R13 fix, F-CKU-3 corrected): the retail source reads
+//          `if (m_enemyScanDelay == 0 || TRUE)` - the `|| TRUE` makes the guard
+//          unconditionally true, so retail CheckpointUpdate scans for allies/enemies on
+//          *every* Update call; the decrement branch (`--m_enemyScanDelay`) is genuine dead
+//          code in retail, and ScanDelayTime has zero effect on scan cadence. This is verified
+//          to differ from the sibling module EnemyNearUpdate.cpp:68 (`if (m_enemyScanDelay ==
+//          0)`, no bypass, a real working throttle there). R12 wrongly assumed the two
+//          modules shared semantics and ported EnemyNearUpdate's throttle onto
+//          CheckpointUpdate; that was a real per-frame retail-fidelity divergence (the
+//          frame on which Door1Opening/Door1Closing flip, and the radius animation starts
+//          reversing, would not match a retail peer). Fixed: the scan now runs
+//          unconditionally every Update call, exactly like GPL. ScanDelayTime is still
+//          parsed and _enemyScanDelay is still re-armed to it every scan (matching GPL's
+//          `m_enemyScanDelay = ...m_enemyScanDelayTime` inside the always-true branch) and
+//          still Xfer'd byte-for-byte since it is part of the save format, but it no longer
+//          gates anything - it is parsed-but-inert, exactly as retail.
 //       3. open = allyNear && !enemyNear. On a change in either flag: clear-and-set the
 //          Door1Opening/Door1Closing model condition pair (GPL
 //          clearAndSetModelConditionState, "for now assumes at most one door" - client-side
@@ -49,7 +56,8 @@
 //     PartitionFilterStealthedAndUndetected regardless of qualifiers ("goes last" comment,
 //     AI.cpp). Stealth/detection state is not exposed to a [SimState] module (same gap as
 //     EnemyNearUpdate's F-ENU-2); not modeled here either.
-//   F-CKU-3 the retail `|| TRUE` scan-delay bypass - see the ctor/update note above.
+//   F-CKU-3 (R13, fixed): the retail `|| TRUE` scan-delay bypass is now correctly
+//     unconditional - see the update note above.
 //
 // Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's
 // conformance class at its declaration site (§4). Field order mirrors the GPL xfer() order
@@ -140,15 +148,15 @@ public sealed class CheckpointUpdate : UpdateModule
         return UpdateSleepTime.None;
     }
 
-    /// <summary>GPL checkForAlliesAndEnemies: periodic vision-range ally/enemy scan.</summary>
+    /// <summary>
+    /// GPL checkForAlliesAndEnemies: `if (m_enemyScanDelay == 0 || TRUE)` is unconditionally
+    /// true in retail, so this scans for allies/enemies on every Update call. _enemyScanDelay
+    /// is still re-armed to ScanDelayTime here (matching GPL's assignment inside the
+    /// always-true branch) purely so its Xfer'd value matches a retail save; the decrement
+    /// branch is genuine GPL dead code and is not translated.
+    /// </summary>
     private void CheckForAlliesAndEnemies()
     {
-        if (_enemyScanDelay != LogicFrameSpan.Zero)
-        {
-            _enemyScanDelay -= LogicFrameSpan.One;
-            return;
-        }
-
         _enemyScanDelay = _data.ScanDelayTime;
 
         // GPL sets the geometry to its max extent before scanning "or else the stretch

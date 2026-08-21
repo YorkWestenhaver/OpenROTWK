@@ -161,16 +161,13 @@ End
         var moreShrunkRadius = gate.Geometry.MinorRadius;
         Assert.True(moreShrunkRadius < shrunkRadius);
 
-        // Now an enemy shows up: the next scan window flips the gate closed and the radius
-        // must start growing back, not keep shrinking.
+        // Now an enemy shows up: the very next Update call flips the gate closed and the
+        // radius must start growing back, not keep shrinking (retail scans every frame -
+        // ScanDelayTime does not delay detection). Step a generous margin past that single
+        // frame so the growth unambiguously outpaces whatever shrinking happened on the
+        // detection frame itself.
         var enemy = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
-        // The scan is throttled to once per ScanDelayTime (5 frames): in the worst case the
-        // countdown has just re-armed the instant the enemy appears, so detection (and the
-        // resulting reversal to growth) can be delayed by up to 5 more frames of continued
-        // shrinking. Step past that worst case (5 frames) plus enough growth frames afterward
-        // (10) that the growth unambiguously outpaces whatever extra shrinking happened while
-        // waiting for the next scan window.
         for (var i = 0; i < 15; i++)
         {
             game.Step();
@@ -185,40 +182,40 @@ End
     }
 
     [Fact]
-    public void ScanDelayTime_ThrottlesScanToConfiguredInterval()
+    public void ScanDelayTime_HasNoEffectOnScanCadence_BothGatesScanEveryFrame()
     {
-        // A 1000ms (5-frame) gate must NOT react to an ally that appears and then leaves
-        // within a single scan window, while a 200ms (1-frame) gate reacts every frame.
+        // GPL CheckpointUpdate.cpp:70 reads `if (m_enemyScanDelay == 0 || TRUE)` - the
+        // `|| TRUE` is unconditionally true, so retail scans for allies/enemies on every
+        // single Update call regardless of ScanDelayTime (unlike the sibling module
+        // EnemyNearUpdate, which genuinely throttles via `if (m_enemyScanDelay == 0)` with
+        // no bypass). A 1000ms (5-frame) gate and a 200ms (1-frame) gate must therefore both
+        // react to a same-frame ally blip identically - ScanDelayTime is parsed but inert.
         var game = NewGame();
         var slowGate = game.SpawnObject("Gate", game.CivilianPlayer, Vector3.Zero);
         var fastGate = game.SpawnObject("FastGate", game.CivilianPlayer, new Vector3(200, 0, 0));
 
-        // Bias could stagger the very first scan up to 5 (Gate) / 1 (FastGate) frames; park
-        // both gates past their first scan with nothing around, so both read closed/no-ally.
         StepPastFirstScan(game);
         Assert.False(Opening(slowGate));
         Assert.False(Opening(fastGate));
 
-        // Spawn an ally next to both, then immediately remove it (destroy) before the slow
-        // gate's next scan window but after at least one frame - the fast gate (1-frame
-        // window) must catch the blip; the slow gate must not react until ITS window comes
-        // back around, and by then the ally is gone.
+        // Spawn an ally next to both, then immediately remove it (destroy) one frame later.
+        // Since every Update call is a scan window in retail, BOTH gates must catch the
+        // single-frame blip - the 1000ms ScanDelayTime buys the slow gate nothing.
         var allyNearSlow = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(10, 0, 0));
         var allyNearFast = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(210, 0, 0));
         game.Step();
-        Assert.True(Opening(fastGate)); // 1-frame window: reacted immediately
+        Assert.True(Opening(fastGate));
+        Assert.True(Opening(slowGate)); // retail-correct: no throttle, so the slow gate saw it too.
 
         allyNearSlow.Kill();
         allyNearFast.Kill();
         game.Step(); // reap
 
-        for (var i = 0; i < 6; i++) // run out the slow gate's original scan window
-        {
-            game.Step();
-        }
-
-        // The slow gate's scan window landed after the ally was gone: it never saw it.
+        // The very next scan (every frame, in retail) no longer finds the ally: both gates
+        // must flip back to closed on the same frame, not up to 5 frames later.
+        game.Step();
         Assert.False(Opening(slowGate));
+        Assert.False(Opening(fastGate));
     }
 
     [Fact]
