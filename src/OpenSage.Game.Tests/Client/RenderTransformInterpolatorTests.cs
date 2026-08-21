@@ -24,6 +24,16 @@ public class RenderTransformInterpolatorTests
 {
     private const float Tolerance = 1e-4f;
 
+    /// <summary>
+    /// Ordinary one-frame motion for the tests that are about interpolation math rather than
+    /// about the teleport guard. Derived from SnapDistance instead of written as a literal:
+    /// SnapDistance is 10 * HeightMap.HorizontalScale = 100 world units exactly, so a literal
+    /// 100-unit step silently lands ON the >= boundary and snaps, which makes a lerp test pass
+    /// or fail for a reason it never meant to exercise. The guard itself is pinned separately
+    /// by TeleportBeyondSnapDistance_Snaps and MotionBelowSnapDistance_StillInterpolates.
+    /// </summary>
+    private const float Step = RenderTransformInterpolator.SnapDistance / 2f;
+
     private static Transform At(float x, float y = 0f, float z = 0f) =>
         new Transform(new Vector3(x, y, z), Quaternion.Identity);
 
@@ -71,20 +81,20 @@ public class RenderTransformInterpolatorTests
         var interpolator = new RenderTransformInterpolator();
 
         interpolator.Observe(new LogicFrame(1), At(0f), tickT: 0f);
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 0f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 0f);
 
         // tickT = 0 -> the PREVIOUS frame's pose. This is the one-frame display lag, and it
         // is deliberate: extrapolating forward from a 5 Hz sample overshoots every stop.
         AssertClose(new Vector3(0f, 0f, 0f), interpolator.Translation);
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 0.25f);
-        AssertClose(new Vector3(25f, 0f, 0f), interpolator.Translation);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 0.25f);
+        AssertClose(new Vector3(Step * 0.25f, 0f, 0f), interpolator.Translation);
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 0.5f);
-        AssertClose(new Vector3(50f, 0f, 0f), interpolator.Translation);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 0.5f);
+        AssertClose(new Vector3(Step * 0.5f, 0f, 0f), interpolator.Translation);
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 1f);
-        AssertClose(new Vector3(100f, 0f, 0f), interpolator.Translation);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 1f);
+        AssertClose(new Vector3(Step, 0f, 0f), interpolator.Translation);
     }
 
     [Fact]
@@ -114,14 +124,14 @@ public class RenderTransformInterpolatorTests
         var interpolator = new RenderTransformInterpolator();
 
         interpolator.Observe(new LogicFrame(1), At(0f), tickT: 0f);
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 0f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 0f);
 
         for (var i = 0; i <= 10; i++)
         {
             var t = i / 10f;
-            interpolator.Observe(new LogicFrame(2), At(100f), t);
+            interpolator.Observe(new LogicFrame(2), At(Step), t);
             Assert.Equal(t, interpolator.TickT, 4);
-            AssertClose(new Vector3(100f * t, 0f, 0f), interpolator.Translation);
+            AssertClose(new Vector3(Step * t, 0f, 0f), interpolator.Translation);
         }
 
         Assert.Equal(2u, interpolator.SampledFrame.Value);
@@ -217,13 +227,13 @@ public class RenderTransformInterpolatorTests
 
         interpolator.Observe(new LogicFrame(1), At(0f), tickT: 0f);
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: -3f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: -3f);
         Assert.Equal(0f, interpolator.TickT);
         AssertClose(new Vector3(0f, 0f, 0f), interpolator.Translation);
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 7f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 7f);
         Assert.Equal(1f, interpolator.TickT);
-        AssertClose(new Vector3(100f, 0f, 0f), interpolator.Translation);
+        AssertClose(new Vector3(Step, 0f, 0f), interpolator.Translation);
     }
 
     [Theory]
@@ -237,11 +247,14 @@ public class RenderTransformInterpolatorTests
         // visible.
         var interpolator = new RenderTransformInterpolator();
 
+        // Step, not a literal 100: at exactly SnapDistance the teleport guard collapses
+        // previous onto current, and then EVERY tickT yields the newest pose - so the
+        // assertion below would hold even if the non-finite fallback were broken.
         interpolator.Observe(new LogicFrame(1), At(0f), tickT: 0f);
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT);
 
         Assert.Equal(1f, interpolator.TickT);
-        AssertClose(new Vector3(100f, 0f, 0f), interpolator.Translation);
+        AssertClose(new Vector3(Step, 0f, 0f), interpolator.Translation);
         Assert.False(float.IsNaN(interpolator.Matrix.M41));
     }
 
@@ -273,14 +286,14 @@ public class RenderTransformInterpolatorTests
         var interpolator = new RenderTransformInterpolator();
 
         interpolator.Observe(new LogicFrame(1), At(0f), tickT: 0f);
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 0f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 0f);
         var atStart = interpolator.Matrix;
 
-        interpolator.Observe(new LogicFrame(2), At(100f), tickT: 1f);
+        interpolator.Observe(new LogicFrame(2), At(Step), tickT: 1f);
         var atEnd = interpolator.Matrix;
 
         AssertClose(new Vector3(0f, 0f, 0f), atStart.Translation);
-        AssertClose(new Vector3(100f, 0f, 0f), atEnd.Translation);
+        AssertClose(new Vector3(Step, 0f, 0f), atEnd.Translation);
     }
 
     [Fact]
