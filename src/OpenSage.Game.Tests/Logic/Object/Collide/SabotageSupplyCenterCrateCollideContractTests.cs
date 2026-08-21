@@ -1,8 +1,16 @@
-﻿// Contract tests for the SabotageSupplyCenterCrateCollide port (R12): a saboteur crate that
-// steals cash from an enemy supply center on collision. The GPL executeCrateBehavior gate is
-// [not dead -> is a supply center -> is an enemy -> is still the saboteur's AI goal object]
-// before the cash transfer runs, so each rejection branch gets its own test alongside the
-// happy path and the "insufficient funds" partial-transfer branch.
+﻿// Contract tests for the SabotageSupplyCenterCrateCollide port (R12, revised R13): a saboteur
+// crate that steals cash from an enemy supply center on collision. The GPL executeCrateBehavior
+// gate is [not dead -> is a supply center -> is an enemy -> is still the saboteur's AI goal
+// object] before the cash transfer runs, so each rejection branch gets its own test alongside
+// the happy path and the "insufficient funds" partial-transfer branch.
+//
+// R13: GPL's CrateCollide::onCollide destroys the saboteur immediately after a successful
+// steal so the theft can only ever happen once (TheGameLogic->destroyObject). Tests below cover
+// both that the saboteur is destroyed on success (GameObject.IsDestroyed) and that a second
+// simulated collision frame against the same (still-overlapping) target no longer re-fires the
+// theft once the saboteur has been destroyed - the concrete R12 bug this file's OnCollide used
+// to have, where PartitionCellManager.Update()'s level-triggered dispatch would re-invoke
+// OnCollide (and re-steal cash) on every subsequent frame the pair remained in collision.
 
 using System.Numerics;
 using OpenSage.Logic;
@@ -16,6 +24,19 @@ public class SabotageSupplyCenterCrateCollideContractTests
 {
     private const string Definitions = @"
 Object Saboteur
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+  Behavior = SabotageSupplyCenterCrateCollide ModuleTag_Sabotage
+    StealCashAmount = 500
+    BuildingPickup = Yes
+  End
+End
+
+Object SaboteurNoBuildingPickup
   KindOf = INFANTRY
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
@@ -52,7 +73,7 @@ End
     /// not yet establish player-to-player relationships (see its "TODO: Setup player
     /// relationships" note), so the test does it directly via the new Player.SetRelationship.
     /// </summary>
-    private static Scenario NewScenario(RelationshipType targetRelationship)
+    private static Scenario NewScenario(RelationshipType targetRelationship, string saboteurDefinitionName = "Saboteur")
     {
         var game = new HeadlessSimGame(SageGame.Bfme2, matchSeed: 0x5AB0u);
         game.LoadIniText(Definitions);
@@ -77,7 +98,7 @@ End
         var saboteurTemplate = new TeamTemplate(teamFactory, 101, "SaboteurTeam", saboteurOwner, isSingleton: true);
         var saboteurTeam = new Team(saboteurTemplate, 101);
 
-        var saboteurUnit = game.SpawnObject("Saboteur", saboteurOwner, Origin);
+        var saboteurUnit = game.SpawnObject(saboteurDefinitionName, saboteurOwner, Origin);
         saboteurUnit.Team = saboteurTeam;
 
         return new Scenario(game, saboteurOwner, targetOwner, saboteurUnit);
@@ -109,6 +130,36 @@ End
 
         Assert.Equal(1500u, target.Owner.BankAccount.Money);
         Assert.Equal(500u, scenario.Saboteur.BankAccount.Money);
+        // GPL's CrateCollide::onCollide destroys the saboteur immediately after a successful
+        // steal (TheGameLogic->destroyObject) - the crate is consumed exactly once.
+        Assert.True(scenario.SaboteurUnit.IsDestroyed);
+    }
+
+    // ---- R13: repeated collision (level-triggered dispatch) steals only once ----
+
+    [Fact]
+    public void EnemySupplyCenter_RepeatedOverlappingCollisions_StealsOnlyOnce()
+    {
+        // PartitionCellManager.Update() calls OnCollide unconditionally on every simulation
+        // frame the pair is still detected as colliding (level-triggered, not edge-triggered).
+        // A saboteur parked/blocked against the target for multiple frames must still only
+        // drain StealCashAmount once, because GPL destroys the saboteur object on the first
+        // successful theft (see OnCollide's DestroyObject call) - once destroyed, no further
+        // OnCollide call for this object can execute the behavior again.
+        var scenario = NewScenario(RelationshipType.Enemies);
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+
+        // Simulate three consecutive overlapping-collision frames, exactly as
+        // PartitionCellManager.Update() would re-dispatch OnCollide for as long as
+        // CollidesWith(...) keeps returning true for the still-overlapping pair.
+        scenario.SaboteurUnit.OnCollide(target);
+        scenario.SaboteurUnit.OnCollide(target);
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(1500u, target.Owner.BankAccount.Money);
+        Assert.Equal(500u, scenario.Saboteur.BankAccount.Money);
+        Assert.True(scenario.SaboteurUnit.IsDestroyed);
     }
 
     // ---- rejection: dead target ----
@@ -188,5 +239,45 @@ End
 
         Assert.Equal(2000u, target.Owner.BankAccount.Money);
         Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
+    }
+
+    // ---- R13: base CrateCollide::isValidToExecute gate - BuildingPickup ----
+
+    [Fact]
+    public void MissingBuildingPickup_RejectsBuildingTargetEvenIfOtherwiseValid()
+    {
+        // GPL's base CrateCollide::isValidToExecute rejects any "other" with no
+        // AIUpdateInterface unless md->m_isBuildingPickup && other->isKindOf(STRUCTURE) - a
+        // supply center (a building, no AI) is only ever a valid sabotage target when the
+        // crate collide module's own data explicitly sets BuildingPickup = Yes. Without it,
+        // an otherwise-perfectly-valid enemy supply center target must still be rejected.
+        var scenario = NewScenario(RelationshipType.Enemies, saboteurDefinitionName: "SaboteurNoBuildingPickup");
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(2000u, target.Owner.BankAccount.Money);
+        Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
+        Assert.False(scenario.SaboteurUnit.IsDestroyed);
+    }
+
+    // ---- R13: base CrateCollide::isValidToExecute gate - neutral-controlled owner ----
+
+    [Fact]
+    public void NeutralControlledSupplyCenter_RejectsSabotage()
+    {
+        // GPL's base CrateCollide::isValidToExecute rejects other->isNeutralControlled()
+        // targets outright, before this module's own kindof/relationship checks even run.
+        var scenario = NewScenario(RelationshipType.Enemies);
+        var target = scenario.Game.SpawnObject("EnemySupplyCenter", scenario.Game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        target.Owner.BankAccount.Money = 2000;
+        SetAsGoal(scenario, target);
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(2000u, target.Owner.BankAccount.Money);
+        Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
+        Assert.False(scenario.SaboteurUnit.IsDestroyed);
     }
 }
