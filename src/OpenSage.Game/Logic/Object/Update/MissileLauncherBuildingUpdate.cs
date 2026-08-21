@@ -10,8 +10,11 @@
 //   - a five-state door machine: CLOSED -> OPENING -> OPEN -> WAITING_TO_CLOSE -> CLOSING ->
 //     CLOSED. switchToState(dst) is a no-op when dst == the current state; otherwise it
 //     clears the door's model-condition flags, sets the destination's flag (CLOSED sets
-//     none), fires the destination's FX at the object's position (unoriented, GPL
-//     FXList::doFXPos), and computes the NEW m_timeoutFrame / m_timeoutState pair:
+//     none), computes the NEW m_timeoutFrame / m_timeoutState pair, and fires the
+//     destination's own FX at the object's position (unoriented, GPL FXList::doFXPos) - one
+//     FX field per door state (DoorOpeningFX, DoorOpenFX, DoorWaitingToCloseFX,
+//     DoorClosingFX, DoorClosedFX; GPL buildFieldParse parses all five, and switchToState
+//     fires all five):
 //       * OPENING:          timeoutFrame = specialPowerReadyFrame - 1 (finish one frame
 //                            BEFORE the power is ready); timeoutState = OPEN.
 //       * OPEN:             no timeout (0); timeoutState = OPEN (inert self-loop).
@@ -188,6 +191,7 @@ public sealed class MissileLauncherBuildingUpdate : UpdateModule
             case DoorState.Closed:
                 _timeoutFrame = LogicFrame.Zero;
                 _timeoutState = DoorState.Closed;
+                FireFx(_data.DoorClosedFX);
                 break;
 
             case DoorState.Opening:
@@ -205,6 +209,7 @@ public sealed class MissileLauncherBuildingUpdate : UpdateModule
                 GameObject.SetModelConditionState(ModelConditionFlag.Door1WaitingOpen);
                 _timeoutFrame = LogicFrame.Zero;
                 _timeoutState = DoorState.Open;
+                FireFx(_data.DoorOpenFX);
                 break;
 
             case DoorState.WaitingToClose:
@@ -231,6 +236,7 @@ public sealed class MissileLauncherBuildingUpdate : UpdateModule
 
                 _timeoutFrame = timeoutFrame;
                 _timeoutState = DoorState.Closed;
+                FireFx(_data.DoorClosingFX);
                 break;
         }
 
@@ -290,7 +296,10 @@ public sealed class MissileLauncherBuildingUpdateModuleData : UpdateModuleData
         { "DoorCloseTime", (parser, x) => x.DoorCloseTime = parser.ParseInteger() },
 
         { "DoorOpeningFX", (parser, x) => x.DoorOpeningFX = parser.ParseAssetReference() },
+        { "DoorOpenFX", (parser, x) => x.DoorOpenFX = parser.ParseAssetReference() },
         { "DoorWaitingToCloseFX", (parser, x) => x.DoorWaitingToCloseFX = parser.ParseAssetReference() },
+        { "DoorClosingFX", (parser, x) => x.DoorClosingFX = parser.ParseAssetReference() },
+        { "DoorClosedFX", (parser, x) => x.DoorClosedFX = parser.ParseAssetReference() },
 
         { "DoorOpenIdleAudio", (parser, x) => x.DoorOpenIdleAudio = parser.ParseAssetReference() }
     };
@@ -302,7 +311,10 @@ public sealed class MissileLauncherBuildingUpdateModuleData : UpdateModuleData
     public int DoorCloseTime { get; private set; }
 
     public string DoorOpeningFX { get; private set; }
+    public string DoorOpenFX { get; private set; }
     public string DoorWaitingToCloseFX { get; private set; }
+    public string DoorClosingFX { get; private set; }
+    public string DoorClosedFX { get; private set; }
 
     /// <summary>Parsed and held; not currently firable - see the UNMODELED note at the top of this file.</summary>
     public string DoorOpenIdleAudio { get; private set; }
