@@ -17,23 +17,20 @@
 // already carried its own local copy of Permanent rather than deriving from UpgradeModuleData
 // (see its own former header note, preserved in spirit here).
 //
-// The stacking rule is NOT fresh: bfme2-workbench/research/aotr-patch-semantics.md (S1,
-// RESOLVED 2026-08-17) is a clean-room behavioral characterization of the AotR `.danetta`
-// hot-patch, which replaces the stock engine's plain-sum aggregation of simultaneous
-// attribute-modifier records with a diminishing-returns screen-blend identity:
-//   acc <- acc + v - acc*v            (equivalently 1-(1-acc)(1-v)), acc starting at 0.
-// See ComposeAuraStrength below - it is the exact fold that research file derives, translated
-// to Fix64, not invented. No binary-derived text appears here (clean-room rule); only the
-// behavioral fact (the fold formula) crosses into engine code.
+// Stacking: this port grants exactly the flat, uncomposed modifier record (BonusName's
+// ModifierList) through the plain name-keyed GameObject.AddAttributeModifier registry (no
+// magnitude composition of any kind lives in this module). The AotR `.danetta` screen-blend
+// identity from bfme2-workbench/research/aotr-patch-semantics.md (S1, RESOLVED 2026-08-17) is a
+// clean-room behavioral characterization of AttributeModifierPoolUpdate's OWN fold over multiple
+// simultaneous modifier RECORDS from arbitrary sources -- that module (still [ParseOnly] on the
+// Round-4 backlog) is where composition belongs, not here. This aura port previously exposed a
+// standalone ComposeAuraStrength utility "for" that spec; it was never called from this module's
+// grant path (RefreshTargets below) and has been removed as dead, misleading code (R13 finding:
+// tests validating an unused utility misrepresented this module's actual behavior as composed
+// when two auras granting the same modifier name to one target simply do not stack -- the second
+// grant no-ops against GameObject.AddAttributeModifier's existing-live-entry guard).
 //
 // TODO-spec (unverified/unmodeled retail behavior, filed not invented):
-//   - the pool query ComposeAuraStrength was measured against is a SEPARATE module
-//     (AttributeModifierPoolUpdate), still [ParseOnly] on the Round-4
-//     backlog (AttributeModifierPoolUpdate.cs). Wiring N simultaneous modifier RECORDS from
-//     arbitrary sources into one live pool query is that module's job, not this port's. This
-//     aura port supplies exactly the modifier record (BonusName's ModifierList) an aura grants,
-//     and exposes the fold as a provable, deterministic Fix64 utility (tested directly) rather
-//     than silently reimplementing the pool query here;
 //   - RequiresAllTriggers: parsed and stored, but TriggeredBy here is a SINGLE upgrade
 //     reference (unlike the array-shaped upgrade mux), so "requires all" has no second trigger
 //     to require alongside - vestigial until a second TriggeredBy is found in retail data;
@@ -341,20 +338,6 @@ public sealed class AttributeModifierAuraUpdate : UpdateModule, IUpgradeableModu
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// The AotR `.danetta` pool-composition identity (clean-room behavioral spec,
-    /// bfme2-workbench/research/aotr-patch-semantics.md S1/RESOLVED): folding modifier values
-    /// as a diminishing-returns screen-blend, <c>acc &lt;- acc + v - acc*v</c> (equivalently
-    /// <c>1-(1-acc)(1-v)</c>), starting from acc = 0, INSTEAD OF the stock engine's plain sum.
-    /// Two independently-stacked "0.5" bonuses compose to "0.75", never "1.0". See the file
-    /// header TODO-spec for the scope note (the multi-record pool query this was measured in is
-    /// a separate, still-parked module; this is the exact fold, exposed and tested standalone).
-    /// </summary>
-    internal static Fix64 ComposeAuraStrength(Fix64 accumulator, Fix64 value)
-    {
-        return accumulator + value - accumulator * value;
     }
 
     // ---- the single walk (F8 Objects channel; declaration order, F9) ----
