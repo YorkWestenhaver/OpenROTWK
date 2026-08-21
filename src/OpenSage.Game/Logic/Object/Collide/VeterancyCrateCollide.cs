@@ -18,6 +18,25 @@ namespace OpenSage.Logic.Object;
 // Deliberately not ported: the GPL isValidToExecute()'s `ai->getGoalObject() != other` gate,
 // which only makes sense for the AI-driven "pilot walking to a vehicle" case and has no
 // equivalent goal-object concept on this engine's AIUpdate yet.
+//
+// IsValidToExecute below inlines a translation of the shared CrateCollide::isValidToExecute
+// base gate (CrateCollide.cpp) ahead of this leaf's own checks, mirroring
+// VeterancyCrateCollide::isValidToExecute's `if(!CrateCollide::isValidToExecute(other)) return
+// false;` call. No sibling CrateCollide has ever occupied the shared CrateCollide.cs base with
+// this pipeline (see SabotagePowerPlantCrateCollide's header for the same note), so it is
+// translated self-contained here rather than growing the shared base for one module family.
+// DEVIATION: RequiredKindOf is a MASK in GPL (isKindOfMulti checks both required and
+// forbidden together); the existing ported CrateCollideModuleData.RequiredKindOf field is a
+// single ObjectKinds value (a pre-existing simplification predating this port, out of scope to
+// change here), so only ForbiddenKindOf is enforced below. PickupScience has no ported field on
+// CrateCollideModuleData at all (never parsed), so it is not enforced either. The base gate's
+// `other->getAIUpdateInterface() == NULL` / BuildingPickup / crate-isAboveTerrain checks are
+// also left unported here: R13 review findings (research/modules-r13/review/
+// veterancy-crate-collide.md) scoped the confirmed gap to isNeutralControlled/
+// RequiredKindOf/ForbiddenKindOf/ForbidOwnerPlayer/HumanOnly/KindOf(PARACHUTE) only, and this
+// engine's test/spawn fixtures for mobile units don't universally carry an AIUpdateInterface
+// module the way retail's always does, so enforcing that check needs a broader fixture audit
+// this fix doesn't attempt to avoid guessing at scope.
 public sealed class VeterancyCrateCollide : CrateCollide
 {
     private readonly VeterancyCrateCollideModuleData _moduleData;
@@ -56,6 +75,45 @@ public sealed class VeterancyCrateCollide : CrateCollide
 
     private bool IsValidToExecute(GameObject other)
     {
+        // ---- CrateCollide::isValidToExecute (shared base gate) ----
+
+        var neutralPlayer = GameEngine.Game.PlayerManager.NeutralPlayer;
+        if (other.Owner == neutralPlayer)
+        {
+            // "Nothing Neutral can pick up any type of crate."
+            return false;
+        }
+
+        if (_moduleData.ForbiddenKindOf is { AnyBitSet: true } forbidden
+            && other.Definition.KindOf.Intersects(forbidden))
+        {
+            return false;
+        }
+
+        if (other.IsEffectivelyDead)
+        {
+            return false;
+        }
+
+        if (_moduleData.ForbidOwnerPlayer && GameObject.Owner == other.Owner)
+        {
+            // "Design has decreed this to not be picked up by the dead guy's team."
+            return false;
+        }
+
+        if (_moduleData.HumanOnly && other.Owner is { IsHuman: false })
+        {
+            // "Human only mission crate."
+            return false;
+        }
+
+        if (other.IsKindOf(ObjectKinds.Parachute))
+        {
+            return false;
+        }
+
+        // ---- VeterancyCrateCollide::isValidToExecute (leaf-specific checks) ----
+
         if (other.IsEffectivelyDead)
         {
             return false;

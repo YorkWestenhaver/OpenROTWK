@@ -115,6 +115,36 @@ Object VetCrateFx
     ExecuteFX = FX_VetCrateTest
   End
 End
+
+Object VetCrateForbidVehicle
+  Behavior = VeterancyCrateCollide ModuleTag_Vet
+    EffectRange = 0
+    ForbiddenKindOf = VEHICLE
+  End
+End
+
+Object VetCrateForbidOwner
+  Behavior = VeterancyCrateCollide ModuleTag_Vet
+    EffectRange = 0
+    ForbidOwnerPlayer = Yes
+  End
+End
+
+Object VetCrateHumanOnly
+  Behavior = VeterancyCrateCollide ModuleTag_Vet
+    EffectRange = 0
+    HumanOnly = Yes
+  End
+End
+
+Object VetCrateTestParachute
+  KindOf = INFANTRY PARACHUTE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  IsTrainable = Yes
+  ExperienceRequired = 0 100 200 300
+End
 ";
 
     private static HeadlessSimGame NewGame()
@@ -128,8 +158,8 @@ End
             {
                 OpenSage.Data.Map.Player.CreateNeutralPlayer(),
                 OpenSage.Data.Map.Player.CreateCivilianPlayer(),
-                new OpenSage.Data.Map.Player { Name = "plyrAlpha", Faction = "FactionAlpha" },
-                new OpenSage.Data.Map.Player { Name = "plyrBravo", Faction = "FactionBravo" },
+                new OpenSage.Data.Map.Player { Name = "plyrAlpha", Faction = "FactionAlpha", IsHuman = true },
+                new OpenSage.Data.Map.Player { Name = "plyrBravo", Faction = "FactionBravo", IsHuman = true },
             },
             GameType.Skirmish);
 
@@ -300,5 +330,122 @@ End
 
         Assert.Equal(VeterancyLevel.Veteran, unit.Rank);
         Assert.True(crate.IsDestroyed);
+    }
+
+    // ---- Shared CrateCollide::isValidToExecute base gate (R13 fix) ----
+
+    // ---- "Nothing Neutral can pick up any type of crate" (CrateCollide.cpp) ----
+
+    [Fact]
+    public void NeutralControlledCollider_IsRejected()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateRangeZero", game.CivilianPlayer, Vector3.Zero);
+        var neutralUnit = game.SpawnObject("VetCrateTestUnit", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(neutralUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Regular, neutralUnit.Rank);
+        Assert.False(crate.IsDestroyed);
+    }
+
+    // ---- "must match our kindof flags" -- ForbiddenKindOf (isKindOfMulti) ----
+
+    [Fact]
+    public void ForbiddenKindOf_RejectsMatchingKind()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateForbidVehicle", game.CivilianPlayer, Vector3.Zero);
+        var vehicle = game.SpawnObject("VetCrateTestVehicleGround", PlayerAlpha(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(vehicle, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Regular, vehicle.Rank);
+        Assert.False(crate.IsDestroyed);
+    }
+
+    [Fact]
+    public void ForbiddenKindOf_AcceptsNonMatchingKind()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateForbidVehicle", game.CivilianPlayer, Vector3.Zero);
+        var infantry = game.SpawnObject("VetCrateTestUnit", PlayerAlpha(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(infantry, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Veteran, infantry.Rank);
+        Assert.True(crate.IsDestroyed);
+    }
+
+    // ---- "Design has decreed this to not be picked up by the dead guy's team" -- ForbidOwnerPlayer ----
+
+    [Fact]
+    public void ForbidOwnerPlayer_RejectsPickupByCratesOwnController()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateForbidOwner", PlayerAlpha(game), Vector3.Zero);
+        var ownersUnit = game.SpawnObject("VetCrateTestUnit", PlayerAlpha(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(ownersUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Regular, ownersUnit.Rank);
+        Assert.False(crate.IsDestroyed);
+    }
+
+    [Fact]
+    public void ForbidOwnerPlayer_AcceptsPickupByADifferentController()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateForbidOwner", PlayerAlpha(game), Vector3.Zero);
+        var othersUnit = game.SpawnObject("VetCrateTestUnit", PlayerBravo(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(othersUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Veteran, othersUnit.Rank);
+        Assert.True(crate.IsDestroyed);
+    }
+
+    // ---- "Human only mission crate" -- HumanOnly ----
+
+    [Fact]
+    public void HumanOnly_RejectsNonHumanController()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateHumanOnly", game.CivilianPlayer, Vector3.Zero);
+        // CivilianPlayer is not human (OpenSage.Data.Map.Player.CreateCivilianPlayer sets IsHuman = false).
+        var nonHumanUnit = game.SpawnObject("VetCrateTestUnit", game.CivilianPlayer, Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(nonHumanUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Regular, nonHumanUnit.Rank);
+        Assert.False(crate.IsDestroyed);
+    }
+
+    [Fact]
+    public void HumanOnly_AcceptsHumanController()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateHumanOnly", game.CivilianPlayer, Vector3.Zero);
+        var humanUnit = game.SpawnObject("VetCrateTestUnit", PlayerAlpha(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(humanUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Veteran, humanUnit.Rank);
+        Assert.True(crate.IsDestroyed);
+    }
+
+    // ---- "other->isKindOf(KINDOF_PARACHUTE)" exclusion ----
+
+    [Fact]
+    public void ParachuteKindOf_IsRejected()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("VetCrateRangeZero", game.CivilianPlayer, Vector3.Zero);
+        var parachutingUnit = game.SpawnObject("VetCrateTestParachute", PlayerAlpha(game), Vector3.Zero);
+
+        CrateModuleOf(crate).OnCollide(parachutingUnit, Vector3.Zero, Vector3.Zero);
+
+        Assert.Equal(VeterancyLevel.Regular, parachutingUnit.Rank);
+        Assert.False(crate.IsDestroyed);
     }
 }
