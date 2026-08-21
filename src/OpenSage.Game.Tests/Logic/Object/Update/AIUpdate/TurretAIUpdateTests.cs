@@ -157,11 +157,14 @@ End
     }
 
     // ------------------------------------------------------------------------------------
-    // 3. Turning, target within the +-0.15 rad alignment threshold -> rotation completes in
-    //    one tick, FiresWhileTurning gates the Attacking model condition, state -> Attacking.
+    // 3. Turning, target within one TurretTurnRate step of alignment -> rotation completes in
+    //    one further tick, FiresWhileTurning gates the Attacking model condition, state ->
+    //    Attacking. GPL's friend_turnTowardsAngle (TurretAI.cpp:392-429) snaps only once the
+    //    remaining angle is smaller than a single turn-rate step; it does not use a fixed
+    //    angle threshold, so this exercises both branches of that rule.
     // ------------------------------------------------------------------------------------
     [Fact]
-    public void Turning_TargetWithinThreshold_CompletesRotationAndTransitionsToAttacking()
+    public void Turning_TargetWithinTurnRateStep_CompletesRotationAndTransitionsToAttacking()
     {
         var game = NewGame();
         var host = SpawnHost(game);
@@ -169,8 +172,41 @@ End
         var turret = new TurretAIUpdate(host, game.GameEngine, data);
         var weapon = AttachWeapon(host, game);
 
-        // Target straight ahead (targetYaw == 0); start the turret slightly off (0.05 rad),
-        // well inside the 0.15 rad alignment threshold.
+        // Target straight ahead (targetYaw == 0); start the turret 0.005 rad off -- inside a
+        // single 0.01 rad/frame turn-rate step, so GPL snaps to the target immediately.
+        weapon.SetTarget(new WeaponTarget(new Vector3(10f, 0f, 0f)));
+        host.TurretYaw = 0.005f;
+
+        SetCurrentFrame(game, 0);
+        turret.Update(null); // ScanningForTargets -> Turning
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Turning, turret.State);
+
+        turret.Update(null); // Turning: |deltaYaw| = 0.005 < turnRate (0.01) -> snaps, -> Attacking
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Attacking, turret.State);
+        Assert.Equal(0f, host.TurretYaw, 4);
+        // FiresWhileTurning = false, so entering Attacking (not-while-turning) sets it here.
+        Assert.True(host.ModelConditionFlags.Get(ModelConditionFlag.Attacking));
+    }
+
+    // ------------------------------------------------------------------------------------
+    // 3b. A remaining angle larger than a single turn-rate step must NOT snap in one tick --
+    //     it takes exactly ceil(offset / TurretTurnRate) Turning ticks, stepping by
+    //     TurretTurnRate each time, before the final tick's remainder snaps and transitions
+    //     to Attacking. This is the case OpenSage's old hardcoded 0.15 rad threshold got
+    //     wrong for any TurretTurnRate below ~0.15 rad/frame (the normal case).
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public void Turning_TargetBeyondTurnRateStep_RotatesGraduallyThenSnapsToAttacking()
+    {
+        var game = NewGame();
+        var host = SpawnHost(game);
+        var data = BuildModuleData(turretTurnRate: 0.01f, naturalTurretAngle: 0, firesWhileTurning: false);
+        var turret = new TurretAIUpdate(host, game.GameEngine, data);
+        var weapon = AttachWeapon(host, game);
+
+        // 0.05 rad offset, well beyond a single 0.01 rad/frame step (and well under the old,
+        // now-removed, hardcoded 0.15 rad snap threshold -- the exact case the old code got
+        // wrong by snapping instantly instead of turning gradually).
         weapon.SetTarget(new WeaponTarget(new Vector3(10f, 0f, 0f)));
         host.TurretYaw = 0.05f;
 
@@ -178,10 +214,20 @@ End
         turret.Update(null); // ScanningForTargets -> Turning
         Assert.Equal(TurretAIUpdate.TurretAIStates.Turning, turret.State);
 
-        turret.Update(null); // Turning: |deltaYaw| = 0.05 <= 0.15 -> completes, -> Attacking
+        turret.Update(null); // still far from aligned: single turn-rate step, stays Turning
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Turning, turret.State);
+        Assert.Equal(0.05f - data.TurretTurnRate, host.TurretYaw, 4);
+
+        var ticks = 0;
+        while (turret.State == TurretAIUpdate.TurretAIStates.Turning && ticks < 10)
+        {
+            turret.Update(null);
+            ticks++;
+        }
+
         Assert.Equal(TurretAIUpdate.TurretAIStates.Attacking, turret.State);
+        Assert.True(ticks is >= 3 and < 10, $"expected several turn-rate-bounded ticks before snapping, got {ticks}");
         Assert.Equal(0f, host.TurretYaw, 4);
-        // FiresWhileTurning = false, so entering Attacking (not-while-turning) sets it here.
         Assert.True(host.ModelConditionFlags.Get(ModelConditionFlag.Attacking));
     }
 
@@ -275,26 +321,32 @@ End
     }
 
     // ------------------------------------------------------------------------------------
-    // 6. Version-2 snapshot load/save round trip: two floats, two frames, an int (0-1), a
-    //    seven-bool array, and a final frame - no exception, values preserved.
+    // 6. Version-3 save/load round trip actually walks the module into Attacking (a real
+    //    live target, a non-default state) and asserts the state machine's real mutable
+    //    state -- _turretAIstate, _waitUntil, _currentTarget -- survives the round trip into
+    //    a fresh instance, matching GPL's expectation that a saved/reloaded turret continues
+    //    exactly where it left off instead of resetting to ScanningForTargets with the
+    //    weapon's target orphaned (see Finding 1: TurretAI::xfer, TurretAI.cpp:343-378,
+    //    persists the corresponding live state; the old version-2 format persisted seven
+    //    fields belonging to none of this class's actual fields).
     // ------------------------------------------------------------------------------------
     [Fact]
-    public void Load_VersionTwoRoundTrip_ReconstructsStateWithoutException()
+    public void Load_RoundTrip_PreservesTurretStateWaitUntilAndCurrentTarget()
     {
         var game = NewGame();
         var host = SpawnHost(game);
-        var data = BuildModuleData();
+        var targetHost = SpawnHost(game);
+        var data = BuildModuleData(naturalTurretAngle: 0);
         var source = new TurretAIUpdate(host, game.GameEngine, data);
+        var weapon = AttachWeapon(host, game);
 
-        SetPrivate(source, "_unknownFloat1", 1.25f);
-        SetPrivate(source, "_unknownFloat2", -0.5f);
-        SetPrivate(source, "_unknownFrame1", 11u);
-        SetPrivate(source, "_unknownInt1", 1u);
-        SetPrivate(source, "_unknownFrame2", 22u);
-        var sourceBools = GetPrivate<bool[]>(source, "_unknownBools");
-        var boolValues = new[] { true, false, true, false, true, false, true };
-        boolValues.CopyTo(sourceBools, 0);
-        SetPrivate(source, "_unknownFrame3", 33u);
+        // An object-type target (not a bare position) so its identity can round-trip.
+        weapon.SetTarget(new WeaponTarget(game.GameLogic, targetHost.Id));
+
+        SetCurrentFrame(game, 0);
+        source.Update(null); // ScanningForTargets -> Turning
+        source.Update(null); // Turning -> Attacking (both hosts at Vector3.Zero: already aligned)
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Attacking, source.State);
 
         using var stream = new MemoryStream();
         using (var writer = new StateWriter(stream, game))
@@ -311,20 +363,53 @@ End
             destination.Load(reader);
         }
 
-        Assert.Equal(GetPrivate<float>(source, "_unknownFloat1"), GetPrivate<float>(destination, "_unknownFloat1"));
-        Assert.Equal(GetPrivate<float>(source, "_unknownFloat2"), GetPrivate<float>(destination, "_unknownFloat2"));
-        Assert.Equal(GetPrivate<uint>(source, "_unknownFrame1"), GetPrivate<uint>(destination, "_unknownFrame1"));
-        Assert.Equal(GetPrivate<uint>(source, "_unknownInt1"), GetPrivate<uint>(destination, "_unknownInt1"));
-        Assert.Equal(GetPrivate<uint>(source, "_unknownFrame2"), GetPrivate<uint>(destination, "_unknownFrame2"));
-        Assert.Equal(GetPrivate<bool[]>(source, "_unknownBools"), GetPrivate<bool[]>(destination, "_unknownBools"));
-        Assert.Equal(GetPrivate<uint>(source, "_unknownFrame3"), GetPrivate<uint>(destination, "_unknownFrame3"));
+        // The bug this test guards against: without persisting these three fields, a fresh
+        // instance would load back as ScanningForTargets (the constructor default) with a
+        // null target, not Attacking with the same target -- and the very next tick's
+        // `target != _currentTarget` check (Attacking case) would force a spurious re-Turning
+        // transition that never happens in a continuous (non-save/loaded) run.
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Attacking, destination.State);
+        Assert.Equal(source.WaitUntil.Value, destination.WaitUntil.Value);
+
+        var destinationTarget = GetPrivate<WeaponTarget>(destination, "_currentTarget");
+        Assert.NotNull(destinationTarget);
+        Assert.Equal(WeaponTargetType.Object, destinationTarget.TargetType);
+        Assert.Equal(targetHost.Id, destinationTarget.TargetObjectId);
     }
 
-    private static void SetPrivate(object target, string fieldName, object value)
+    // ------------------------------------------------------------------------------------
+    // 6b. No target (Idle, freshly constructed): round trip must not fabricate a target.
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public void Load_RoundTrip_WithNoTarget_ReconstructsNullCurrentTarget()
     {
-        var field = typeof(TurretAIUpdate).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-        Assert.NotNull(field);
-        field!.SetValue(target, value);
+        var game = NewGame();
+        var host = SpawnHost(game);
+        var data = BuildModuleData(minIdleScanFrames: 2, maxIdleScanFrames: 4);
+        var source = new TurretAIUpdate(host, game.GameEngine, data);
+
+        SetCurrentFrame(game, 0);
+        source.Update(null); // ScanningForTargets -> Idle (no target, stub finds nothing)
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Idle, source.State);
+
+        using var stream = new MemoryStream();
+        using (var writer = new StateWriter(stream, game))
+        {
+            source.Load(writer);
+        }
+
+        stream.Position = 0;
+
+        var destinationHost = SpawnHost(game);
+        var destination = new TurretAIUpdate(destinationHost, game.GameEngine, data);
+        using (var reader = new StateReader(stream, game))
+        {
+            destination.Load(reader);
+        }
+
+        Assert.Equal(TurretAIUpdate.TurretAIStates.Idle, destination.State);
+        Assert.Equal(source.WaitUntil.Value, destination.WaitUntil.Value);
+        Assert.Null(GetPrivate<WeaponTarget>(destination, "_currentTarget"));
     }
 
     private static T GetPrivate<T>(object target, string fieldName)
