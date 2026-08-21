@@ -1,8 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using OpenSage.Data;
 using OpenSage.FileFormats.Big;
+using OpenSage.IO;
 using OpenSage.Mods.BuiltIn;
 using Xunit;
 
@@ -16,6 +18,7 @@ namespace OpenSage.Tests.IO;
 public sealed class ModOverlayFileSystemTests : IDisposable
 {
     private const string ProbePath = @"data\ini\armor.ini";
+    private const string SiblingPath = @"data\ini\weapon.ini";
 
     private readonly string _root;
     private readonly string _game;
@@ -74,14 +77,19 @@ public sealed class ModOverlayFileSystemTests : IDisposable
         return new GameInstallation(definition, _game, baseGame, modPath);
     }
 
+    private static string Read(FileSystemEntry entry)
+    {
+        using var stream = entry.Open();
+        using var reader = new StreamReader(stream, Encoding.ASCII);
+        return reader.ReadToEnd();
+    }
+
     private string Resolve(GameInstallation installation)
     {
         using var fileSystem = installation.CreateFileSystem();
         var entry = fileSystem.GetFile(ProbePath);
         Assert.NotNull(entry);
-        using var stream = entry.Open();
-        using var reader = new StreamReader(stream, Encoding.ASCII);
-        return reader.ReadToEnd();
+        return Read(entry);
     }
 
     [Fact]
@@ -165,6 +173,65 @@ public sealed class ModOverlayFileSystemTests : IDisposable
         WriteArchive(_game, "INI.big", "game-archive");
 
         Assert.Equal("game-loose", Resolve(CreateInstallation()));
+    }
+
+    /// <summary>
+    /// A file the engine opened through the stack can name a sibling — an <c>.apt</c>'s
+    /// <c>.dat</c>, an <c>.ini</c>'s <c>9x</c> twin or <c>#include</c> target — and callers reach
+    /// for <see cref="FileSystemEntry.FileSystem"/> to resolve it. That has to be the whole stack:
+    /// scoping it to the layer that provided the first file is what stopped a mod's loose
+    /// <c>MainMenu.apt</c> from finding the base game's <c>MainMenu.dat</c>.
+    /// </summary>
+    [Fact]
+    public void ASiblingOfAModFileIsResolvedThroughEveryLayer()
+    {
+        WriteShadersBig();
+        WriteLooseFile(_mod, "mod-loose");
+        WriteArchive(_baseGame, "INI.big", "base-sibling", SiblingPath);
+
+        using var fileSystem = CreateInstallation(_mod).CreateFileSystem();
+
+        var entry = fileSystem.GetFile(ProbePath);
+        Assert.NotNull(entry);
+        Assert.Equal("mod-loose", Read(entry));
+
+        var sibling = entry.FileSystem.GetFile(SiblingPath);
+        Assert.NotNull(sibling);
+        Assert.Equal("base-sibling", Read(sibling));
+    }
+
+    /// <summary>Sibling lookups keep the layer precedence: the mod's copy still wins.</summary>
+    [Fact]
+    public void ASiblingLookupKeepsTheLayerPrecedence()
+    {
+        WriteShadersBig();
+        WriteLooseFile(_mod, "mod-loose");
+        WriteArchive(_mod, "modstuff.big", "mod-sibling", SiblingPath);
+        WriteArchive(_baseGame, "INI.big", "base-sibling", SiblingPath);
+
+        using var fileSystem = CreateInstallation(_mod).CreateFileSystem();
+
+        var entry = fileSystem.GetFile(ProbePath);
+        Assert.NotNull(entry);
+
+        Assert.Equal("mod-sibling", Read(entry.FileSystem.GetFile(SiblingPath)));
+    }
+
+    /// <summary>Entries handed out by a directory listing resolve siblings the same way.</summary>
+    [Fact]
+    public void ASiblingOfAListedFileIsResolvedThroughEveryLayer()
+    {
+        WriteShadersBig();
+        WriteLooseFile(_mod, "mod-loose");
+        WriteArchive(_baseGame, "INI.big", "base-sibling", SiblingPath);
+
+        using var fileSystem = CreateInstallation(_mod).CreateFileSystem();
+
+        var entry = fileSystem
+            .GetFilesInDirectory(@"data\ini", "armor.ini")
+            .Single();
+
+        Assert.Equal("base-sibling", Read(entry.FileSystem.GetFile(SiblingPath)));
     }
 
     [Fact]

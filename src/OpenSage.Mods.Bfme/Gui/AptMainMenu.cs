@@ -8,13 +8,32 @@ namespace OpenSage.Mods.Bfme.Gui;
 [AptCallbacks(SageGame.Bfme, SageGame.Bfme2, SageGame.Bfme2Rotwk)]
 static class AptMainMenu
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     // Called after the initialization has been performed
     public static void OnInitialized(string param, ActionContext context, AptWindow window, IGame game)
     {
-        // Set a custom render callback
-        var logoTexture = game.GetMappedImage("LogoWithShadow").Texture.Value;
-        var imageSprite = window.Root.ScriptObject.Variables["Image"].ToObject().Item as SpriteItem;
-        var shape = imageSprite.Content.Items[1] as RenderItem;
+        // Set a custom render callback. Everything below is the stock main menu's logo shape, and a
+        // mod is free to redesign the menu without one - Age of the Ring's MainMenu.apt has no
+        // "Image" sprite and no LogoWithShadow mapped image. The callback is decoration, so a menu
+        // that does not have it simply does not get it.
+        if (!window.Root.ScriptObject.Variables.TryGetValue("Image", out var imageValue)
+            || imageValue.ToObject()?.Item is not SpriteItem imageSprite
+            || imageSprite.Content.Items.Count < 2
+            || imageSprite.Content.Items[1] is not RenderItem shape)
+        {
+            Logger.Info("Main menu movie has no logo Image sprite; skipping the logo render callback");
+            return;
+        }
+
+        var logoImage = game.GetMappedImage("LogoWithShadow");
+        if (logoImage == null)
+        {
+            Logger.Info("No LogoWithShadow mapped image; skipping the logo render callback");
+            return;
+        }
+
+        var logoTexture = logoImage.Texture.Value;
         shape.RenderCallback = (AptRenderingContext renderContext, Geometry geom, Texture orig) =>
         {
             renderContext.RenderGeometry(geom, logoTexture);

@@ -61,6 +61,15 @@ public sealed class ImageMap
 
     public static ImageMap FromFileSystemEntry(FileSystemEntry entry)
     {
+        if (entry == null)
+        {
+            // A missing .dat used to surface here as a NullReferenceException on entry.Open(),
+            // with nothing in the stack naming the file that could not be found.
+            throw new ArgumentNullException(
+                nameof(entry),
+                "Cannot load an apt image map from a missing .dat file");
+        }
+
         var map = new ImageMap();
 
         using (var stream = entry.Open())

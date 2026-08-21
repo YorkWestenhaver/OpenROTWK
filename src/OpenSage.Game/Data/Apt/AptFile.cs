@@ -9,6 +9,8 @@ namespace OpenSage.Data.Apt;
 
 public sealed class AptFile
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     public FileSystem FileSystem { get; }
     public ConstantData Constants { get; }
     public string MovieName { get; }
@@ -39,10 +41,20 @@ public sealed class AptFile
         //set first character to itself
         Movie.Characters[0] = Movie;
 
-        //load the corresponding image map
+        //load the corresponding image map, which is optional: a movie that draws no textured
+        //geometry ships without one (Age of the Ring's SkyrimMenu.apt, imported by its MainMenu,
+        //has no .dat anywhere in the installation).
         var datPath = Path.Combine(parentDirectory, MovieName + ".dat");
         var datEntry = FileSystem.GetFile(datPath);
-        ImageMap = ImageMap.FromFileSystemEntry(datEntry);
+        if (datEntry != null)
+        {
+            ImageMap = ImageMap.FromFileSystemEntry(datEntry);
+        }
+        else
+        {
+            Logger.Info($"No image map for apt file '{MovieName}'; looked for {datPath}");
+            ImageMap = new ImageMap();
+        }
 
         //resolve geometries
         GeometryMap = new Dictionary<uint, Geometry>();
@@ -50,6 +62,10 @@ public sealed class AptFile
         {
             var ruPath = Path.Combine(parentDirectory, MovieName + "_geometry", +shape.Geometry + ".ru");
             var shapeEntry = FileSystem.GetFile(ruPath);
+            if (shapeEntry == null)
+            {
+                throw new FileNotFoundException($"Cannot find geometry for apt file '{MovieName}'", ruPath);
+            }
             var shapeGeometry = Geometry.FromFileSystemEntry(this, shapeEntry);
             GeometryMap[shape.Geometry] = shapeGeometry;
         }
@@ -100,7 +116,12 @@ public sealed class AptFile
 
             //load the corresponding const entry
             var constPath = Path.ChangeExtension(entry.FilePath, ".const");
-            var constFile = ConstantData.FromFileSystemEntry(entry.FileSystem.GetFile(constPath));
+            var constEntry = entry.FileSystem.GetFile(constPath);
+            if (constEntry == null)
+            {
+                throw new FileNotFoundException($"Cannot find constant data for apt file '{entry.FilePath}'", constPath);
+            }
+            var constFile = ConstantData.FromFileSystemEntry(constEntry);
 
             var aptName = Path.GetFileNameWithoutExtension(entry.FilePath);
 

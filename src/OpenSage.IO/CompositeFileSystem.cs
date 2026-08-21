@@ -21,11 +21,29 @@ public sealed class CompositeFileSystem : FileSystem
             var fileSystemEntry = fileSystem.GetFile(filePath);
             if (fileSystemEntry != null)
             {
-                return fileSystemEntry;
+                return Rebind(fileSystemEntry);
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The engine has one file system, not one per archive: a file it opens through the layer
+    /// stack can name a sibling — an <c>.apt</c>'s <c>.const</c>/<c>.dat</c>/<c>_geometry</c>
+    /// sidecars, an <c>.ini</c>'s <c>9x</c> twin or its <c>#include</c> targets — and that sibling
+    /// is resolved through the same stack, not through whichever layer happened to provide the
+    /// first file. Callers do that by asking <see cref="FileSystemEntry.FileSystem"/>, so an entry
+    /// handed out by this composite has to point back at the composite; leaving it pointing at the
+    /// layer that produced it scopes sidecar lookups to that one layer, which is why a
+    /// <c>-mod</c> that ships a loose <c>MainMenu.apt</c> without a <c>MainMenu.dat</c> could not
+    /// see the base game's copy.
+    /// </summary>
+    private FileSystemEntry Rebind(FileSystemEntry entry)
+    {
+        return ReferenceEquals(entry.FileSystem, this)
+            ? entry
+            : new FileSystemEntry(this, entry.FilePath, entry.Length, entry.Open);
     }
 
     public override IEnumerable<FileSystemEntry> GetFilesInDirectory(
@@ -50,7 +68,7 @@ public sealed class CompositeFileSystem : FileSystem
 
                 paths.Add(fileSystemEntry.FilePath);
 
-                yield return fileSystemEntry;
+                yield return Rebind(fileSystemEntry);
             }
         }
     }

@@ -49,6 +49,14 @@ public sealed class SetMember : InstructionBase
         var p = context.Pop();
         var obj = p.ToObject();
 
+        // ToObject already reports an undefined operand and returns null. Assigning a member of
+        // undefined is discarded rather than fatal, which is what ActionScript itself does - and
+        // Age of the Ring's main menu does it while the movie is still initialising.
+        if (obj == null)
+        {
+            return;
+        }
+
         if (obj.IsBuiltInVariable(memberName))
         {
             obj.SetBuiltInVariable(memberName, valueVal);
