@@ -86,6 +86,12 @@ public enum AiOrderIntent
 
     /// <summary>Set one producer structure's rally point.</summary>
     SetRallyPoint,
+
+    /// <summary>(S9-06) Unpack one packed castle/camp foundation into its castle.</summary>
+    UnpackCastle,
+
+    /// <summary>(S9-06) Build one structure on one castle build plot.</summary>
+    ConstructOnFoundation,
 }
 
 /// <summary>
@@ -388,6 +394,69 @@ public sealed class AiOrderEmitter : IAiBrainManager
                 Order.CreateSetSelection(PlayerIndex, structureId),
                 Order.CreateSetRallyPointOrder(PlayerIndex, [structureId], rallyPoint)
             ]);
+    }
+
+    // ---- (S9-06) castle intents -------------------------------------------------------
+    //
+    // WHY THESE TWO EMIT A SINGLE ORDER AND NO SetSelection
+    //
+    // Everything above is command-bar shaped: the order says WHAT to do and the preceding
+    // SetSelection says WHO does it. The castle orders are not - each one names its target
+    // object in its own payload, and OrderProcessor's four castle cases read that payload and
+    // hand it straight to CastleOrderHandler without touching player.SelectedUnits at all
+    // (OrderProcessor.cs, the FoundationConstruct / CastleUnpack cases; the handler's own guards
+    // then re-derive the owner from the order's player index). Emitting a SetSelection alongside
+    // them would therefore change the AI player's selection for no reason, and would leave that
+    // selection pointing at a build plot when the next MoveGroup arrived - a real bug, not a
+    // harmless extra order. The batch is still a batch, so the budget still cannot split it.
+
+    /// <summary>
+    /// Unpacks the packed castle/camp foundation <paramref name="foundationId"/>.
+    /// Emits a single CastleUnpack order.
+    /// </summary>
+    /// <remarks>
+    /// Affordability is NOT checked here: the unpack cost lives in the CastleBehavior's matched
+    /// per-faction entry, which is sim state this seam cannot see, and CastleOrderHandler's
+    /// guard 6 charges it and returns CannotAfford when it cannot. The caller is expected to
+    /// re-issue on a cooldown rather than to pre-compute a cost it does not have.
+    /// </remarks>
+    public bool UnpackCastle(ObjectId foundationId)
+    {
+        if (foundationId.IsInvalid)
+        {
+            return Reject(AiOrderIntent.UnpackCastle, "invalid foundation");
+        }
+
+        return Accept(
+            AiOrderIntent.UnpackCastle,
+            [Order.CreateCastleUnpack(PlayerIndex, foundationId)]);
+    }
+
+    /// <summary>
+    /// Builds <paramref name="objectDefinitionId"/> on the castle build plot
+    /// <paramref name="plotId"/>. Emits a single FoundationConstruct order.
+    /// </summary>
+    /// <param name="plotId">A KINDOF BASE_FOUNDATION object this player owns.</param>
+    /// <param name="objectDefinitionId">
+    /// An <c>ObjectDefinition.InternalId</c>. Internal ids start at 1, so a non-positive value is
+    /// always malformed and is refused here rather than becoming a "no object definition with
+    /// internal id 0" line in the match log.
+    /// </param>
+    public bool ConstructOnFoundation(ObjectId plotId, int objectDefinitionId)
+    {
+        if (plotId.IsInvalid)
+        {
+            return Reject(AiOrderIntent.ConstructOnFoundation, "invalid plot");
+        }
+
+        if (objectDefinitionId <= 0)
+        {
+            return Reject(AiOrderIntent.ConstructOnFoundation, "invalid definition id");
+        }
+
+        return Accept(
+            AiOrderIntent.ConstructOnFoundation,
+            [Order.CreateFoundationConstruct(PlayerIndex, plotId, objectDefinitionId)]);
     }
 
     // ---- budget, backlog, emission ----------------------------------------------------

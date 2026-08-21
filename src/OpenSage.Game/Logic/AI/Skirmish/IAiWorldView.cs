@@ -69,4 +69,40 @@ public interface IAiWorldView
     /// <see cref="Difficulty"/>, or null when the data has no entry for it.
     /// </summary>
     DifficultyTuning? DifficultyTuning { get; }
+
+    // ==== BEGIN (S9-06) base/plot slice =================================================
+    //
+    // Added because AiBaseManager cannot be written without it: the members above describe
+    // objects and money, and none of them can answer "which of my objects is an empty castle
+    // build plot" or "what am I allowed to put on one". Both facts need KINDOF flags and an
+    // AssetStore walk, which a manager is forbidden to do (see the file header).
+    //
+    // Region markers are here so S9-08 can append its own slice below this one without the two
+    // packets colliding in the middle of the interface. Append a NEW region; do not grow this
+    // one.
+
+    /// <summary>
+    /// The player's own castle build plots (KINDOF BASE_FOUNDATION objects), in ascending
+    /// object-id order, rebuilt per frame alongside <see cref="OwnObjects"/>.
+    /// </summary>
+    /// <remarks>
+    /// Empty is normal and not an error: before a packed castle is unpacked the plot ring does
+    /// not exist yet, which is precisely why <see cref="AiPlotKind.PackedCastle"/> is reported
+    /// through this same list.
+    /// </remarks>
+    IReadOnlyList<AiPlotView> Plots { get; }
+
+    /// <summary>
+    /// Structures this player may place on a free plot, cheapest first (ties by ordinal name).
+    /// Static mod data: resolved once per match, never per frame.
+    /// </summary>
+    /// <remarks>
+    /// The membership rule is the sim's own: the definition carries KINDOF NEED_BASE_FOUNDATION,
+    /// the exact test whose failure makes CastleOrderHandler return
+    /// <c>TemplateNotBuildableOnFoundation</c>. Side filtering on top of it is a v1 heuristic
+    /// that packet S9-13 (.bse castle templates) is expected to replace.
+    /// </remarks>
+    IReadOnlyList<AiBuildableTemplate> BuildableStructures { get; }
+
+    // ==== END (S9-06) base/plot slice ===================================================
 }

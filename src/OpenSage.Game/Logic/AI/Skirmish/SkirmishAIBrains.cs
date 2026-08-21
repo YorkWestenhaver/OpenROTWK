@@ -77,7 +77,21 @@ public static class SkirmishAIBrains
     /// </remarks>
     private static void RegisterManagers(SkirmishAIBrain brain)
     {
-        brain.RegisterManager(new AiEconomyManager());
-        // (S9-06) brain.RegisterManager(new AiBaseManager());
+        var economy = new AiEconomyManager();
+        brain.RegisterManager(economy);
+
+        // (S9-06) PURE APPEND - AiEconomyManager keeps index 0, exactly as the append-only rule
+        // above requires. AiOrderEmitter documents that it wants to run before any manager that
+        // emits orders (its Update rolls the per-frame budget and drains the backlog); appending
+        // it here satisfies that without reordering anything, because the one manager already
+        // registered submits no orders at all. Every later order-emitting manager appends AFTER
+        // this line.
+        //
+        // ONE emitter per brain, shared by every manager that orders: the per-frame budget is a
+        // property of the brain, and a second emitter would think it owned the whole budget too.
+        var emitter = new AiOrderEmitter(brain);
+        brain.RegisterManager(emitter);
+
+        brain.RegisterManager(new AiBaseManager(emitter, economy));
     }
 }
