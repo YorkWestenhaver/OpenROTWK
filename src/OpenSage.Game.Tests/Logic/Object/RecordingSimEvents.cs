@@ -36,6 +36,12 @@ internal readonly record struct RecordedParticleSystem(
     string Bone,
     bool RandomBone);
 
+internal readonly record struct RecordedRelativeEvaEvent(
+    ObjectId PerspectiveOwnerId,
+    string OwnerEventName,
+    string AlliedEventName,
+    string EnemyEventName);
+
 internal sealed class RecordingSimEvents : ISimEvents
 {
     public List<RecordedFX> Events { get; } = new();
@@ -77,6 +83,12 @@ internal sealed class RecordingSimEvents : ISimEvents
 
     public void DestroyAttachedParticleSystems(ObjectId objectId) =>
         DestroyedAttachedParticleSystemsFor.Add(objectId);
+
+    /// <summary>Perspective-relative Eva event requests, in order (AttachUpdate, R13).</summary>
+    public List<RecordedRelativeEvaEvent> RelativeEvaEvents { get; } = new();
+
+    public void FireRelativeEvaEvent(ObjectId perspectiveOwnerId, string ownerEventName, string alliedEventName, string enemyEventName) =>
+        RelativeEvaEvents.Add(new RecordedRelativeEvaEvent(perspectiveOwnerId, ownerEventName, alliedEventName, enemyEventName));
 
     /// <summary>Installs a fresh recorder on the headless host's context and returns it.</summary>
     public static RecordingSimEvents InstallOn(HeadlessSimGame game)

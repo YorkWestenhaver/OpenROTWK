@@ -346,4 +346,19 @@ public interface ISimEvents
     /// bookkeeping, are still faithfully modeled.
     /// </summary>
     void DestroyAttachedParticleSystems(ObjectId objectId);
+
+    /// <summary>
+    /// Request a perspective-relative Eva event: the client resolves which name to actually
+    /// play by comparing the local viewer's relationship to <paramref name="perspectiveOwnerId"/>
+    /// at playback time (owner-perspective clients play <paramref name="ownerEventName"/>, and
+    /// so on). Grown for the AttachUpdate port (R13): sim code cannot know "the local player"
+    /// (an inherently per-client, non-deterministic notion), so unlike the object-targeted FX
+    /// events above, the sim side does not decide which of owner/allied/enemy the local viewer
+    /// is - it hands the client enough to decide at playback time, the same
+    /// key-into-a-client-side-table shape <see cref="FireUnitSoundAtObject"/> already
+    /// establishes. A null/empty name for a relationship this call doesn't carry means "no cue
+    /// for that perspective" (AttachUpdate's own field set has no allied variant for either of
+    /// its two Eva events).
+    /// </summary>
+    void FireRelativeEvaEvent(ObjectId perspectiveOwnerId, string ownerEventName, string alliedEventName, string enemyEventName);
 }

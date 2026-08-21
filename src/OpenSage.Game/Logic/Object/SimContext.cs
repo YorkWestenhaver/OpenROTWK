@@ -453,6 +453,21 @@ internal sealed class SimContext : ISimContext
         {
             _ = objectId;
         }
+
+        // R13 (AttachUpdate): same story as FireUnitSoundAtObject/FireCrateFreeUnitPickupSound -
+        // there is no client-bound Eva-event queue yet for this engine snapshot to drain into
+        // (S8: this is the output side of the seam, and playing the cue is the client's job,
+        // not the sim's). Recording the request, in whichever of the three perspective slots
+        // the caller filled in, is what a ported module owes; nothing here resolves "the local
+        // viewer" - that per-client, non-deterministic decision is deliberately left for the
+        // far side of the seam once it exists.
+        public void FireRelativeEvaEvent(ObjectId perspectiveOwnerId, string ownerEventName, string alliedEventName, string enemyEventName)
+        {
+            _ = perspectiveOwnerId;
+            _ = ownerEventName;
+            _ = alliedEventName;
+            _ = enemyEventName;
+        }
     }
 }
 
