@@ -200,6 +200,38 @@ End
     }
 
     [Fact]
+    public void RingDestroyedSameFrameNotYetReaped_StillVisibleInObjectsAscendingId_ExcludedByIsDestroyedCheck()
+    {
+        // ISimContext.cs documents that DestroyObject marks an object destroyed immediately
+        // but it stays visible (IsDestroyed == true) in ObjectsAscendingId until end-of-frame
+        // reaping (DeleteDestroyed). This exercises exactly that same-frame window - unlike
+        // RingAlreadyDestroyed_FilterMatchesNothing_FallsBackToStandardSlaughter above, this
+        // test deliberately does NOT call DeleteDestroyed(), so the ring object is still
+        // present in ObjectsAscendingId (with IsDestroyed true) when TryEnterHorde scans it.
+        // FindRingEntryMatches must exclude it by IsDestroyed, not merely by list membership,
+        // or a ring destroyed earlier in the same frame would still grant ring-entry status/
+        // upgrades on a ghost object.
+        var game = NewGame();
+        var citadel = game.SpawnObject("Citadel", game.CivilianPlayer, Vector3.Zero);
+        var horde = game.SpawnObject("RingHorde", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var ring = game.SpawnObject("DroppedRing", game.CivilianPlayer, new Vector3(10, 0, 0));
+        ring.ParentHorde = horde;
+
+        // Destroyed this same frame by an earlier module/combat - NOT yet reaped.
+        game.GameLogic.DestroyObject(ring);
+
+        var module = ModuleOf(citadel);
+        var entered = module.TryEnterHorde(horde);
+
+        Assert.True(entered);
+        Assert.False(horde.TestStatus(ObjectStatus.HoldingTheRing));
+        Assert.False(horde.HasUpgrade(UpgradeByName(game, "Upgrade_RingHero")));
+        Assert.False(horde.HasUpgrade(UpgradeByName(game, "Upgrade_FortressRingHero")));
+        // Falls back to standard slaughter processing since no live ring object matched.
+        Assert.True(horde.IsDestroyed);
+    }
+
+    [Fact]
     public void AlliedHorde_RejectedWhenNoOverrideAndAlliesDisallowed_UnlessOwnedByCitadelOwner()
     {
         var game = NewGame();

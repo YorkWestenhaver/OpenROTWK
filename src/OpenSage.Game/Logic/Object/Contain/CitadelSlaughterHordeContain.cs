@@ -150,9 +150,15 @@ public sealed class CitadelSlaughterHordeContain : BehaviorModule, IUpgradeableM
         // order (design-module-api §6) - and needs no Contain-module machinery on the horde
         // itself, unlike IContainModule (reserved for structures/vehicles that hold hordes,
         // spec-hordes.md §2 row 63 - not what a horde's own carried cargo uses).
+        //
+        // IsDestroyed must be excluded explicitly: ISimContext.cs (DestroyObject/
+        // ObjectsAscendingId doc, ~lines 76-91) documents that DestroyObject marks an object
+        // destroyed immediately but it stays visible in ObjectsAscendingId (IsDestroyed true)
+        // until end-of-frame reaping, so a same-frame-destroyed ring object would otherwise
+        // still be found here and grant ring-entry status/upgrades on a ghost object.
         foreach (var candidate in Context.GameLogic.ObjectsAscendingId)
         {
-            if (candidate != null && candidate.ParentHorde == horde && filter.Matches(candidate))
+            if (candidate != null && !candidate.IsDestroyed && candidate.ParentHorde == horde && filter.Matches(candidate))
             {
                 matches.Add(candidate);
             }
