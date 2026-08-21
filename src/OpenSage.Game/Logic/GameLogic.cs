@@ -327,8 +327,21 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
             }
 
             // Defer it till the next frame and re-push it.
+            //
+            // GPL rebalances index 0 here (GameLogic.cpp, GameLogic::update's sleepy loop),
+            // taking for granted that the module it just updated is still the heap root. That
+            // only holds while nothing is pushed onto the heap during the update: an object
+            // created from inside Update() registers its own update modules immediately, and one
+            // of those can outrank the running module for the current frame (an AIUpdate is
+            // phase Order0 against a behavior's Order2, and its initial call frame is this very
+            // frame), so it bubbles to the root and pushes the running module down into the
+            // heap's interior. Rebalancing index 0 would then leave the running module parked at
+            // an interior node carrying its new - larger - key, breaking the heap invariant
+            // SleepyUpdateList.Validate() checks. Rebalance where the module actually is; that
+            // index is 0 in every case GPL's version covers, so update order is unchanged there.
+            var indexInHeap = updateModule.IndexInLogic;
             updateModule.NextCallFrame = now + sleepLength.FrameSpan;
-            _sleepyUpdates.Rebalance(0);
+            _sleepyUpdates.Rebalance(indexInHeap);
         }
 
         _sleepyUpdates.Validate();
