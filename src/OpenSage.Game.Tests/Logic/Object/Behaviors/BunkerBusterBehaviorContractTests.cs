@@ -259,6 +259,53 @@ End
     }
 
     [Fact]
+    public void Load_ResetsCachedVictim_MatchingRetailXferContract()
+    {
+        // GPL's BunkerBusterBehavior::xfer() (generals-gpl BunkerBusterBehavior.cpp) is a single
+        // line delegating to UpdateModule::xfer(xfer) - m_victimID is never read or written by
+        // xfer, so a real save/load resets any in-flight bomb's cached victim back to
+        // INVALID_ID. The port must reproduce that "forgetting", not faithfully round-trip the
+        // cached victim (which would diverge from a retail peer at the next bustTheBunker()).
+        var game = NewGame();
+        GrantUpgrade(game);
+        var missile = game.SpawnObject("BunkerBusterMissile", game.CivilianPlayer, Vector3.Zero);
+        var bunker = game.SpawnObject("Bunker", game.PlayerManager.NeutralPlayer, new Vector3(100, 0, 0));
+        var occupant = game.SpawnObject("Occupant", game.PlayerManager.NeutralPlayer, new Vector3(100, 0, 0));
+        InjectContain(bunker, new FakeGarrisonContain(occupant));
+
+        missile.AIUpdate.SetCurrentVictim(bunker.Id);
+        game.Step();
+        game.Step(); // BunkerBusterBehavior.Update caches _victimId = bunker.Id here.
+
+        var behavior = missile.FindBehavior<BunkerBusterBehavior>();
+        Assert.NotNull(behavior);
+
+        using var stream = new System.IO.MemoryStream();
+        using (var writer = new StateWriter(stream, game))
+        {
+            behavior.Load(writer);
+        }
+
+        stream.Position = 0;
+        using (var reader = new StateReader(stream, game))
+        {
+            behavior.Load(reader);
+        }
+
+        // The AI's live victim is unchanged (still the bunker) - only the module's own cached
+        // copy must have been forgotten by the load, per retail's xfer contract.
+        missile.Kill();
+
+        // With no cached victim surviving the load, bustTheBunker() must resolve no target:
+        // objectForFX falls back to the missile itself (GPL: "was the pilot aiming at an
+        // object?" is false), so the shockwave weapon fires on the missile, not the bunker -
+        // and the occupant, never reached at all, survives untouched.
+        Assert.False(Fired(bunker));
+        Assert.True(Fired(missile));
+        Assert.False(occupant.IsEffectivelyDead);
+    }
+
+    [Fact]
     public void CrashThroughFX_PlaysOnlyDuringSelfDestructAtConfiguredFrequency()
     {
         var game = NewGame();
