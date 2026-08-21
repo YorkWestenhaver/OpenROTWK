@@ -234,13 +234,27 @@ public sealed class LiveAiWorldView : IAiWorldView
             {
                 _ownObjects.Add(Snapshot(gameObject, owner));
 
-                // (S9-06) A build plot is also an ordinary owned object, so it appears in BOTH
-                // lists. That is intended: OwnObjects stays the complete inventory (the fill
-                // order counts structures out of it) and Plots is the filtered view the base
-                // manager acts on.
-                if (gameObject.IsKindOf(ObjectKinds.BaseFoundation))
+                // (S9-06) A plot is also an ordinary owned object, so it appears in BOTH lists.
+                // That is intended: OwnObjects stays the complete inventory (the fill order
+                // counts structures out of it) and Plots is the filtered view the base manager
+                // acts on.
+                //
+                // Two ways in, because they answer different questions:
+                //   * KINDOF BASE_FOUNDATION is the sim's own definition of "a thing a
+                //     FoundationConstruct may target" (CastleOrderHandler's NotAFoundation
+                //     guard), so every one of those is a plot;
+                //   * a still-packed castle is reported even if it is NOT flagged
+                //     BASE_FOUNDATION, because unpacking it is what creates the plot ring and an
+                //     AI that could not see it would never build anything at all. An object with
+                //     a CastleBehavior that is neither a foundation nor packed is not a plot and
+                //     is skipped - offering it as a build target would only earn a NotAFoundation
+                //     rejection every cooldown.
+                var castle = gameObject.FindBehavior<CastleBehavior>();
+                var isFoundation = gameObject.IsKindOf(ObjectKinds.BaseFoundation);
+
+                if (isFoundation || (castle != null && castle.CanUnpack(checkTimer: false)))
                 {
-                    _plots.Add(SnapshotPlot(gameObject));
+                    _plots.Add(SnapshotPlot(gameObject, castle));
                 }
             }
             else if (_player.Enemies != null && _player.Enemies.Contains(owner))
@@ -283,9 +297,8 @@ public sealed class LiveAiWorldView : IAiWorldView
     /// runs once per frame inside the shared snapshot rather than per manager query.
     /// </para>
     /// </remarks>
-    private AiPlotView SnapshotPlot(GameObject plot)
+    private AiPlotView SnapshotPlot(GameObject plot, CastleBehavior? castle)
     {
-        var castle = plot.FindBehavior<CastleBehavior>();
         var kind = castle != null && castle.CanUnpack(checkTimer: false)
             ? AiPlotKind.PackedCastle
             : AiPlotKind.BuildPlot;
