@@ -24,6 +24,17 @@
 // frame start+D, whatever the Step bookkeeping happens to be. The module itself is unchanged by
 // this - GPL's own countdown (startUnpacking sets m_animFrames = unpackTime, each update()
 // decrements, complete at zero) puts the boundary on exactly that frame.
+//
+// Experience baseline (R13 repair, the second trap these tests fell into): AwardXPForTriggering
+// is asserted against RankOneFloor, never against literal zero. GameObject.cs adds an
+// ExperienceUpdate helper ("ModuleTag_ExperienceHelper") to every object on every non-Generals
+// game, and that helper's first tick raises a still-zero CurrentExperience to the rank-1 floor
+// of 1 (ExperienceUpdate.Initialize: `if (CurrentExperience == 0) SetExperienceAndLevel(1)`).
+// The floor lands once, on the first Step after the XP-receiving object is spawned, and is
+// engine-wide landed behavior wholly outside this module - so any test that steps the game at
+// all and then reads a trainable object's absolute experience is reading award + 1. The module
+// itself is unaffected: it awards exactly AwardXPForTriggering per trigger through
+// ExperienceTracker.AddExperiencePoints, which is what the deltas below assert.
 
 using System.Linq;
 using System.Numerics;
@@ -206,6 +217,12 @@ End
 
     private static LogicFrameSpan Frames(uint count) => new(count);
 
+    /// <summary>
+    /// Experience a trainable object carries once the engine's own ExperienceUpdate helper has
+    /// ticked, before this module has awarded anything - see the file-header note.
+    /// </summary>
+    private const int RankOneFloor = 1;
+
     [Fact]
     public void InitiateIntentToDoSpecialPower_WrongTemplateName_NoOp()
     {
@@ -245,11 +262,11 @@ End
         // ...and Prepared on the frame the countdown reaches zero.
         StepThroughFrame(game, start + Frames(5));
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
-        Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor, hero.ExperienceTracker.CurrentExperience);
 
         // PreparationTime = 5 more frames: preparation completes, effect auto-fires.
         StepThroughFrame(game, start + Frames(10));
-        Assert.Equal(50, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor + 50, hero.ExperienceTracker.CurrentExperience);
         Assert.Contains(("Sound_Trigger", watcher.Id), recorder.AudioEvents);
         Assert.True(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
@@ -275,7 +292,7 @@ End
         // UnpackTime = 0, so Prepared starts on the Initiate call itself; the first 5-frame
         // Prepared window completes on frame start+5 and the effect fires.
         StepThroughFrame(game, start + Frames(5));
-        Assert.Equal(10, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor + 10, hero.ExperienceTracker.CurrentExperience);
 
         // Looped back to Prepared per the GPL repeating-loop reading - did NOT proceed to
         // Packing. This is the case that discriminates the GPL repeating reading from
@@ -284,13 +301,13 @@ End
 
         // Second PersistentPrepTime window: fires again, still without packing.
         StepThroughFrame(game, start + Frames(10));
-        Assert.Equal(20, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor + 20, hero.ExperienceTracker.CurrentExperience);
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
         // Third window: "repeat forever" is a loop, not a single extra pass - a one-shot or
         // twice-only reading of PersistentPrepTime dies here.
         StepThroughFrame(game, start + Frames(15));
-        Assert.Equal(30, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor + 30, hero.ExperienceTracker.CurrentExperience);
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
         // ...and the cycle is genuinely never returning to Packed: a fresh Initiate is
@@ -310,6 +327,9 @@ End
         // collapses to one synchronous call.
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", hero));
 
+        // No RankOneFloor term here (unlike every other XP assertion in this file): the game is
+        // never stepped in this test, so the engine's ExperienceUpdate helper has not ticked and
+        // the hero's experience is still at its literal spawn value of zero.
         Assert.Equal(5, hero.ExperienceTracker.CurrentExperience);
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
@@ -415,7 +435,7 @@ End
         // start+5 (PreparationTime = 5 frames). Save mid-window, with frames left to run.
         var triggerFrame = start + Frames(5);
         StepThroughFrame(game, start + Frames(1));
-        Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor, hero.ExperienceTracker.CurrentExperience);
 
         var saved = PortedModuleTestKit.Save(live);
         var liveCrc = PortedModuleTestKit.LiveCrc(live);
@@ -442,12 +462,12 @@ End
         // (the in-loop assertion below) nor late (the assertion after it).
         while (game.GameLogic.CurrentFrame < triggerFrame)
         {
-            Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
+            Assert.Equal(RankOneFloor, hero.ExperienceTracker.CurrentExperience);
             game.Step();
             shadow.Update();
         }
 
-        Assert.Equal(25, hero.ExperienceTracker.CurrentExperience);
+        Assert.Equal(RankOneFloor + 25, hero.ExperienceTracker.CurrentExperience);
 
         // PackTime = 0 on XferWatcher, so the loaded instance also collapsed straight back to
         // Packed: it accepts a fresh Initiate, proving the whole phase machine (not just the
