@@ -132,6 +132,19 @@ public class AIUpdate : UpdateModule
     public ObjectId IgnoredObstacleID => _ignoreObstacleId;
 
     /// <summary>
+    /// Current AI mood/attitude (GPL AIUpdateInterface::getAttitude). Added for the
+    /// SiegeEngineContain port (R13): GoAggressiveOnExit needs a public seam to both read
+    /// (tests) and set (GPL TransportContain.cpp:408-411,
+    /// <c>rider->getAI()->setAttitude(AI_AGGRESSIVE)</c>) this previously write-only field.
+    /// </summary>
+    public AttitudeType Attitude => _attitude;
+
+    /// <summary>Sets <see cref="Attitude"/> (GPL AIUpdateInterface::setAttitude). Internal:
+    /// only other sim modules (e.g. a contain module releasing an occupant) call this, never
+    /// external callers.</summary>
+    internal void SetAttitude(AttitudeType attitude) => _attitude = attitude;
+
+    /// <summary>
     /// A list of positions along the path to the current target point. "Path" as in pathfinding, not waypoint path.
     /// </summary>
     public List<Vector3> TargetPoints { get; set; }
