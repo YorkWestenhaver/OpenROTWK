@@ -12,6 +12,8 @@ using Team = Data.Map.Team;
 
 internal static class SidesListUtility
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     public static void SetupGameSides(
         IGame game,
         MapFile mapFile,
@@ -168,6 +170,21 @@ internal static class SidesListUtility
             var playerSetting = playerSettings[i];
 
             var factionPlayer = originalMapPlayers.FirstOrDefault(x => x.Faction == playerSetting.SideName);
+
+            if (factionPlayer == null)
+            {
+                Logger.Warn(
+                    $"SetupSkirmishGameSides: map's SidesList has no player with faction '{playerSetting.SideName}' " +
+                    $"(requested for player slot {i}); degrading to a placeholder player with an empty build list " +
+                    "instead of throwing a NullReferenceException.");
+
+                factionPlayer = new Player
+                {
+                    Faction = playerSetting.SideName,
+                    Name = playerSetting.SideName,
+                    DisplayName = playerSetting.SideName,
+                };
+            }
 
             var isHuman = playerSetting.Owner == PlayerOwner.Player;
 

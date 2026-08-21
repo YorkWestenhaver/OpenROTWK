@@ -30,8 +30,17 @@ public static class Program
         [Option('g', "game", Default = SageGame.CncGenerals, Required = false, HelpText = "Chooses which game to start.")]
         public SageGame Game { get; set; }
 
-        [Option('m', "map", Required = false, HelpText = "Immediately starts a new skirmish with default settings in the specified map. The map file must be specified with the full path.")]
+        [Option('m', "map", Required = false, HelpText = "Immediately starts a new skirmish with default settings in the specified map. The map is looked up by its MapCache key (the map's registered name), not by file path.")]
         public string? Map { get; set; }
+
+        [Option("faction", Default = null, Required = false, HelpText = "PlayerTemplate side name (e.g. FactionMen) for player 1 in a --map skirmish. Defaults to the first playable side reported by the current game/mod's asset store.")]
+        public string? Faction { get; set; }
+
+        [Option("faction2", Default = null, Required = false, HelpText = "PlayerTemplate side name (e.g. FactionMordor) for player 2 (the AI opponent) in a --map skirmish. Defaults to the second playable side reported by the current game/mod's asset store.")]
+        public string? Faction2 { get; set; }
+
+        [Option("ai-difficulty", Default = "Easy", Required = false, HelpText = "AI difficulty for player 2 in a --map skirmish: Easy, Medium, or Hard.")]
+        public string AiDifficulty { get; set; } = "Easy";
 
         [Option("novsync", Default = false, Required = false, HelpText = "Disable vsync.")]
         public bool DisableVsync { get; set; }
@@ -78,6 +87,12 @@ public static class Program
     }
 
     private static NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    private static PlayerOwner LogUnknownDifficultyAndDefault(string? requested)
+    {
+        Logger.Warn($"Unknown --ai-difficulty value '{requested}' (expected Easy, Medium, or Hard); defaulting to Easy.");
+        return PlayerOwner.EasyAi;
+    }
 
     private static GameInstallation? GameFromPath(Options opts, SageGame game, string? path)
     {
@@ -212,19 +227,43 @@ public static class Program
                     }
                     else if (mapCache.IsMultiplayer)
                     {
-                        var pSettings = new PlayerSetting[]
+                        // Pattern: SkirmishManager.cs:78 (Game.GetPlayableSides().ElementAt(...).Name).
+                        var playableSides = game.GetPlayableSides().ToList();
+
+                        var faction1 = opts.Faction ?? playableSides.ElementAtOrDefault(0)?.Name;
+                        var faction2 = opts.Faction2 ?? playableSides.ElementAtOrDefault(1)?.Name;
+
+                        if (faction1 == null || faction2 == null)
                         {
-                            new(1, "FactionAmerica", new ColorRgb(255, 0, 0), 0, PlayerOwner.Player),
-                            new(2, "FactionGLA", new ColorRgb(0, 255, 0), 0, PlayerOwner.EasyAi),
-                        };
+                            Logger.Warn(
+                                "Could not derive default --faction/--faction2 values: the current game/mod's " +
+                                "asset store reports fewer than 2 playable sides. Falling back to the main menu.");
+                            game.ShowMainMenu();
+                        }
+                        else
+                        {
+                            var aiOwner = opts.AiDifficulty?.Trim().ToLowerInvariant() switch
+                            {
+                                "easy" => PlayerOwner.EasyAi,
+                                "medium" => PlayerOwner.MediumAi,
+                                "hard" => PlayerOwner.HardAi,
+                                var unknown => LogUnknownDifficultyAndDefault(unknown)
+                            };
 
-                        Logger.Debug("Starting multiplayer game");
+                            var pSettings = new PlayerSetting[]
+                            {
+                                new(1, faction1, new ColorRgb(255, 0, 0), 0, PlayerOwner.Player),
+                                new(2, faction2, new ColorRgb(0, 255, 0), 0, aiOwner),
+                            };
 
-                        game.StartSkirmishOrMultiPlayerGame(opts.Map,
-                            new EchoConnection(),
-                            pSettings,
-                            Environment.TickCount,
-                            false);
+                            Logger.Debug($"Starting multiplayer game with factions '{faction1}' vs '{faction2}' (AI difficulty: {aiOwner})");
+
+                            game.StartSkirmishOrMultiPlayerGame(opts.Map,
+                                new EchoConnection(),
+                                pSettings,
+                                Environment.TickCount,
+                                false);
+                        }
                     }
                     else
                     {
