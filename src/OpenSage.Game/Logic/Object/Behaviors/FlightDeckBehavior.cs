@@ -427,7 +427,7 @@ public sealed class FlightDeckBehavior : UpdateModule, IDieModule
 
         // GPL: HEAL_RATE_FRAMES * m_healAmount * SECONDS_PER_LOGICFRAME_REAL, i.e. one
         // HealAmountPerSecond/HealsPerSecond tick per heal-rate frame.
-        var healPerTick = (float)_data.HealAmountPerSecond / HealsPerSecond;
+        var healPerTick = _data.HealAmountPerSecond / HealsPerSecond;
 
         for (var i = _healing.Count - 1; i >= 0; i--)
         {
@@ -472,8 +472,8 @@ public sealed class FlightDeckBehavior : UpdateModule, IDieModule
         if (_nextAllowedProductionFrame == LogicFrame.Zero)
         {
             _nextAllowedProductionFrame = now
-                + new LogicFrameSpan((uint)_data.ReplacementDelay)
-                + new LogicFrameSpan((uint)_data.DockAnimationDelay);
+                + _data.ReplacementDelay
+                + _data.DockAnimationDelay;
             return;
         }
 
@@ -514,7 +514,7 @@ public sealed class FlightDeckBehavior : UpdateModule, IDieModule
                     if (!_rampUp[i])
                     {
                         _rampUp[i] = true;
-                        _rampUpFrame[i] = now + new LogicFrameSpan((uint)_data.LaunchRampDelay);
+                        _rampUpFrame[i] = now + _data.LaunchRampDelay;
                         _lowerRampFrame[i] = Forever;
                         SetRampDoorState(i, opening: true);
                     }
@@ -522,9 +522,9 @@ public sealed class FlightDeckBehavior : UpdateModule, IDieModule
                     if (_rampUp[i] && _rampUpFrame[i] <= now)
                     {
                         _takeoffOrdered.Remove(jetId);
-                        _nextLaunchWaveFrame[i] = now + new LogicFrameSpan((uint)_data.LaunchWaveDelay);
-                        _catapultSystemFrame[i] = now + new LogicFrameSpan((uint)_data.CatapultFireDelay);
-                        _lowerRampFrame[i] = now + new LogicFrameSpan((uint)_data.LowerRampDelay);
+                        _nextLaunchWaveFrame[i] = now + _data.LaunchWaveDelay;
+                        _catapultSystemFrame[i] = now + _data.CatapultFireDelay;
+                        _lowerRampFrame[i] = now + _data.LowerRampDelay;
                     }
                 }
             }
@@ -935,21 +935,21 @@ public sealed class FlightDeckBehaviorModuleData : BehaviorModuleData
         { "Runway2Creation", (parser, x) => x.Runway2Creation = parser.ParseBoneNameArray() },
         { "Runway2CatapultSystem", (parser, x) => x.Runway2CatapultSystem = parser.ParseFXParticleSystemTemplateReference() },
 
-        { "HealAmountPerSecond", (parser, x) => x.HealAmountPerSecond = parser.ParseInteger() },
+        { "HealAmountPerSecond", (parser, x) => x.HealAmountPerSecond = parser.ParseFloat() },
 
-        { "ApproachHeight", (parser, x) => x.ApproachHeight = parser.ParseInteger() },
+        { "ApproachHeight", (parser, x) => x.ApproachHeight = parser.ParseFloat() },
         { "LandingDeckHeightOffset", (parser, x) => x.LandingDeckHeightOffset = parser.ParseFloat() },
-        { "ParkingCleanupPeriod", (parser, x) => x.ParkingCleanupPeriod = parser.ParseInteger() },
-        { "HumanFollowPeriod", (parser, x) => x.HumanFollowPeriod = parser.ParseInteger() },
+        { "ParkingCleanupPeriod", (parser, x) => x.ParkingCleanupPeriod = parser.ParseTimeMillisecondsToLogicFrames() },
+        { "HumanFollowPeriod", (parser, x) => x.HumanFollowPeriod = parser.ParseTimeMillisecondsToLogicFrames() },
 
         { "PayloadTemplate", (parser, x) => x.PayloadTemplate = parser.ParseObjectReference() },
-        { "ReplacementDelay", (parser, x) => x.ReplacementDelay = parser.ParseInteger() },
-        { "DockAnimationDelay", (parser, x) => x.DockAnimationDelay = parser.ParseInteger() },
+        { "ReplacementDelay", (parser, x) => x.ReplacementDelay = parser.ParseTimeMillisecondsToLogicFrames() },
+        { "DockAnimationDelay", (parser, x) => x.DockAnimationDelay = parser.ParseTimeMillisecondsToLogicFrames() },
 
-        { "LaunchWaveDelay", (parser, x) => x.LaunchWaveDelay = parser.ParseInteger() },
-        { "LaunchRampDelay", (parser, x) => x.LaunchRampDelay = parser.ParseInteger() },
-        { "LowerRampDelay", (parser, x) => x.LowerRampDelay = parser.ParseInteger() },
-        { "CatapultFireDelay", (parser, x) => x.CatapultFireDelay = parser.ParseInteger() },
+        { "LaunchWaveDelay", (parser, x) => x.LaunchWaveDelay = parser.ParseTimeMillisecondsToLogicFrames() },
+        { "LaunchRampDelay", (parser, x) => x.LaunchRampDelay = parser.ParseTimeMillisecondsToLogicFrames() },
+        { "LowerRampDelay", (parser, x) => x.LowerRampDelay = parser.ParseTimeMillisecondsToLogicFrames() },
+        { "CatapultFireDelay", (parser, x) => x.CatapultFireDelay = parser.ParseTimeMillisecondsToLogicFrames() },
     };
 
     public int NumRunways { get; private set; }
@@ -972,21 +972,21 @@ public sealed class FlightDeckBehaviorModuleData : BehaviorModuleData
     /// <summary>
     /// Amount of health to give non-airborne aircraft on the deck.
     /// </summary>
-    public int HealAmountPerSecond { get; private set; }
+    public float HealAmountPerSecond { get; private set; }
 
-    public int ApproachHeight { get; private set; }
+    public float ApproachHeight { get; private set; }
     public float LandingDeckHeightOffset { get; private set; }
-    public int ParkingCleanupPeriod { get; private set; }
-    public int HumanFollowPeriod { get; private set; }
+    public LogicFrameSpan ParkingCleanupPeriod { get; private set; }
+    public LogicFrameSpan HumanFollowPeriod { get; private set; }
 
     public LazyAssetReference<ObjectDefinition> PayloadTemplate { get; private set; }
-    public int ReplacementDelay { get; private set; }
-    public int DockAnimationDelay { get; private set; }
+    public LogicFrameSpan ReplacementDelay { get; private set; }
+    public LogicFrameSpan DockAnimationDelay { get; private set; }
 
-    public int LaunchWaveDelay { get; private set; }
-    public int LaunchRampDelay { get; private set; }
-    public int LowerRampDelay { get; private set; }
-    public int CatapultFireDelay { get; private set; }
+    public LogicFrameSpan LaunchWaveDelay { get; private set; }
+    public LogicFrameSpan LaunchRampDelay { get; private set; }
+    public LogicFrameSpan LowerRampDelay { get; private set; }
+    public LogicFrameSpan CatapultFireDelay { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
