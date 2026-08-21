@@ -35,7 +35,10 @@ Object Silo
     DoorWaitOpenTime = 3
     DoorCloseTime = 4
     DoorOpeningFX = FX_DoorOpening
+    DoorOpenFX = FX_DoorOpen
     DoorWaitingToCloseFX = FX_DoorWaitingToClose
+    DoorClosingFX = FX_DoorClosing
+    DoorClosedFX = FX_DoorClosed
   End
 End
 ";
@@ -196,21 +199,42 @@ End
         Assert.Equal(FXOrientation.PositionOnly, openingFx.Orientation);
 
         // OPEN (via the natural OPENING timeout this time, readyFrame - 1 = 9): clears
-        // DOOR_1_OPENING, sets DOOR_1_WAITING_OPEN. No FX is configured for this transition.
+        // DOOR_1_OPENING, sets DOOR_1_WAITING_OPEN, fires DoorOpenFX.
         StepUntil(game, () => silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingOpen));
         Assert.False(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1Opening));
-        Assert.Single(recorder.Events); // unchanged - OPEN fires no FX in this data set
+        Assert.Equal(2, recorder.Events.Count);
+        var openFx = recorder.Events[1];
+        Assert.Equal("FX_DoorOpen", openFx.FXListName);
+        Assert.Equal(silo.Id, openFx.ObjectId);
+        Assert.Equal(FXOrientation.PositionOnly, openFx.Orientation);
 
         // WAITING_TO_CLOSE: clears DOOR_1_WAITING_OPEN, sets DOOR_1_WAITING_TO_CLOSE, fires
         // DoorWaitingToCloseFX.
         Assert.True(module.InitiateIntentToDoSpecialPower("TestSuperweapon"));
         Assert.True(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingToClose));
         Assert.False(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingOpen));
-        Assert.Equal(2, recorder.Events.Count);
-        var waitingToCloseFx = recorder.Events[1];
+        Assert.Equal(3, recorder.Events.Count);
+        var waitingToCloseFx = recorder.Events[2];
         Assert.Equal("FX_DoorWaitingToClose", waitingToCloseFx.FXListName);
         Assert.Equal(silo.Id, waitingToCloseFx.ObjectId);
         Assert.Equal(FXOrientation.PositionOnly, waitingToCloseFx.Orientation);
+
+        // CLOSING: clears DOOR_1_WAITING_TO_CLOSE, sets DOOR_1_CLOSING, fires DoorClosingFX.
+        StepUntil(game, () => silo.ModelConditionFlags.Get(ModelConditionFlag.Door1Closing));
+        Assert.False(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingToClose));
+        Assert.Equal(4, recorder.Events.Count);
+        var closingFx = recorder.Events[3];
+        Assert.Equal("FX_DoorClosing", closingFx.FXListName);
+        Assert.Equal(silo.Id, closingFx.ObjectId);
+        Assert.Equal(FXOrientation.PositionOnly, closingFx.Orientation);
+
+        // CLOSED: clears DOOR_1_CLOSING (all door flags clear), fires DoorClosedFX.
+        StepUntil(game, () => !AnyDoorFlagSet(silo));
+        Assert.Equal(5, recorder.Events.Count);
+        var closedFx = recorder.Events[4];
+        Assert.Equal("FX_DoorClosed", closedFx.FXListName);
+        Assert.Equal(silo.Id, closedFx.ObjectId);
+        Assert.Equal(FXOrientation.PositionOnly, closedFx.Orientation);
     }
 
     [Fact]
