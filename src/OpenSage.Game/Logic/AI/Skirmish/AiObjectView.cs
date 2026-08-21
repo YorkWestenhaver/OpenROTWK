@@ -6,8 +6,10 @@
 // GameObject could reach the whole engine through it (Owner -> PlayerManager -> Game), which
 // would defeat the point of IAiWorldView and make every manager need a running game to test.
 
+// ObjectId comes from the project-wide global using alias (GlobalUsings.cs) onto
+// OpenSage.SimCore.Orders.ObjectId.
+
 using System.Numerics;
-using OpenSage.Logic.Object;
 
 namespace OpenSage.Logic.AI.Skirmish;
 
