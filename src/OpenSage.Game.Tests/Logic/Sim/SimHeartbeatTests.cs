@@ -24,6 +24,7 @@ using Xunit;
 
 namespace OpenSage.Tests.Logic.Sim;
 
+[Collection(GameTraceCollection.Name)]
 public class SimHeartbeatTests : IDisposable
 {
     private readonly string _traceFilePath =

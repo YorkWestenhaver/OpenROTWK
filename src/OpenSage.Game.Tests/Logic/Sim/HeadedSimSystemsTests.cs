@@ -46,6 +46,7 @@ using Player = OpenSage.Logic.Player;
 
 namespace OpenSage.Tests.Logic.Sim;
 
+[Collection(GameTraceCollection.Name)]
 public class HeadedSimSystemsTests
 {
     /// <summary>Records every phase entry the loop announces, in order.</summary>
