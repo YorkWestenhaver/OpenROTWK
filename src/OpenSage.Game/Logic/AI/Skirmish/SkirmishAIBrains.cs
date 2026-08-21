@@ -77,7 +77,7 @@ public static class SkirmishAIBrains
     /// </remarks>
     private static void RegisterManagers(SkirmishAIBrain brain)
     {
-        // (S9-03) brain.RegisterManager(new AiEconomyManager());
+        brain.RegisterManager(new AiEconomyManager());
         // (S9-06) brain.RegisterManager(new AiBaseManager());
     }
 }
