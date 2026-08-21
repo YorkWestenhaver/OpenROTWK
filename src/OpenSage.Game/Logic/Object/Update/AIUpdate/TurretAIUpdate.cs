@@ -14,6 +14,11 @@
 // NaturalTurretAngle) -> Idle. FoundTargetWhileScanning stays a false-returning stub: the
 // idle-scan target search needs a scene/quadtree query seam this legacy AIUpdate surface does
 // not have wired (its GPL-faithful body is left commented as a filed TODO, not deleted).
+//
+// R13.5: ControlledWeaponSlots is live. A turret now tracks the target of a weapon in a slot it
+// controls rather than the object's current weapon unconditionally, which is what lets an object
+// with both Turret and AltTurret aim each turret at its own slot's target; TurretsLinked collapses
+// the two back onto the owner's current weapon so linked turrets share a target.
 
 using System;
 using System.Collections.Generic;
@@ -27,9 +32,27 @@ public class TurretAIUpdate : UpdateModule
 {
     private readonly TurretAIUpdateModuleData _moduleData;
 
+    /// <summary>Which of the owner's turrets this instance is (GPL <c>TurretAI::m_whichTurret</c>, const there too).</summary>
+    private readonly AIUpdate.WhichTurretType _whichTurret;
+
+    /// <summary>
+    /// The AIUpdate that owns this turret, needed for <c>AIUpdateInterface::areTurretsLinked</c>.
+    /// Null only in isolated (test) use, where an unlinked single turret is the right default:
+    /// <see cref="GameObject.AIUpdate"/> is not yet assigned while AIUpdate's own constructor
+    /// is still building its turrets, so this cannot be resolved lazily off the object.
+    /// </summary>
+    private readonly AIUpdate _owner;
+
     private WeaponTarget _currentTarget;
     private LogicFrame _waitUntil;
     private TurretAIStates _turretAIstate;
+
+    /// <summary>
+    /// Yaw for a non-main turret. <see cref="GameObject"/> carries exactly one TurretYaw, which
+    /// the draw modules read for the main turret, so only the alt turret needs its own angle
+    /// state here -- the main turret keeps writing through to the object (see <see cref="TurretYaw"/>).
+    /// </summary>
+    private float _altTurretYaw;
 
     public enum TurretAIStates
     {
@@ -47,16 +70,106 @@ public class TurretAIUpdate : UpdateModule
     /// <summary>Test/inspector-only view of the pending wake frame (backed by <see cref="_waitUntil"/>, which is persisted -- see <see cref="Load"/>).</summary>
     internal LogicFrame WaitUntil => _waitUntil;
 
-    internal TurretAIUpdate(GameObject gameObject, IGameEngine gameEngine, TurretAIUpdateModuleData moduleData)
+    /// <summary>
+    /// This turret's yaw. The main turret is the one the object's single TurretYaw (and hence the
+    /// draw modules) represents; an alt turret tracks independently in <see cref="_altTurretYaw"/>
+    /// so the two turrets do not overwrite each other's rotation every frame.
+    /// </summary>
+    internal float TurretYaw
+    {
+        get => _whichTurret == AIUpdate.WhichTurretType.Alt ? _altTurretYaw : GameObject.TurretYaw;
+        private set
+        {
+            if (_whichTurret == AIUpdate.WhichTurretType.Alt)
+            {
+                _altTurretYaw = value;
+            }
+            else
+            {
+                GameObject.TurretYaw = value;
+            }
+        }
+    }
+
+    /// <summary>Test/inspector-only view of the weapon this turret is currently aiming for.</summary>
+    internal Weapon ControlledWeapon => GetControlledWeapon();
+
+    internal TurretAIUpdate(
+        GameObject gameObject,
+        IGameEngine gameEngine,
+        TurretAIUpdateModuleData moduleData,
+        AIUpdate.WhichTurretType whichTurret = AIUpdate.WhichTurretType.Main,
+        AIUpdate owner = null)
         : base(gameObject, gameEngine)
     {
         _moduleData = moduleData;
+        _whichTurret = whichTurret;
+        _owner = owner;
 
-        GameObject.TurretYaw = MathUtility.ToRadians(_moduleData.NaturalTurretAngle);
-        GameObject.TurretPitch = MathUtility.ToRadians(_moduleData.NaturalTurretPitch);
+        TurretYaw = MathUtility.ToRadians(_moduleData.NaturalTurretAngle);
+
+        // Pitch has a single object-wide value and no per-turret consumer yet, so only the main
+        // turret seeds it; an alt turret seeding it too would just clobber the main turret's.
+        if (_whichTurret != AIUpdate.WhichTurretType.Alt)
+        {
+            GameObject.TurretPitch = MathUtility.ToRadians(_moduleData.NaturalTurretPitch);
+        }
 
         _turretAIstate = _moduleData.InitiallyDisabled ? TurretAIStates.Disabled : TurretAIStates.ScanningForTargets;
     }
+
+    /// <summary>
+    /// GPL <c>TurretAI::isWeaponSlotOnTurret</c> (TurretAI.cpp): a turret only aims for the weapon
+    /// slots named by ControlledWeaponSlots.
+    /// </summary>
+    /// <remarks>
+    /// An unspecified ControlledWeaponSlots means "every slot" here. Retail's parse default is an
+    /// empty slot mask, but the great majority of shipped Turret blocks omit the field entirely and
+    /// still aim; treating omission as "no restriction" is what keeps those single-turret objects
+    /// tracking, and it is exactly equivalent for every block that does name its slots.
+    /// </remarks>
+    internal bool IsWeaponSlotOnTurret(WeaponSlot weaponSlot)
+    {
+        return _moduleData.ControlledWeaponSlots?.Get(weaponSlot) ?? true;
+    }
+
+    /// <summary>
+    /// The weapon whose target this turret tracks.
+    /// </summary>
+    /// <remarks>
+    /// GPL points a turret at the owner's current weapon only while that weapon sits in one of the
+    /// turret's slots (<c>TurretAI::isOwnersCurWeaponOnTurret</c>); with two turrets that is how each
+    /// one ends up tracking its own slot's target rather than both chasing the shared current weapon.
+    /// When the owning AIUpdate declares TurretsLinked the slot test is bypassed entirely and every
+    /// turret fires with the owner's current weapon (<c>TurretAI::isWeaponSlotOkToFire</c>), which is
+    /// what makes linked turrets share a target and therefore converge on the same angle.
+    /// </remarks>
+    private Weapon GetControlledWeapon()
+    {
+        var currentWeapon = GameObject.CurrentWeapon;
+
+        if (TurretsLinked)
+        {
+            return currentWeapon;
+        }
+
+        if (currentWeapon != null && IsWeaponSlotOnTurret(currentWeapon.Slot))
+        {
+            return currentWeapon;
+        }
+
+        foreach (var weapon in GameObject.ActiveWeaponSet.Weapons)
+        {
+            if (weapon != null && IsWeaponSlotOnTurret(weapon.Slot))
+            {
+                return weapon;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TurretsLinked => _owner?.AreTurretsLinked ?? false;
 
     public override UpdateSleepTime Update()
     {
@@ -66,7 +179,8 @@ public class TurretAIUpdate : UpdateModule
 
     internal void Update(BitArray<AutoAcquireEnemiesType> autoAcquireEnemiesWhenIdle)
     {
-        var target = GameObject.CurrentWeapon?.CurrentTarget;
+        var controlledWeapon = GetControlledWeapon();
+        var target = controlledWeapon?.CurrentTarget;
         float targetYaw;
 
         var currentFrame = GameEngine.GameLogic.CurrentFrame;
@@ -75,7 +189,7 @@ public class TurretAIUpdate : UpdateModule
         {
             _turretAIstate = TurretAIStates.Recentering;
             _waitUntil = currentFrame + _moduleData.RecenterTime;
-            GameObject.CurrentWeapon?.SetTarget(null);
+            controlledWeapon?.SetTarget(null);
         }
 
         switch (_turretAIstate)
@@ -109,10 +223,7 @@ public class TurretAIUpdate : UpdateModule
                     }
                 }
 
-                if (!_moduleData.FiresWhileTurning)
-                {
-                    GameObject.ModelConditionFlags.Set(ModelConditionFlag.Attacking, false);
-                }
+                SetAttackingModelCondition(false);
 
                 _turretAIstate = TurretAIStates.Turning;
                 break;
@@ -133,10 +244,7 @@ public class TurretAIUpdate : UpdateModule
                     break;
                 }
 
-                if (!_moduleData.FiresWhileTurning)
-                {
-                    GameObject.ModelConditionFlags.Set(ModelConditionFlag.Attacking, true);
-                }
+                SetAttackingModelCondition(true);
 
                 _turretAIstate = TurretAIStates.Attacking;
                 break;
@@ -167,9 +275,24 @@ public class TurretAIUpdate : UpdateModule
         }
     }
 
+    /// <summary>
+    /// The Attacking model condition is a single object-wide flag, so with two turrets only the
+    /// main one may drive it: an alt turret cycling through its own idle scans would otherwise
+    /// clear the flag out from under the main turret every scan tick.
+    /// </summary>
+    private void SetAttackingModelCondition(bool attacking)
+    {
+        if (_moduleData.FiresWhileTurning || _whichTurret == AIUpdate.WhichTurretType.Alt)
+        {
+            return;
+        }
+
+        GameObject.ModelConditionFlags.Set(ModelConditionFlag.Attacking, attacking);
+    }
+
     private bool Rotate(float targetYaw)
     {
-        var deltaYaw = MathUtility.CalculateAngleDelta(GameObject.TurretYaw, targetYaw);
+        var deltaYaw = MathUtility.CalculateAngleDelta(TurretYaw, targetYaw);
 
         // GPL friend_turnTowardsAngle (TurretAI.cpp:392-429): only snap once the remaining
         // angle is smaller than a single frame's turn-rate step, otherwise advance by exactly
@@ -177,10 +300,10 @@ public class TurretAIUpdate : UpdateModule
         // instead of instantaneously snapping the last stretch of any turn.
         if (MathF.Abs(deltaYaw) > _moduleData.TurretTurnRate)
         {
-            GameObject.TurretYaw -= MathF.Sign(deltaYaw) * _moduleData.TurretTurnRate;
+            TurretYaw -= MathF.Sign(deltaYaw) * _moduleData.TurretTurnRate;
             return true;
         }
-        GameObject.TurretYaw -= deltaYaw;
+        TurretYaw -= deltaYaw;
         return false;
     }
 
@@ -233,11 +356,13 @@ public class TurretAIUpdate : UpdateModule
         // state was ever round-tripped, so a save/load lost the live turret state entirely.
         // The module was [ParseOnly] (never instantiated) until this R12 landing, so no real
         // save data in that shape exists to stay compatible with; version 3 persists the
-        // module's actual state instead.
-        reader.PersistVersion(3);
+        // module's actual state instead. Version 4 adds the alt turret's own yaw, which has no
+        // home on GameObject (that one angle belongs to the main turret).
+        reader.PersistVersion(4);
 
         reader.PersistEnum(ref _turretAIstate);
         reader.PersistLogicFrame(ref _waitUntil);
+        reader.PersistSingle(ref _altTurretYaw);
 
         // _currentTarget only ever needs to survive a round trip as an object reference here:
         // every live caller feeds this state machine an object-type WeaponTarget (the current
@@ -345,9 +470,13 @@ public sealed class TurretAIUpdateModuleData : UpdateModuleData
     [AddedIn(SageGame.Bfme2Rotwk)]
     public int TurretMaxDeflectionACW { get; private set; }
 
-    internal TurretAIUpdate CreateTurretAIUpdate(GameObject gameObject, IGameEngine gameEngine)
+    internal TurretAIUpdate CreateTurretAIUpdate(
+        GameObject gameObject,
+        IGameEngine gameEngine,
+        AIUpdate.WhichTurretType whichTurret,
+        AIUpdate owner)
     {
-        return new TurretAIUpdate(gameObject, gameEngine, this);
+        return new TurretAIUpdate(gameObject, gameEngine, this, whichTurret, owner);
     }
 }
 

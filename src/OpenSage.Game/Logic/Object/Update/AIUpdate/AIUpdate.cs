@@ -38,7 +38,24 @@ public class AIUpdate : UpdateModule
 
     internal virtual AIUpdateModuleData ModuleData { get; }
 
-    private readonly TurretAIUpdate _turretAIUpdate;
+    /// <summary>Main + alt (GPL <c>MAX_TURRETS</c>): the two turrets AIUpdate's Turret/AltTurret blocks describe.</summary>
+    private const int MaxTurrets = 2;
+
+    /// <summary>
+    /// This object's turrets, indexed by <see cref="WhichTurretType"/> (GPL
+    /// <c>AIUpdateInterface::m_turretAI[MAX_TURRETS]</c>). Either entry may be null.
+    /// </summary>
+    private readonly TurretAIUpdate[] _turretAIUpdates = new TurretAIUpdate[MaxTurrets];
+
+    /// <summary>
+    /// GPL <c>AIUpdateInterface::areTurretsLinked</c>: linked turrets act as one, firing and aiming
+    /// with the owner's current weapon regardless of which slots each turret nominally controls.
+    /// </summary>
+    internal bool AreTurretsLinked => ModuleData.TurretsLinked;
+
+    /// <summary>Test/inspector-only accessor for one of this object's turrets; null when it has none.</summary>
+    internal TurretAIUpdate GetTurretAIUpdate(WhichTurretType whichTurret) =>
+        whichTurret == WhichTurretType.Invalid ? null : _turretAIUpdates[(int)whichTurret];
 
     /// <summary>
     /// An enumerator of the waypoints if the unit is currently following a waypoint path.
@@ -163,7 +180,14 @@ public class AIUpdate : UpdateModule
         // and might be overridden in a derived class, causing it to be unintialised despite the assignment above.
         if (moduleData.Turret != null)
         {
-            _turretAIUpdate = moduleData.Turret.CreateTurretAIUpdate(gameObject, gameEngine);
+            _turretAIUpdates[(int)WhichTurretType.Main] =
+                moduleData.Turret.CreateTurretAIUpdate(gameObject, gameEngine, WhichTurretType.Main, this);
+        }
+
+        if (moduleData.AltTurret != null)
+        {
+            _turretAIUpdates[(int)WhichTurretType.Alt] =
+                moduleData.AltTurret.CreateTurretAIUpdate(gameObject, gameEngine, WhichTurretType.Alt, this);
         }
     }
 
@@ -321,11 +345,17 @@ public class AIUpdate : UpdateModule
     {
         StateMachine.Update();
 
-        if (_turretAIUpdate != null)
+        var hasTurret = false;
+        foreach (var turretAIUpdate in _turretAIUpdates)
         {
-            _turretAIUpdate.Update(ModuleData.AutoAcquireEnemiesWhenIdle);
+            if (turretAIUpdate != null)
+            {
+                turretAIUpdate.Update(ModuleData.AutoAcquireEnemiesWhenIdle);
+                hasTurret = true;
+            }
         }
-        else
+
+        if (!hasTurret)
         {
             var target = GameObject.CurrentWeapon?.CurrentTarget;
             if (target != null)
@@ -549,9 +579,15 @@ public class AIUpdate : UpdateModule
         reader.PersistEnum(ref _locomotorGoalType);
         reader.PersistVector3(ref _locomotorGoalData);
 
+        // Each present turret in turn, then the sync flag (GPL AIUpdateInterface::xfer).
         if (ModuleData.Turret != null)
         {
-            reader.PersistObject(_turretAIUpdate, "TurretAI");
+            reader.PersistObject(_turretAIUpdates[(int)WhichTurretType.Main], "TurretAI");
+        }
+
+        if (ModuleData.AltTurret != null)
+        {
+            reader.PersistObject(_turretAIUpdates[(int)WhichTurretType.Alt], "AltTurretAI");
         }
 
         reader.PersistEnum(ref _turretSyncFlag);
@@ -568,7 +604,7 @@ public class AIUpdate : UpdateModule
         Angle = 3,
     }
 
-    private enum WhichTurretType
+    internal enum WhichTurretType
     {
         Invalid = -1,
         Main = 0,
