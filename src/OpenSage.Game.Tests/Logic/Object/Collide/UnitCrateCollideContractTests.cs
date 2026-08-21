@@ -1,7 +1,9 @@
-﻿// Mocked-game contract tests for UnitCrateCollide (R12 port; task packet unit-crate-collide,
-// testCases TC1-TC6): spawning UnitCount units of UnitName around the crate on pickup, each
-// inheriting the collector's orientation and belonging to the collector's owning
-// player/default team, plus the invalid-UnitName and UnitCount=0 no-op paths.
+﻿// Mocked-game contract tests for UnitCrateCollide (R12 port, R13 fix pass; task packet
+// unit-crate-collide, testCases TC1-TC6): spawning UnitCount units of UnitName around the
+// COLLECTOR (GPL: UnitCrateCollide.cpp:72) on pickup, each inheriting the collector's
+// orientation and belonging to the collector's owning player/default team, destroying the
+// crate on a successful pickup (GPL: CrateCollide.cpp:115-148), and leaving the crate alive on
+// the invalid-UnitName / UnitCount=0 no-op paths.
 //
 // Every object definition parses from INI text through the real IniParser, so the audited
 // parse functions (UnitCount as int, UnitName as an asset reference) are on the tested path.
@@ -122,7 +124,9 @@ End
         return result;
     }
 
-    // TC1: valid UnitName, UnitCount=1 -> one unit spawns within the 0-20 unit scatter radius.
+    // TC1: valid UnitName, UnitCount=1 -> one unit spawns within the 0-20 unit scatter radius,
+    // anchored on the COLLECTOR's position (GPL: `Coord3D creationPoint = *other->getPosition();`,
+    // UnitCrateCollide.cpp:72 - not the crate's own position).
     [Fact]
     public void CollectingCrate_WithUnitCountOne_SpawnsOneUnitWithinScatterRadius()
     {
@@ -134,8 +138,47 @@ End
         var spawned = NewSpawnedUnits(game, before);
         Assert.Single(spawned);
 
-        var distance = Vector3.Distance(spawned[0].Transform.Translation, crate.Transform.Translation);
+        var distance = Vector3.Distance(spawned[0].Transform.Translation, collector.Transform.Translation);
         Assert.InRange(distance, 0f, 20f + 0.01f);
+    }
+
+    // R13: GPL's CrateCollide::onCollide always destroys the crate once executeCrateBehavior
+    // returns TRUE, which UnitCrateCollide's version does unconditionally once UnitName
+    // resolves (CrateCollide.cpp:115-148, UnitCrateCollide.cpp:56-92). A crate left alive after
+    // a successful pickup would re-trigger OnCollide on the next overlap and duplicate its
+    // spawn indefinitely - this is the regression the missing-destroy finding described.
+    [Fact]
+    public void CollectingCrate_WithSuccessfulSpawn_DestroysTheCrate()
+    {
+        var (game, crate, collector) = Spawn("CrateOne");
+
+        crate.OnCollide(collector);
+
+        Assert.True(crate.IsDestroyed);
+    }
+
+    // R13: an unresolvable UnitName never reaches a resolved unitType, so GPL's
+    // executeCrateBehavior returns FALSE and the crate is left alive (CrateCollide.cpp:118-127).
+    [Fact]
+    public void CollectingCrate_WithInvalidUnitName_LeavesCrateAlive()
+    {
+        var (game, crate, collector) = Spawn("CrateInvalidUnit");
+
+        crate.OnCollide(collector);
+
+        Assert.False(crate.IsDestroyed);
+    }
+
+    // R13: UnitCount<=0 is a port-level early-out before UnitName is even resolved, so the
+    // crate is left alive for the same reason as the invalid-UnitName case above.
+    [Fact]
+    public void CollectingCrate_WithUnitCountZero_LeavesCrateAlive()
+    {
+        var (game, crate, collector) = Spawn("CrateZeroCount");
+
+        crate.OnCollide(collector);
+
+        Assert.False(crate.IsDestroyed);
     }
 
     // TC2: valid UnitName, UnitCount=3 -> all 3 spawn within the radius, mutually
@@ -153,7 +196,7 @@ End
 
         foreach (var unit in spawned)
         {
-            var distance = Vector3.Distance(unit.Transform.Translation, crate.Transform.Translation);
+            var distance = Vector3.Distance(unit.Transform.Translation, collector.Transform.Translation);
             Assert.InRange(distance, 0f, 20f + 0.01f);
         }
 
