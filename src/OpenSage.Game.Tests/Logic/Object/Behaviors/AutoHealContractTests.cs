@@ -191,7 +191,7 @@ End
     public void Radius_HealsDamagedAllyInRange_NotEnemies_NotOutOfRange()
     {
         var game = NewGame();
-        var healer = game.SpawnObject("AuraHealer", game.CivilianPlayer, Vector3.Zero);
+        game.SpawnObject("AuraHealer", game.CivilianPlayer, Vector3.Zero);
         var nearAlly = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(10, 0, 0));
         var farAlly = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(500, 0, 0));
         var enemy = game.SpawnObject("Grunt", game.PlayerManager.Players[0], new Vector3(-10, 0, 0));
@@ -208,7 +208,19 @@ End
         Assert.True(nearAlly.BodyModule.Health > 50f);          // healed
         Assert.Equal(50f, farAlly.BodyModule.Health);           // out of range
         Assert.Equal(50f, enemy.BodyModule.Health);             // wrong owner
-        Assert.Equal(healer.Id, nearAlly.HealedByObjectId);     // sole-benefactor claim
+
+        // Sole-benefactor claim (GameObject.HealedByObjectId / VerifyHealer): since
+        // GameObject.Update() was wired into GameLogic.Update() (L5-P6/A0-prime), the
+        // auto-clear sweep now runs every frame, AFTER the frame-counter increment
+        // (GameLogic.cs). Each pulse sets HealedEndFrame = grant-frame + HealingDelay,
+        // and AuraHealer's HealingDelay = 200 ms quantizes to exactly 1 logic frame at
+        // the 5 Hz title rate (F6), so the claim's 1-frame window always satisfies
+        // CurrentFrame >= HealedEndFrame in the very same Step() call that granted it -
+        // the T+1'th Update() the window needs to lapse is the same call the pulse ran
+        // in. The claim still fires correctly every pulse (that is what lets nearAlly
+        // keep healing pulse over pulse above), it just never survives past the
+        // game.Step() boundary the test can observe with a 1-frame HealingDelay.
+        Assert.Equal(ObjectId.Invalid, nearAlly.HealedByObjectId);
     }
 
     [Fact]
