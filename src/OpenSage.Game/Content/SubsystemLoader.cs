@@ -134,6 +134,8 @@ public sealed class SubsystemLoader
         End
         """;
 
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly ContentManager _contentManager;
     private readonly IGameDefinition _gameDefinition;
     private readonly FileSystem _fileSystem;
@@ -170,6 +172,59 @@ public sealed class SubsystemLoader
         }
     }
 
+    /// <summary>
+    /// The two halves of a hardcoded default/override INI pair, in load order.
+    /// </summary>
+    /// <remarks>
+    /// A handful of INI files are not reached through subsystemlegend.ini at all — the engine
+    /// loads them by name, and it always loads them <em>twice</em>: the <c>Default\</c> copy
+    /// first, then the same-named file one directory up, which overwrites what the first one
+    /// set. Water is the canonical case, and the only one this engine already loaded — it just
+    /// loaded the second half of the pair and never the first. That mattered far more than the
+    /// name suggests, because the "default" half is where a mod parks the constants it wants
+    /// visible to every file parsed afterwards (<c>#define</c>s live in one context that spans
+    /// the whole load), plus a <c>GameData</c> overlay. Dropping it silently drops every block
+    /// downstream that mentions one of those names.
+    /// </remarks>
+    internal static IEnumerable<string> ExpandDefaultPair(string iniFileName)
+    {
+        yield return $@"Data\INI\Default\{iniFileName}";
+        yield return $@"Data\INI\{iniFileName}";
+    }
+
+    /// <summary>
+    /// Resolves <paramref name="filePaths"/> against <paramref name="fileSystem"/>, skipping the
+    /// ones that do not exist.
+    /// </summary>
+    /// <remarks>
+    /// Half of a default/override pair is routinely absent: a game may ship only the override,
+    /// a mod may ship only the default. Neither is an error, so a missing file is a log line
+    /// rather than the <see cref="NullReferenceException"/> an unchecked
+    /// <see cref="FileSystem.GetFile"/> would produce further down.
+    /// </remarks>
+    internal static IEnumerable<FileSystemEntry> ResolveExistingFiles(FileSystem fileSystem, IEnumerable<string> filePaths)
+    {
+        foreach (var filePath in filePaths)
+        {
+            var entry = fileSystem.GetFile(filePath);
+            if (entry == null)
+            {
+                Logger.Info($"Skipping absent INI file '{filePath}'");
+                continue;
+            }
+
+            yield return entry;
+        }
+    }
+
+    private void LoadDefaultPair(string iniFileName)
+    {
+        foreach (var entry in ResolveExistingFiles(_fileSystem, ExpandDefaultPair(iniFileName)))
+        {
+            _contentManager.LoadIniFile(entry);
+        }
+    }
+
     public void Load(Subsystem subsystem)
     {
         foreach (var entry in GetFilesForSubsystem(subsystem))
@@ -182,14 +237,14 @@ public sealed class SubsystemLoader
         {
             case Subsystem.Core:
                 _contentManager.LoadIniFile(@"Data\INI\Mouse.ini");
-                _contentManager.LoadIniFile(@"Data\INI\Water.ini");
+                LoadDefaultPair("Water.ini");
                 _contentManager.LoadIniFile(@"Maps\MapCache.ini");
                 switch (_gameDefinition.Game)
                 {
                     case SageGame.Bfme:
                     case SageGame.Bfme2:
                     case SageGame.Bfme2Rotwk:
-                        _contentManager.LoadIniFile(@"Data\INI\WaterTextures.ini");
+                        LoadDefaultPair("WaterTextures.ini");
                         break;
                 }
                 switch (_gameDefinition.Game)
@@ -380,7 +435,14 @@ public sealed class SubsystemLoader
                 switch (entry)
                 {
                     case InitFile file:
-                        yield return _fileSystem.GetFile(file.Value);
+                        // A legend entry naming a file this installation does not have is
+                        // ordinary — subsystemlegend.ini is shared between a game and its
+                        // expansions/mods, so it lists files only some of them ship. Skipping is
+                        // what the engine does; dereferencing the null would abort the boot.
+                        foreach (var initFile in ResolveExistingFiles(_fileSystem, [file.Value]))
+                        {
+                            yield return initFile;
+                        }
                         break;
 
                     case InitPath folder:
