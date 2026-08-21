@@ -209,7 +209,11 @@ End
         Assert.Equal(FXOrientation.PositionOnly, openFx.Orientation);
 
         // WAITING_TO_CLOSE: clears DOOR_1_WAITING_OPEN, sets DOOR_1_WAITING_TO_CLOSE, fires
-        // DoorWaitingToCloseFX.
+        // DoorWaitingToCloseFX. Push the ready frame far out first (same reason as
+        // TimeoutProgression_WaitingToCloseThenClosingThenClosed): with the ready frame left
+        // in the past, Update()'s "pop the door open" catch-up branch fires every frame and
+        // yanks the door straight back to OPEN, so the shutdown sequence never progresses.
+        module.NotifySpecialPowerReadyFrame(new LogicFrame(1_000_000));
         Assert.True(module.InitiateIntentToDoSpecialPower("TestSuperweapon"));
         Assert.True(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingToClose));
         Assert.False(silo.ModelConditionFlags.Get(ModelConditionFlag.Door1WaitingOpen));

@@ -391,44 +391,57 @@ End
         // the bias==0 sub-case. On the other ~75% of transitions the stale target/m_inRange
         // pair still passes `if (target && m_inRange)` and GPL fires once more at the target it
         // just decided to drop, before the cleared m_bestTargetID takes effect next frame
-        // (PointDefenseLaserUpdate.cpp:178-196). Sweep several seeds so at least one exercises
-        // a nonzero bias draw on the transition frame (P(none of 16 draws nonzero) < 1e-9).
-        var seeds = new uint[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+        // (PointDefenseLaserUpdate.cpp:178-196). The extra shot additionally needs the
+        // transition frame to be a frame that can actually fire: FireWhenReady() runs the
+        // range-loss branch before the cooldown check, so the shot only lands when
+        // m_nextShotAvailableInFrames is already 0 (DelayBetweenShots = 1 frame here, so
+        // that is every other frame) AND the frame is not a periodic scan frame (ScanRate =
+        // 5 frames, which would re-scan instead of taking the stale-target path). Sweep both
+        // seeds (for the bias draw) and settle offsets 0..9 (one full lcm(2, 5) cycle of the
+        // cooldown/scan phases) so at least one combination hits it.
+        var seeds = new uint[] { 1, 2, 3, 4, 5, 6, 7, 8 };
         var sawExtraShot = false;
 
         foreach (var seed in seeds)
         {
-            var game = NewGame(seed);
-            var platform = game.SpawnObject("LaserPlatform", game.CivilianPlayer, Vector3.Zero);
-            var target = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
-            MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
-
-            for (var i = 0; i < 6; i++)
+            for (var offset = 0; offset < 10 && !sawExtraShot; offset++)
             {
+                var game = NewGame(seed);
+                var platform = game.SpawnObject("LaserPlatform", game.CivilianPlayer, Vector3.Zero);
+                var target = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+                MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+
+                for (var i = 0; i < 6 + offset; i++)
+                {
+                    game.Step();
+                }
+
+                var module = ModuleOf(platform);
+                if (module.BestTargetId != target.Id || !module.InRange)
+                {
+                    // Not settled into the expected in-range-tracking state for this
+                    // seed/offset; skip rather than risk a false negative.
+                    continue;
+                }
+
+                var body = BodyOf(target);
+                var healthBeforeTransition = body.DamageCore.CurrentHealth;
+
+                // Move the target just outside firing range (50) but still inside scan range
+                // (300), so this is the range-loss branch, not a full scan-range departure.
+                target.UpdateTransform(new Vector3(100, 0, 0));
+                target.UpdateColliders();
+
                 game.Step();
+
+                if (body.DamageCore.CurrentHealth < healthBeforeTransition)
+                {
+                    sawExtraShot = true;
+                }
             }
 
-            var module = ModuleOf(platform);
-            if (module.BestTargetId != target.Id || !module.InRange)
+            if (sawExtraShot)
             {
-                // Not settled into the expected in-range-tracking state yet for this seed;
-                // skip rather than risk a false negative.
-                continue;
-            }
-
-            var body = BodyOf(target);
-            var healthBeforeTransition = body.DamageCore.CurrentHealth;
-
-            // Move the target just outside firing range (50) but still inside scan range
-            // (300), so this is the range-loss branch, not a full scan-range departure.
-            target.UpdateTransform(new Vector3(100, 0, 0));
-            target.UpdateColliders();
-
-            game.Step();
-
-            if (body.DamageCore.CurrentHealth < healthBeforeTransition)
-            {
-                sawExtraShot = true;
                 break;
             }
         }
