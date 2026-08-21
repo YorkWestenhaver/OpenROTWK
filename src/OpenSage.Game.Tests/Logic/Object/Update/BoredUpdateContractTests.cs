@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the BoredUpdate port (R13), following
+﻿// Mocked-game contract tests for the BoredUpdate port (R13), following
 // bfme2-workbench/research/modules-r13/specs/BoredUpdateModuleData.md §3: the scan + BoredFilter
 // gate (§1.1), the match-found-fires polarity (§1.2, F-BU-1), the self-target activation (§1.3,
 // F-BU-3), the unconditional re-arm and overwrite-not-suppress behavior (§1.4), the

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the DamageFieldUpdate port (see
+﻿// Mocked-game unit tests for the DamageFieldUpdate port (see
 // bfme2-workbench/research/modules-r13/specs/DamageFieldUpdateModuleData.md §4 for the full
 // test plan this file implements). Object/Weapon/Upgrade definitions are parsed from INI text
 // through the real parser, so the quantizing S5 parses (Radius -> Fix64, WeaponName ->

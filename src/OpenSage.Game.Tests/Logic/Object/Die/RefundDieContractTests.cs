@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the RefundDie port (api-freeze-v1 §6 fitness item 4,
+﻿// Mocked-game unit tests for the RefundDie port (api-freeze-v1 §6 fitness item 4,
 // research/modules-r13/specs/RefundDieModuleData.md §3): one test per INI-configurable branch,
 // each shaped [create -> trigger death -> observable effect] through the batch's death-trigger
 // helper, plus the shadow-copy base test and a mid-behavior save/load continuation.

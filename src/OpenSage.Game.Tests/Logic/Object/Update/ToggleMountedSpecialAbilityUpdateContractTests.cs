@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ToggleMountedSpecialAbilityUpdate port (R14, spec
+﻿// Mocked-game unit tests for the ToggleMountedSpecialAbilityUpdate port (R14, spec
 // bfme2-workbench/research/modules-r13/specs/ToggleMountedSpecialAbilityUpdateModuleData.md §4):
 // one test per behavior branch from the spec's own test plan, [create -> trigger/tick ->
 // observable effect]. Pattern copied from ReplaceObjectUpdateContractTests.cs.

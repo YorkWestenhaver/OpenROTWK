@@ -1,4 +1,4 @@
-// HitReactionBehavior - R13 port (data-derivable; no GPL sibling, see modules-r13/specs/
+﻿// HitReactionBehavior - R13 port (data-derivable; no GPL sibling, see modules-r13/specs/
 // HitReactionBehaviorData.md).
 //
 // Behavior facts (grounded in two independent retail AotR data sources plus already-landed

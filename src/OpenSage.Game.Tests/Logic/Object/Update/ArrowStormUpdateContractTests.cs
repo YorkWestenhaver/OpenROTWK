@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ArrowStormUpdate port (api-freeze-v1 §6 fitness item 4),
+﻿// Mocked-game unit tests for the ArrowStormUpdate port (api-freeze-v1 §6 fitness item 4),
 // following the ToggleHiddenSpecialAbilityUpdateContractTests idiom: one test per behavior
 // branch, [create -> trigger/tick -> observable effect]. Both InitiateIntentToDoSpecialPower
 // and Abort() are driven inputs (no landed special-power/command system exists yet), so tests

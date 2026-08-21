@@ -1,4 +1,4 @@
-// dumpdiff -- the engine-side equivalent of the workbench's ddiff.py (bfme2-workbench/tools/
+﻿// dumpdiff -- the engine-side equivalent of the workbench's ddiff.py (bfme2-workbench/tools/
 // ddiff/ddiff.py), living in-repo because the engine (YorkWestenhaver/OpenROTWK) is a
 // standalone repo whose CI checkout cannot see the private workbench. Lockstep-diffs two
 // "opensage-deepdump" dumps and, on divergence, emits the structured report the M3 cross-arch

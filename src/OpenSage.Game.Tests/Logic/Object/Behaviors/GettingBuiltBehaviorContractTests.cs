@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the GettingBuiltBehavior port (R13): the self-tick (no-worker)
+﻿// Mocked-game contract tests for the GettingBuiltBehavior port (R13): the self-tick (no-worker)
 // construction cadence, the worker-spawn/build-target assignment, worker-death respawn delay, and
 // the Rubble-restart pacing driven by RebuildTimeSeconds instead of Definition.BuildTime. See the
 // R13 port spec (bfme2-workbench/research/modules-r13/specs/GettingBuiltBehaviorModuleData.md) for
@@ -176,7 +176,7 @@ End
         // countdown is pre-elapsed at construction start and only paces respawns after that.
         StepToFirstModuleTick(game);
 
-        var worker = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker"));
+        var worker = Assert.Single(game.GameLogic.Objects, o => o.Definition.Name == "TestWorker");
         Assert.False(worker.IsSelectable);
         Assert.Same(tower, ((WorkerAIUpdate)worker.AIUpdate).BuildTarget);
     }
@@ -257,7 +257,7 @@ End
         StartSelfBuild(tower);
 
         StepToFirstModuleTick(game);
-        var firstWorker = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker"));
+        var firstWorker = Assert.Single(game.GameLogic.Objects, o => o.Definition.Name == "TestWorker");
 
         firstWorker.Kill();
 
@@ -267,12 +267,12 @@ End
         for (var i = 0; i < 4; i++)
         {
             game.Step();
-            Assert.Empty(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker" && !o.IsEffectivelyDead));
+            Assert.DoesNotContain(game.GameLogic.Objects, o => o.Definition.Name == "TestWorker" && !o.IsEffectivelyDead);
         }
 
         game.Step();
 
-        var replacement = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "TestWorker" && !o.IsEffectivelyDead));
+        var replacement = Assert.Single(game.GameLogic.Objects, o => o.Definition.Name == "TestWorker" && !o.IsEffectivelyDead);
         Assert.NotEqual(firstWorker.Id, replacement.Id);
         Assert.Same(tower, ((WorkerAIUpdate)replacement.AIUpdate).BuildTarget);
     }

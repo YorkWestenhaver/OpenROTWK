@@ -1,4 +1,4 @@
-// The Orders packet (design-netcode.md §3.1: "{ frame, SimOrder[] }", "any -> all (via host),
+﻿// The Orders packet (design-netcode.md §3.1: "{ frame, SimOrder[] }", "any -> all (via host),
 // every logic frame, per peer, even when empty" - the lockstep payload).
 //
 // §3.1 makes the empty-frame case mandatory, not an optimisation: "an Orders packet with zero

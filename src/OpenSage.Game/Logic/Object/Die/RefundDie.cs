@@ -1,4 +1,4 @@
-// RefundDie - Die-batch port to the frozen module contract (api-freeze-v1 §3/§5 as amended by
+﻿// RefundDie - Die-batch port to the frozen module contract (api-freeze-v1 §3/§5 as amended by
 // api-freeze-amendments-v1.1, template v1.1 = pilot-autoheal §3/§6).
 //
 // Behavioral reference: NONE. `grep -rn "refunddie" generals-gpl generals-community`

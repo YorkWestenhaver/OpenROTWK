@@ -1,4 +1,4 @@
-// BoredUpdate - R13 port. Re-audit resolved the phase-1 block (bfme2-workbench/research/
+﻿// BoredUpdate - R13 port. Re-audit resolved the phase-1 block (bfme2-workbench/research/
 // modules-r13/specs/BoredUpdateModuleData.md §0): composed from two landed idioms, not a single
 // GPL translation target. generals-gpl's EnemyNearUpdate (Include/GameLogic/Module/
 // EnemyNearUpdate.h, Source/GameLogic/Object/Update/EnemyNearUpdate.cpp) confirms the same

@@ -1,4 +1,4 @@
-// ArrowStormUpdate - R14 port (api-freeze-v1 §6 / template v1.1), split verdict per
+﻿// ArrowStormUpdate - R14 port (api-freeze-v1 §6 / template v1.1), split verdict per
 // research/modules-r13/specs/ArrowStormUpdateModuleData.md.
 //
 // Behavioral reference: the unpack/prepare/trigger/pack phase machine below is a direct

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using OpenSage.Network.Wire;
 using Xunit;
 

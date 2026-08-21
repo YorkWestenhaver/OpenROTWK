@@ -1,4 +1,4 @@
-// Wire codec for OpenSage.SimCore.Orders.SimOrderArg (task N2; design-netcode.md R-N5, D13).
+﻿// Wire codec for OpenSage.SimCore.Orders.SimOrderArg (task N2; design-netcode.md R-N5, D13).
 //
 // R-N5 / D13's boundary ("float-shaped payloads cross as raw uint IEEE bit patterns; decode
 // hands them to Fix64.FromWireFloat exactly once") is honoured here using Fix64's own two F4

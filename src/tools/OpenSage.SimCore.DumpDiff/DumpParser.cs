@@ -1,4 +1,4 @@
-// Parses raw "opensage-deepdump" text into a DumpFile: a version, a metadata dictionary
+﻿// Parses raw "opensage-deepdump" text into a DumpFile: a version, a metadata dictionary
 // harvested from comment lines, and the ordered body of F/C/R/E/V lines that the comparator
 // walks in lockstep. See Program.cs for the full format spec.
 

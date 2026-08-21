@@ -1,4 +1,4 @@
-// HitReactionBehaviorData - PARSE SIDE, immutable flyweight, quantized at load
+﻿// HitReactionBehaviorData - PARSE SIDE, immutable flyweight, quantized at load
 // (design-module-api §2.2). Split out of HitReactionBehavior.cs under the D-7 precedent
 // (ProductionQueueHordeContainDamage.cs): the three float threshold fields are the module's
 // other float-substrate crossing, and this file declares no [SimState] type, so the per-file

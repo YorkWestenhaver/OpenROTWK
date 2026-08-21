@@ -1,4 +1,4 @@
-// GiveUpgradeUpdateModuleData - split out of GiveUpgradeUpdate.cs (R13 port; spec:
+﻿// GiveUpgradeUpdateModuleData - split out of GiveUpgradeUpdate.cs (R13 port; spec:
 // bfme2-workbench/research/modules-r13/specs/GiveUpgradeUpdateModuleData.md).
 //
 // Kept in its own file, separate from the [SimState] GiveUpgradeUpdate class, specifically so

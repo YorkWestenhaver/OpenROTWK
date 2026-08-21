@@ -1,4 +1,4 @@
-// The wire's own version identity (design-netcode.md R-N4; §3.2 BuildIdentity carries this
+﻿// The wire's own version identity (design-netcode.md R-N4; §3.2 BuildIdentity carries this
 // value into the join-time content gate, which is out of N2's scope). Retail wire
 // compatibility is a non-goal (R-N4) - this is OpenROTWK's own protocol, and reordering any
 // field on the wire (this codec's byte layout, or any Xfer-visible field elsewhere) is a bump

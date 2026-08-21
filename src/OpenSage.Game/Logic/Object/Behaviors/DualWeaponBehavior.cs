@@ -1,4 +1,4 @@
-// DualWeaponBehavior - R13 port through the full task packet (api-freeze-v1 §6 / template
+﻿// DualWeaponBehavior - R13 port through the full task packet (api-freeze-v1 §6 / template
 // v1.1). Spec: bfme2-workbench/research/modules-r13/specs/DualWeaponBehaviorModuleData.md.
 //
 // No GPL sibling exists (grep across generals-gpl/generals-community for "DualWeapon" is

@@ -1,4 +1,4 @@
-namespace OpenSage.Network.Wire;
+﻿namespace OpenSage.Network.Wire;
 
 /// <summary>
 /// Defensive caps on attacker/corruption-controlled counts and lengths read off the wire.

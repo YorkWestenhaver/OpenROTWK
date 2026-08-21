@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the DetachableRiderUpdate port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the DetachableRiderUpdate port (api-freeze-v1 §6 fitness item 4):
 // one test per behavioral branch from research/modules-r13/specs/
 // DetachableRiderUpdateModuleData.md §4's test plan, [create -> drive OnRiderDied() -> observable
 // effect], plus the mid-death-animation save/load round-trip and the shadow-copy base test - the

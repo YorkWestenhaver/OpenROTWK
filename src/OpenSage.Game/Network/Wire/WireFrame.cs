@@ -1,4 +1,4 @@
-// The generic packet frame every wire packet carries (design-netcode.md §3.1: "All packets
+﻿// The generic packet frame every wire packet carries (design-netcode.md §3.1: "All packets
 // carry (ProtocolVersion, SenderPlayerIndex)"). Reusable across future packet kinds beyond
 // Orders (Checkpoint, DeepDumpChunk, etc. per the §3.1 inventory) - this type has no knowledge
 // of what its payload means, only how to frame and unframe it.

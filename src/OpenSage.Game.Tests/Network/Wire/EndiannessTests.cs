@@ -1,4 +1,4 @@
-using OpenSage.Network.Wire;
+﻿using OpenSage.Network.Wire;
 using OpenSage.SimCore.Orders;
 using Xunit;
 

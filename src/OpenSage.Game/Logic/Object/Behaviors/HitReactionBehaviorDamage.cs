@@ -1,4 +1,4 @@
-// HitReactionBehavior (damage half) - the one float-substrate crossing the arming path needs
+﻿// HitReactionBehavior (damage half) - the one float-substrate crossing the arming path needs
 // (D-7, the ProductionQueueHordeContainDamage.cs precedent): DamageInfo is legacy float
 // substrate, so Result.ActualDamageDealt is a plain float and the HitReactionThresholdN
 // flyweight fields it is compared against are float for the same reason (see

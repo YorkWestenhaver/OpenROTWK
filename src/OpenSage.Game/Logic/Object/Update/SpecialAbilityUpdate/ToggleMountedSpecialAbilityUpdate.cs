@@ -1,4 +1,4 @@
-// ToggleMountedSpecialAbilityUpdate - R14 port off the R13 spec
+﻿// ToggleMountedSpecialAbilityUpdate - R14 port off the R13 spec
 // (bfme2-workbench/research/modules-r13/specs/ToggleMountedSpecialAbilityUpdateModuleData.md).
 //
 // generals-gpl carries no ToggleMounted*/MountedTemplate class at all (grep confirms; the spec's

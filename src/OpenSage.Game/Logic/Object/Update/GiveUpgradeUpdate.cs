@@ -1,4 +1,4 @@
-// GiveUpgradeUpdate - R13 port (spec: bfme2-workbench/research/modules-r13/specs/
+﻿// GiveUpgradeUpdate - R13 port (spec: bfme2-workbench/research/modules-r13/specs/
 // GiveUpgradeUpdateModuleData.md).
 //
 // Behavioral reference: generals-gpl carries no GiveUpgradeUpdate at all (this is a
@@ -44,11 +44,11 @@
 // Every mutable sim field appears in Xfer exactly once (§3 of the spec); tolerances are the
 // field's conformance class at its declaration site (§4).
 
+using System.Linq;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
-using System.Linq;
 
 namespace OpenSage.Logic.Object;
 

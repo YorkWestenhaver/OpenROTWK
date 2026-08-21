@@ -1,4 +1,4 @@
-// DamageFieldUpdate - R13 port (see
+﻿// DamageFieldUpdate - R13 port (see
 // bfme2-workbench/research/modules-r13/specs/DamageFieldUpdateModuleData.md for the full port
 // spec this file implements).
 //

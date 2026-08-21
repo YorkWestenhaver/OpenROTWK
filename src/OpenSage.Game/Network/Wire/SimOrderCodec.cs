@@ -1,4 +1,4 @@
-// Wire codec for OpenSage.SimCore.Orders.SimOrder (task N2).
+﻿// Wire codec for OpenSage.SimCore.Orders.SimOrder (task N2).
 //
 // Layout: int32 GameMessageType value, int32 PlayerIndex, byte argument count, then that many
 // SimOrderArgCodec-encoded arguments back to back. The GameMessageType value is validated

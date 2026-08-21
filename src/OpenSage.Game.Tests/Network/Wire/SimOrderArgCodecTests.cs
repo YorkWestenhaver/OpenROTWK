@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using OpenSage.Network.Wire;
 using OpenSage.SimCore.Numerics;

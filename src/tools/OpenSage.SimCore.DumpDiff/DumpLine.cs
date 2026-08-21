@@ -1,4 +1,4 @@
-// Parsed representation of one line of an "opensage-deepdump" file. See Program.cs for the
+﻿// Parsed representation of one line of an "opensage-deepdump" file. See Program.cs for the
 // full format spec and the divergence-report contract. This file only knows how to turn a raw
 // text line into a structured record -- it has no opinion about comparison.
 

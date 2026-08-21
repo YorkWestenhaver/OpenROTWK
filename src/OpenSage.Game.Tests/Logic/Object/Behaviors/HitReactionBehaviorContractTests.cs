@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the HitReactionBehavior R13 port (modules-r13/specs/
+﻿// Mocked-game unit tests for the HitReactionBehavior R13 port (modules-r13/specs/
 // HitReactionBehaviorData.md §3): one test per behavior-contract case, [create -> damage ->
 // observable ModelConditionFlag effect], plus the mid-behavior save/load round-trip and the
 // shadow-copy base test.
@@ -24,8 +24,8 @@
 //     hit lands on being frame zero of the hold, per the module's GPL PoisonedBehavior timing
 //     citation; it is the module's convention, and these tests count against it.
 
-using System.Numerics;
 using System.Linq;
+using System.Numerics;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;

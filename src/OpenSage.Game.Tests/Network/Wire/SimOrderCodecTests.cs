@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using OpenSage.Network.Wire;
 using OpenSage.SimCore.Orders;
 using Xunit;
@@ -97,7 +97,7 @@ public class SimOrderCodecTests
         writer.WriteInt32((int)GameMessageType.MSG_DO_STOP);
         writer.WriteInt32(0);
         writer.WriteByte(255); // over WireLimits.MaxArgumentsPerOrder (64), and the buffer
-                                // doesn't remotely contain 255 arguments' worth of data either
+                               // doesn't remotely contain 255 arguments' worth of data either
 
         var result = DecodeOne(writer.ToArray());
 

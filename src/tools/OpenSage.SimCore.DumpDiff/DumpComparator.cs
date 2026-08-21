@@ -1,4 +1,4 @@
-// The comparator itself: lockstep-walks two parsed dumps and produces the single
+﻿// The comparator itself: lockstep-walks two parsed dumps and produces the single
 // DivergenceReport that Program.cs prints and that a caller can also drive directly (this is
 // the entry point the unit tests exercise). See Program.cs for the format spec and the
 // divergence-report contract this class fulfils.

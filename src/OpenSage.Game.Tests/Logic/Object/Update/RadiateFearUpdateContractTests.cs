@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the RadiateFearUpdate SPLIT port (R13; see
+﻿// Mocked-game unit tests for the RadiateFearUpdate SPLIT port (R13; see
 // bfme2-workbench/research/modules-r13/specs/RadiateFearUpdateModuleData.md). Shaped exactly
 // like AutoAbilityBehaviorContractTests.cs: one Definitions INI string parsed through the real
 // parser (so the corrected ParseFix64/ParseDurationLogicFrames/upgrade-mux parse is on the

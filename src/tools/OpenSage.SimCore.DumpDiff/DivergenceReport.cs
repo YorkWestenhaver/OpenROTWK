@@ -1,4 +1,4 @@
-// The divergence-report contract. See the "THE DIVERGENCE REPORT CONTRACT" comment block at
+﻿// The divergence-report contract. See the "THE DIVERGENCE REPORT CONTRACT" comment block at
 // the top of Program.cs for the ordering rule this class implements -- this file is the data
 // model plus the two renderers (human text, machine JSON); Program.cs only decides *when* to
 // build one and prints what this class produces.

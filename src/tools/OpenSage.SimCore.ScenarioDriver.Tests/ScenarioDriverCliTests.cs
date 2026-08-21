@@ -1,4 +1,4 @@
-// N14a driver CLI: --exclude, --stream-only, --arch-stamp, --retail-lobby-wipe.
+﻿// N14a driver CLI: --exclude, --stream-only, --arch-stamp, --retail-lobby-wipe.
 //
 // These tests drive the REAL Program.Main entry point in-process (internal, granted via
 // InternalsVisibleTo) rather than spawning a subprocess, so they exercise the actual arg

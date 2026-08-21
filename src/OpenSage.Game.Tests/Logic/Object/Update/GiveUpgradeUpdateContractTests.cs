@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the GiveUpgradeUpdate port (spec: bfme2-workbench/research/
+﻿// Mocked-game unit tests for the GiveUpgradeUpdate port (spec: bfme2-workbench/research/
 // modules-r13/specs/GiveUpgradeUpdateModuleData.md §5), modeled line-for-line on
 // ToggleHiddenSpecialAbilityUpdateContractTests.cs.
 //

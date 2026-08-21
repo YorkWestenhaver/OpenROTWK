@@ -1,4 +1,4 @@
-namespace OpenSage.Network.Wire;
+﻿namespace OpenSage.Network.Wire;
 
 /// <summary>
 /// The result of a decode step: either a value, or a typed <see cref="WireDecodeStatus"/>

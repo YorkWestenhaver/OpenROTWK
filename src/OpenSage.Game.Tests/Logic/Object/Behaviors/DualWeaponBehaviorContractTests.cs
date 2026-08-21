@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the DualWeaponBehavior port (R13, spec packet:
+﻿// Mocked-game unit tests for the DualWeaponBehavior port (R13, spec packet:
 // bfme2-workbench/research/modules-r13/specs/DualWeaponBehaviorModuleData.md): the
 // always-on close-range condition toggle, one test per behavioral branch, the F-DWB-1/-3/-4/-5
 // tripwire pins, the shadow-copy base test, and the mid-behavior save/load round-trip.

@@ -1,4 +1,4 @@
-// Typed decode failure vocabulary for the Network/Wire codecs (task N2). Every decode entry
+﻿// Typed decode failure vocabulary for the Network/Wire codecs (task N2). Every decode entry
 // point in this directory returns one of these instead of throwing: wire bytes are untrusted
 // input (they may be truncated, forged, or simply from an older/newer build), and "malformed
 // input returns a typed failure and never throws an unhandled exception" is a hard requirement

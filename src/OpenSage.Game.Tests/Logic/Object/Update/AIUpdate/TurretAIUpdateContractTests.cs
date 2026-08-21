@@ -1,4 +1,4 @@
-// R13.5 contract tests for TurretAIUpdate's ControlledWeaponSlots filtering and for AIUpdate's
+﻿// R13.5 contract tests for TurretAIUpdate's ControlledWeaponSlots filtering and for AIUpdate's
 // dual-turret (Turret + AltTurret) instantiation. Before this change ControlledWeaponSlots was
 // parsed and never read, and AltTurret was parsed and never instantiated, so both turrets of a
 // dual-turret object would have tracked the object's single CurrentWeapon target.
