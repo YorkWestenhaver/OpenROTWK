@@ -44,6 +44,46 @@ Object Barracks
     MaxHealth = 100
   End
 End
+
+Science SCIENCE_TestSabotage
+  IsGrantable = Yes
+End
+
+Object SaboteurRequiresPowerAndStructure
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = SabotagePowerPlantCrateCollide ModuleTag_Sabotage
+    SabotagePowerDuration = 5
+    BuildingPickup = Yes
+    RequiredKindOf = STRUCTURE FS_POWER
+  End
+End
+
+Object SaboteurRequiresUnsatisfiableMask
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = SabotagePowerPlantCrateCollide ModuleTag_Sabotage
+    SabotagePowerDuration = 5
+    BuildingPickup = Yes
+    RequiredKindOf = FS_POWER VEHICLE
+  End
+End
+
+Object SaboteurRequiresScience
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = SabotagePowerPlantCrateCollide ModuleTag_Sabotage
+    SabotagePowerDuration = 5
+    BuildingPickup = Yes
+    PickupScience = SCIENCE_TestSabotage
+  End
+End
 ";
 
     private static HeadlessSimGame NewGame(uint seed = 0xC0DE)
@@ -212,6 +252,68 @@ End
         ModuleOf(saboteur).OnCollide(plant, Vector3.Zero, Vector3.Zero);
 
         Assert.Contains("BuildingSabotaged", game.CivilianPlayer.PendingEvaEvents);
+    }
+
+    // ---- R13.5: shared CrateCollide::isValidToExecute base gate (crate-gate hoist) ----
+    //
+    // These cases exercise the base gate's own fields (RequiredKindOf-as-mask, PickupScience),
+    // which this leaf's per-instance construction only started parsing/enforcing as of the
+    // 525ddaa0 hoist - a target that would pass this leaf's own three checks (alive, FS_POWER,
+    // ENEMIES) so any rejection below can only come from the base gate.
+
+    // RequiredKindOf is a MASK (GPL isKindOfMulti): EVERY bit must be present. The old
+    // single-value parse would have kept only the last token of a multi-kind authored line.
+    [Fact]
+    public void RequiredKindOfMask_AcceptsTargetCarryingEveryBit()
+    {
+        var game = NewGame();
+        var saboteur = game.SpawnObject("SaboteurRequiresPowerAndStructure", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+        var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
+        MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
+
+        // PowerPlant is KindOf = STRUCTURE FS_POWER - both required bits present.
+        Assert.True(ModuleOf(saboteur).IsValidToExecute(plant));
+    }
+
+    [Fact]
+    public void RequiredKindOfMask_RejectsTargetMissingOneBit()
+    {
+        // Requires FS_POWER *and* VEHICLE; PowerPlant has only the former, so a true mask
+        // rejects it. A single-value parse (last token wins = VEHICLE, unenforced) would have
+        // accepted it.
+        var game = NewGame();
+        var saboteur = game.SpawnObject("SaboteurRequiresUnsatisfiableMask", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+        var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
+        MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
+
+        Assert.False(ModuleOf(saboteur).IsValidToExecute(plant));
+    }
+
+    // PickupScience ("m_pickupScience"): only relevant when the collided-with object's owner
+    // holds the named science. This module casts the sabotaged building as the base gate's
+    // "collector" role, so it is the PLANT's owner (the sabotage victim) that must hold it.
+    [Fact]
+    public void PickupScience_TargetOwnerLacksIt_IsRejectedByTheBaseGate()
+    {
+        var game = NewGame();
+        var saboteur = game.SpawnObject("SaboteurRequiresScience", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+        var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
+        MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
+        // Deliberately not granted: game.CivilianPlayer never receives SCIENCE_TestSabotage.
+
+        Assert.False(ModuleOf(saboteur).IsValidToExecute(plant));
+    }
+
+    [Fact]
+    public void PickupScience_TargetOwnerHasIt_PassesTheBaseGate()
+    {
+        var game = NewGame();
+        var saboteur = game.SpawnObject("SaboteurRequiresScience", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+        var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
+        MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
+        game.CivilianPlayer.DirectlyAssignScience(game.AssetStore.Sciences.GetByName("SCIENCE_TestSabotage"));
+
+        Assert.True(ModuleOf(saboteur).IsValidToExecute(plant));
     }
 
     [Fact]

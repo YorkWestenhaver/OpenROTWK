@@ -112,6 +112,43 @@ Object TestSaboteurNoBuildingPickup
   Behavior = SabotageSuperweaponCrateCollide ModuleTag_Sabotage
   End
 End
+
+Science SCIENCE_TestSabotage
+  IsGrantable = Yes
+End
+
+Object TestSaboteurRequiresSuperweaponAndStructure
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+  Behavior = SabotageSuperweaponCrateCollide ModuleTag_Sabotage
+    BuildingPickup = Yes
+    RequiredKindOf = STRUCTURE FS_SUPERWEAPON
+  End
+End
+
+Object TestSaboteurRequiresUnsatisfiableMask
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+  Behavior = SabotageSuperweaponCrateCollide ModuleTag_Sabotage
+    BuildingPickup = Yes
+    RequiredKindOf = FS_SUPERWEAPON VEHICLE
+  End
+End
+
+Object TestSaboteurRequiresScience
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 50
+  End
+  Behavior = SabotageSuperweaponCrateCollide ModuleTag_Sabotage
+    BuildingPickup = Yes
+    PickupScience = SCIENCE_TestSabotage
+  End
+End
 ";
 
     private static (HeadlessSimGame Game, GameObject Saboteur) NewGame(string saboteurDefinition = "TestSaboteur")
@@ -406,6 +443,64 @@ End
         module.OnCollide(null, Vector3.Zero, Vector3.Zero);
 
         Assert.False(saboteur.IsDestroyed);
+    }
+
+    // ---- R13.5: shared CrateCollide::isValidToExecute base gate (crate-gate hoist) ----
+    //
+    // These cases exercise the base gate's own fields (RequiredKindOf-as-mask, PickupScience),
+    // which this leaf's construction only started parsing/enforcing as of the 525ddaa0 hoist -
+    // a victim that would pass this leaf's own three checks (alive, FS_SUPERWEAPON/
+    // FS_STRATEGY_CENTER, ENEMIES) so any rejection below can only come from the base gate.
+
+    // RequiredKindOf is a MASK (GPL isKindOfMulti): EVERY bit must be present. The old
+    // single-value parse would have kept only the last token of a multi-kind authored line.
+    [Fact]
+    public void RequiredKindOfMask_AcceptsVictimCarryingEveryBit()
+    {
+        var (game, saboteur) = NewGame("TestSaboteurRequiresSuperweaponAndStructure");
+        var victim = game.SpawnObject("TestSuperweapon", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var module = ModuleOf(saboteur);
+
+        // TestSuperweapon is KindOf = STRUCTURE FS_SUPERWEAPON - both required bits present.
+        Assert.True(module.IsValidToExecute(victim, RelationshipType.Enemies));
+    }
+
+    [Fact]
+    public void RequiredKindOfMask_RejectsVictimMissingOneBit()
+    {
+        // Requires FS_SUPERWEAPON *and* VEHICLE; the superweapon structure has only the
+        // former, so a true mask rejects it. A single-value parse (last token wins = VEHICLE,
+        // unenforced) would have accepted it.
+        var (game, saboteur) = NewGame("TestSaboteurRequiresUnsatisfiableMask");
+        var victim = game.SpawnObject("TestSuperweapon", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var module = ModuleOf(saboteur);
+
+        Assert.False(module.IsValidToExecute(victim, RelationshipType.Enemies));
+    }
+
+    // PickupScience ("m_pickupScience"): only relevant when the collided-with object's owner
+    // holds the named science. This module casts the sabotaged structure as the base gate's
+    // "collector" role, so it is the VICTIM's owner that must hold it.
+    [Fact]
+    public void PickupScience_VictimOwnerLacksIt_IsRejectedByTheBaseGate()
+    {
+        var (game, saboteur) = NewGame("TestSaboteurRequiresScience");
+        var victim = game.SpawnObject("TestSuperweapon", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var module = ModuleOf(saboteur);
+        // Deliberately not granted: game.CivilianPlayer never receives SCIENCE_TestSabotage.
+
+        Assert.False(module.IsValidToExecute(victim, RelationshipType.Enemies));
+    }
+
+    [Fact]
+    public void PickupScience_VictimOwnerHasIt_PassesTheBaseGate()
+    {
+        var (game, saboteur) = NewGame("TestSaboteurRequiresScience");
+        var victim = game.SpawnObject("TestSuperweapon", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var module = ModuleOf(saboteur);
+        game.CivilianPlayer.DirectlyAssignScience(game.AssetStore.Sciences.GetByName("SCIENCE_TestSabotage"));
+
+        Assert.True(module.IsValidToExecute(victim, RelationshipType.Enemies));
     }
 
     [Fact]

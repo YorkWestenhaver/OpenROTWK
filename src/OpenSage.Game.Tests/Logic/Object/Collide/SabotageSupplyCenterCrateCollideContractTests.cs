@@ -61,6 +61,52 @@ Object NonSupplyCenterBuilding
     MaxHealth = 1000
   End
 End
+
+Science SCIENCE_TestSabotage
+  IsGrantable = Yes
+End
+
+Object SaboteurRequiresSupplyCenterAndStructure
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+  Behavior = SabotageSupplyCenterCrateCollide ModuleTag_Sabotage
+    StealCashAmount = 500
+    BuildingPickup = Yes
+    RequiredKindOf = STRUCTURE FS_SUPPLY_CENTER
+  End
+End
+
+Object SaboteurRequiresUnsatisfiableMask
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+  Behavior = SabotageSupplyCenterCrateCollide ModuleTag_Sabotage
+    StealCashAmount = 500
+    BuildingPickup = Yes
+    RequiredKindOf = FS_SUPPLY_CENTER VEHICLE
+  End
+End
+
+Object SaboteurRequiresScience
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+  Behavior = SabotageSupplyCenterCrateCollide ModuleTag_Sabotage
+    StealCashAmount = 500
+    BuildingPickup = Yes
+    PickupScience = SCIENCE_TestSabotage
+  End
+End
 ";
 
     private static readonly Vector3 Origin = new(0, 0, 0);
@@ -279,5 +325,75 @@ End
         Assert.Equal(2000u, target.Owner.BankAccount.Money);
         Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
         Assert.False(scenario.SaboteurUnit.IsDestroyed);
+    }
+
+    // ---- R13.5: shared CrateCollide::isValidToExecute base gate (crate-gate hoist) ----
+    //
+    // These cases exercise the base gate's own fields (RequiredKindOf-as-mask, PickupScience),
+    // which this leaf's construction only started parsing/enforcing as of the 525ddaa0 hoist -
+    // a target that would pass this leaf's own three checks (alive, FS_SUPPLY_CENTER, ENEMIES)
+    // and the AI goal-object gate, so any rejection below can only come from the base gate.
+
+    // RequiredKindOf is a MASK (GPL isKindOfMulti): EVERY bit must be present. The old
+    // single-value parse would have kept only the last token of a multi-kind authored line.
+    [Fact]
+    public void RequiredKindOfMask_AcceptsTargetCarryingEveryBit()
+    {
+        var scenario = NewScenario(RelationshipType.Enemies, saboteurDefinitionName: "SaboteurRequiresSupplyCenterAndStructure");
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        // EnemySupplyCenter is KindOf = STRUCTURE FS_SUPPLY_CENTER - both required bits present.
+        Assert.Equal(1500u, target.Owner.BankAccount.Money);
+        Assert.Equal(500u, scenario.Saboteur.BankAccount.Money);
+    }
+
+    [Fact]
+    public void RequiredKindOfMask_RejectsTargetMissingOneBit()
+    {
+        // Requires FS_SUPPLY_CENTER *and* VEHICLE; the supply center has only the former, so a
+        // true mask rejects it. A single-value parse (last token wins = VEHICLE, unenforced)
+        // would have accepted it.
+        var scenario = NewScenario(RelationshipType.Enemies, saboteurDefinitionName: "SaboteurRequiresUnsatisfiableMask");
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(2000u, target.Owner.BankAccount.Money);
+        Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
+    }
+
+    // PickupScience ("m_pickupScience"): only relevant when the collided-with object's owner
+    // holds the named science. This module casts the sabotaged building as the base gate's
+    // "collector" role, so it is the TARGET's owner (the sabotage victim) that must hold it.
+    [Fact]
+    public void PickupScience_TargetOwnerLacksIt_RejectsSabotage()
+    {
+        var scenario = NewScenario(RelationshipType.Enemies, saboteurDefinitionName: "SaboteurRequiresScience");
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+        // Deliberately not granted: scenario.Target never receives SCIENCE_TestSabotage.
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(2000u, target.Owner.BankAccount.Money);
+        Assert.Equal(0u, scenario.Saboteur.BankAccount.Money);
+    }
+
+    [Fact]
+    public void PickupScience_TargetOwnerHasIt_AllowsSabotage()
+    {
+        var scenario = NewScenario(RelationshipType.Enemies, saboteurDefinitionName: "SaboteurRequiresScience");
+        var target = SpawnTarget(scenario, "EnemySupplyCenter", startingMoney: 2000);
+        SetAsGoal(scenario, target);
+        scenario.Target.DirectlyAssignScience(scenario.Game.AssetStore.Sciences.GetByName("SCIENCE_TestSabotage"));
+
+        scenario.SaboteurUnit.OnCollide(target);
+
+        Assert.Equal(1500u, target.Owner.BankAccount.Money);
+        Assert.Equal(500u, scenario.Saboteur.BankAccount.Money);
     }
 }
