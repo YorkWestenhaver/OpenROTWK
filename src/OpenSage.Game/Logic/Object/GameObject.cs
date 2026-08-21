@@ -161,6 +161,40 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     public readonly Transform ModelTransform;
 
+    /// <summary>
+    /// R14 packet 6 (design-sim-presentation-bridge §1.6): presentation-side history of
+    /// <see cref="Entity.Transform"/>, used to interpolate this object's pose between the
+    /// 5 Hz logic frames at render rate. Sampled in <see cref="LocalLogicTick"/>, consumed by
+    /// <see cref="RenderTransformMatrix"/> and <see cref="RenderTranslation"/>.
+    /// </summary>
+    /// <remarks>
+    /// Presentation-only and read-only over sim state - it holds copies, never a source of
+    /// truth. Not persisted, and not visible to any logic path: no collider, weapon check,
+    /// pathfind query or CRC channel may read the interpolated pose.
+    /// </remarks>
+    private readonly RenderTransformInterpolator _renderTransform = new();
+
+    /// <summary>
+    /// The world matrix the RENDERER should draw this object with: the sim transform
+    /// interpolated toward the current logic frame by the render-frame fraction. Falls back to
+    /// the raw sim transform until the presentation path has sampled this object at least once
+    /// (an object created inside a logic frame can be rendered before its first
+    /// <see cref="LocalLogicTick"/>).
+    /// </summary>
+    public Matrix4x4 RenderTransformMatrix => _renderTransform.HasSample
+        ? _renderTransform.Matrix
+        : Transform.Matrix;
+
+    /// <summary>
+    /// The world position the RENDERER should draw this object at. Use this, not
+    /// <see cref="Entity.Translation"/>, for anything drawn ON TOP of the model (health bars,
+    /// rank pips, build-progress text) so the overlay tracks the interpolated model instead of
+    /// snapping to the logic frame while the model glides.
+    /// </summary>
+    public Vector3 RenderTranslation => _renderTransform.HasSample
+        ? _renderTransform.Translation
+        : Translation;
+
     private bool _objectMoved;
 
     public ObjectId CreatedByObjectID;
@@ -1345,6 +1379,13 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     internal void LocalLogicTick(in TimeInterval gameTime, float tickT, HeightMap heightMap)
     {
+        // R14 packet 6: this is where tickT stops being dead plumbing. Sample the sim
+        // transform and carry the render-frame fraction, so BuildRenderList can draw a pose
+        // between logic frames instead of on the 200 ms grid. Read-only over sim state; the
+        // logic-frame edge detection lives inside the interpolator, mirroring the pattern
+        // Drawable.LogicTick already uses for the selection flash.
+        _renderTransform.Observe(_gameEngine.GameLogic.CurrentFrame, Transform, tickT);
+
         Drawable.LogicTick(gameTime);
     }
 
@@ -1363,7 +1404,10 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         };
 
         // This must be done after processing anything that might update this object's transform.
-        var worldMatrix = ModelTransform.Matrix * Transform.Matrix;
+        // R14 packet 6: the sim transform is sampled at 5 Hz, so the RENDER pose is the
+        // interpolated one (RenderTransformMatrix), not the raw one. Identical to
+        // Transform.Matrix on the first render frame and whenever the object is stationary.
+        var worldMatrix = ModelTransform.Matrix * RenderTransformMatrix;
         Drawable.BuildRenderList(renderList, camera, gameTime, worldMatrix, renderItemConstantsPS);
     }
 

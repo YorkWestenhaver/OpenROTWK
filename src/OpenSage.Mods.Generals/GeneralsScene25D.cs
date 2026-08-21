@@ -77,7 +77,7 @@ public class GeneralsScene25D(IScene3D scene3D, AssetStore assetStore) : Scene25
 
         if (gameObject.ExperienceTracker.ShowRankUpAnimation)
         {
-            TransientAnimations.Enqueue(new RankUpAnimation(Camera, GameEngine.LogicFramesPerSecond, currentFrame, GameData, new Animation(LevelUpAnimation, GameEngine.LogicFramesPerSecond), gameObject.Translation with { Z = gameObject.Translation.Z + 20 }));
+            TransientAnimations.Enqueue(new RankUpAnimation(Camera, GameEngine.LogicFramesPerSecond, currentFrame, GameData, new Animation(LevelUpAnimation, GameEngine.LogicFramesPerSecond), gameObject.RenderTranslation with { Z = gameObject.RenderTranslation.Z + 20 }));
             gameObject.ExperienceTracker.ShowRankUpAnimation = false;
         }
     }
@@ -96,9 +96,9 @@ public class GeneralsScene25D(IScene3D scene3D, AssetStore assetStore) : Scene25
 
         var xOffset = Camera.GetScreenSize(boundingSphere) / 1.5f; // 1.5 seems to give us a good offset from where the health bar would be
 
-        var rankWorldSpacePos = gameObject.Translation with
+        var rankWorldSpacePos = gameObject.RenderTranslation with
         {
-            Z = gameObject.Translation.Z + gameObject.Definition.Geometry.Shapes[0].Height,
+            Z = gameObject.RenderTranslation.Z + gameObject.Definition.Geometry.Shapes[0].Height,
         };
 
         var rankRect = Camera.WorldToScreenRectangle(
@@ -138,7 +138,7 @@ public class GeneralsScene25D(IScene3D scene3D, AssetStore assetStore) : Scene25
         var boundingSphere = GetBoundingSphere(gameObject);
         var xOffset = Camera.GetScreenSize(boundingSphere) / -2; // these just start where the health bar starts
 
-        var pipWorldSpacePos = gameObject.Translation + GameData.ContainerPipWorldOffset;
+        var pipWorldSpacePos = gameObject.RenderTranslation + GameData.ContainerPipWorldOffset;
 
         var pipRect = Camera.WorldToScreenRectangle(
             pipWorldSpacePos,
@@ -182,7 +182,7 @@ public class GeneralsScene25D(IScene3D scene3D, AssetStore assetStore) : Scene25
         var boundingSphere = GetBoundingSphere(gameObject);
         var xOffset = Camera.GetScreenSize(boundingSphere) / -2; // these just start where the health bar starts - same position as garrison pips (guess a unit shouldn't have both?)
 
-        var pipWorldSpacePos = gameObject.Translation + GameData.AmmoPipWorldOffset;
+        var pipWorldSpacePos = gameObject.RenderTranslation + GameData.AmmoPipWorldOffset;
 
         var pipRect = Camera.WorldToScreenRectangle(
             pipWorldSpacePos,

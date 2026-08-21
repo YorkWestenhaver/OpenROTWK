@@ -120,6 +120,11 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
     /// </summary>
     protected virtual void EnqueueTransientAnimations(GameObject gameObject, uint currentFrame) { }
 
+    // R14 packet 6: everything drawn here is an overlay pinned to a model the renderer now
+    // draws at an INTERPOLATED pose (GameObject.RenderTransformMatrix). Reading the raw
+    // Entity.Translation here instead would leave health bars and rank pips snapping on the
+    // 200 ms logic grid while the model under them glides - a worse artifact than the snap
+    // packet 6 removes. Hence GameObject.RenderTranslation throughout this file.
     protected static BoundingSphere GetBoundingSphere(GameObject gameObject)
     {
         var geometrySize = gameObject.Definition.Geometry.Shapes[0].MajorRadius;
@@ -130,7 +135,7 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
             geometrySize = Math.Max(geometrySize, 15);
         }
 
-        return new BoundingSphere(gameObject.Translation, geometrySize);
+        return new BoundingSphere(gameObject.RenderTranslation, geometrySize);
     }
 
     private void DrawHealthBox(DrawingContext2D drawingContext, GameObject gameObject)
@@ -145,7 +150,7 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
         var healthBoxSize = Camera.GetScreenSize(boundingSphere);
 
         // todo: there should be some additional height being added here, but it's unclear what the logic should be
-        var healthBoxWorldSpacePos = gameObject.Translation.WithZ(gameObject.Translation.Z + gameObject.Definition.Geometry.Shapes[0].Height);
+        var healthBoxWorldSpacePos = gameObject.RenderTranslation.WithZ(gameObject.RenderTranslation.Z + gameObject.Definition.Geometry.Shapes[0].Height);
         var healthBoxRect = Camera.WorldToScreenRectangle(
             healthBoxWorldSpacePos,
             new SizeF(healthBoxSize, 3));
@@ -227,7 +232,7 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
 
         var buildProgressSize = Camera.GetScreenSize(boundingSphere);
 
-        var buildProgressWorldSpacePos = gameObject.Translation;
+        var buildProgressWorldSpacePos = gameObject.RenderTranslation;
         var buildProgressRect = Camera.WorldToScreenRectangle(
             buildProgressWorldSpacePos,
             new SizeF(buildProgressSize * 10, 40)); // these numbers feel right, but are just a guess
@@ -248,9 +253,9 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
 
         var xOffset = Camera.GetScreenSize(boundingSphere) / -2; // these just start where the health bar starts
 
-        var rankWorldSpacePos = gameObject.Translation with
+        var rankWorldSpacePos = gameObject.RenderTranslation with
         {
-            Z = gameObject.Translation.Z + gameObject.Definition.Geometry.Shapes[0].Height - image.Coords.Height / 8f,
+            Z = gameObject.RenderTranslation.Z + gameObject.Definition.Geometry.Shapes[0].Height - image.Coords.Height / 8f,
         };
 
         var size = image.Coords.Size.ToSizeF();
@@ -268,9 +273,9 @@ public class Scene25D(IScene3D scene3D, AssetStore assetStore)
 
     private void DrawTopCenteredImage(DrawingContext2D drawingContext, GameObject gameObject, MappedImage image)
     {
-        var rankWorldSpacePos = gameObject.Translation with
+        var rankWorldSpacePos = gameObject.RenderTranslation with
         {
-            Z = gameObject.Translation.Z + gameObject.Definition.Geometry.Shapes[0].Height + image.Coords.Height / 2f,
+            Z = gameObject.RenderTranslation.Z + gameObject.Definition.Geometry.Shapes[0].Height + image.Coords.Height / 2f,
         };
 
         var propRect = Camera.WorldToScreenRectangle(
