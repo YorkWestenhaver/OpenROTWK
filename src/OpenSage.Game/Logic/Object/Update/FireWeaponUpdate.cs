@@ -129,13 +129,25 @@ public sealed class WeaponNugget
     internal static WeaponNugget Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
     private static readonly IniParseTable<WeaponNugget> FieldParseTable = new IniParseTable<WeaponNugget>
     {
-        { "WeaponName", (parser, x) => x.WeaponName = parser.ParseAssetReference() },
+        // -> LazyAssetReference<WeaponTemplate> (S5; DamageFieldUpdateModuleData port spec §2.5/§3):
+        // the same resolved-once-at-construction shape PointDefenseLaserUpdateModuleData.WeaponTemplate
+        // and FireWeaponUpdateModuleData.Weapon already use. No caller reads WeaponName as a bare
+        // string (verified by grep), so this is not a breaking change.
+        { "WeaponName", (parser, x) => x.WeaponName = parser.ParseWeaponTemplateReference() },
+        // held: FireDelay / OneShot / Offset - parsed, not modeled. No GPL correspondence
+        // (GeneralsMD's same-named FireWeaponNugget is an unrelated ObjectCreationList nugget),
+        // no landed consumer, and no data-derivation: every DamageFieldUpdate call site in
+        // unmodified AotR authors FireDelay = 0, OneShot = No, and no Offset. See
+        // DamageFieldUpdate.cs's file header for the full gap note.
         { "FireDelay", (parser, x) => x.FireDelay = parser.ParseInteger() },
         { "OneShot", (parser, x) => x.OneShot = parser.ParseBoolean() },
         { "Offset", (parser, x) => x.Offset = parser.ParseVector3() }
     };
-    public string WeaponName { get; private set; }
+    public LazyAssetReference<WeaponTemplate> WeaponName { get; private set; }
+    // held: parsed, not modeled - see DamageFieldUpdate.cs file header.
     public int FireDelay { get; private set; }
+    // held: parsed, not modeled - see DamageFieldUpdate.cs file header.
     public bool OneShot { get; private set; }
+    // held: parsed, not modeled - see DamageFieldUpdate.cs file header.
     public Vector3 Offset { get; private set; }
 }
