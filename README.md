@@ -81,12 +81,13 @@ current work is the behavior-module long tail, skirmish AI, and netcode completi
 * [x] Script-engine runtime subset
 * [ ] Skirmish AI (design complete, implementation pending)
 * [ ] Object lifecycle hardening (partial, ongoing)
-* [ ] Netcode / lockstep completion (lobby, match flow, desync recovery)
+* [ ] Netcode / lockstep completion (design complete, implementation pending)
 
 ### Behavior modules
 
-* [x] 74 / 169 runtime behavior modules implemented
-* [ ] 95 remaining (69 gated on behavioral specifications)
+* [x] 100 / 169 runtime behavior modules implemented
+* [ ] 69 remaining (11 gated on behavioral specifications, 39 have a written
+      port-ready spec awaiting implementation, 19 blocked on other work)
 
 ### Conformance oracle
 
