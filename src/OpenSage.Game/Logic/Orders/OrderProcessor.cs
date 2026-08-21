@@ -205,6 +205,23 @@ public sealed class OrderProcessor
                     }
                     break;
 
+                case OrderType.Revive:
+                    {
+                        // Revive(deadHeroObjectId, anchorObjectId, commandButtonSlotIndex).
+                        //
+                        // The dead hero's ObjectId is the authority, resolved once on the
+                        // issuing client. Carrying only the slot index instead would make every
+                        // peer reproduce a client-side ordering to work out "which dead hero is
+                        // in slot N", which is precisely the class of thing that desyncs. The
+                        // slot index rides along unread so a captured retail replay can be
+                        // compared field-for-field once one exists (OQ-4).
+                        var heroId = order.Arguments[0].Value.ObjectId;
+                        var anchorId = order.Arguments[1].Value.ObjectId;
+
+                        ReviveApplicator.Apply(_game, player, heroId, anchorId);
+                    }
+                    break;
+
                 case OrderType.Sell:
                     foreach (var unit in player.SelectedUnits)
                     {

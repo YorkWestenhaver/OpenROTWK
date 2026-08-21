@@ -44,6 +44,15 @@ public sealed class ProductionUpdate : UpdateModule
 
     public IReadOnlyList<ProductionJob> ProductionQueue => _productionQueue;
 
+    /// <summary>
+    /// This building's <c>ProductionModifier</c> blocks, in declaration order. Grown for the
+    /// R14 respawn seam: the revive purchase is priced through the ANCHOR building's
+    /// HeroRevive modifiers (design-respawn-seam.md §5.4), and the order side needs to read
+    /// them without reaching into the module data. Nothing else consumes them yet - the
+    /// HeroPurchase/ordinary-production arms of this list remain unapplied.
+    /// </summary>
+    public IReadOnlyList<ProductionModifier> ProductionModifiers => _moduleData.ProductionModifiers;
+
     internal ProductionUpdate(GameObject gameObject, IGameEngine gameEngine, ProductionUpdateModuleData moduleData)
         : base(gameObject, gameEngine)
     {

@@ -268,4 +268,21 @@ public sealed class Order
 
         return order;
     }
+
+    /// <summary>
+    /// Buy <paramref name="deadHeroId"/>'s revive at <paramref name="anchorId"/>.
+    /// <paramref name="commandButtonSlotIndex"/> is carried but not consumed by the sim - it
+    /// exists so a captured retail replay can be compared field-for-field once one is captured
+    /// (OQ-4); the dead hero's ObjectId is what the sim actually acts on.
+    /// </summary>
+    public static Order CreateRevive(int playerId, ObjectId deadHeroId, ObjectId anchorId, int commandButtonSlotIndex)
+    {
+        var order = new Order(playerId, OrderType.Revive);
+
+        order.AddObjectIdArgument(deadHeroId);
+        order.AddObjectIdArgument(anchorId);
+        order.AddIntegerArgument(commandButtonSlotIndex);
+
+        return order;
+    }
 }

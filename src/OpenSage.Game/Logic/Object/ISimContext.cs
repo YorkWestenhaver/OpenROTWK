@@ -265,6 +265,29 @@ public interface IPlayerList
     /// keyed by it rather than by a reference.
     /// </summary>
     int GetPlayerIndex(OpenSage.Logic.Player player);
+
+    /// <summary>
+    /// Whether <paramref name="player"/> can currently afford <paramref name="cost"/> gold.
+    /// Grown for the RespawnUpdate port (R14): a revive offer must be refused
+    /// deterministically when the purchase order arrives after the money has already been
+    /// spent elsewhere in the same frame.
+    /// </summary>
+    /// <remarks>
+    /// A PREDICATE, not an accessor and not a mutator, on purpose. Money is <c>uint</c>
+    /// (BankAccount), so the comparison is integer and exact - no Fix64/SIMCORE001 hazard -
+    /// but exposing the balance itself would invite <c>[SimState]</c> arithmetic on it, and
+    /// exposing a withdraw would drag in the concrete <c>BankAccount.Withdraw</c>, which calls
+    /// the audio system directly and is therefore not <c>[SimState]</c>-safe. The spend itself
+    /// is performed on the order side before the module is reached, the same way
+    /// <c>OrderType.CreateUnit</c> already does it.
+    /// <para>
+    /// Note that the guard is load-bearing rather than cosmetic: <c>BankAccount.Withdraw</c>
+    /// CLAMPS to the available balance instead of failing, so an unguarded spend would quietly
+    /// hand out a free revive. The predicate must precede the withdraw; never rely on the
+    /// clamp.
+    /// </para>
+    /// </remarks>
+    bool CanAfford(OpenSage.Logic.Player player, uint cost);
 }
 
 /// <summary>Immutable parsed-data view. Grows one member per porting need.</summary>

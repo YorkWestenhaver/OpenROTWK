@@ -312,6 +312,11 @@ internal sealed class SimContext : ISimContext
 
         public int GetPlayerIndex(OpenSage.Logic.Player player)
             => _engine.Game.PlayerManager.GetPlayerIndex(player);
+
+        // One unsigned integer compare - no float, no audio, no mutation. See the member's
+        // doc on IPlayerList for why the seam is a predicate and not a balance accessor.
+        public bool CanAfford(OpenSage.Logic.Player player, uint cost)
+            => player is not null && player.BankAccount.Money >= cost;
     }
 
     private sealed class AssetStoreAdapter : IAssetStore

@@ -133,5 +133,26 @@ public enum OrderType
     Unknown1098 = 1098,
     Unknown1099 = 1099,
 
+    /// <summary>
+    /// Buy a dead hero's revive at a named anchor building.
+    /// Arguments: <c>ObjectId</c> dead hero, <c>ObjectId</c> anchor, <c>Integer</c> command-button
+    /// slot index.
+    /// </summary>
+    /// <remarks>
+    /// The number 1114 is the RECOVERED BFME2 value (<c>GameMessageType.MSG_REVIVE</c>), not a
+    /// ZH one - this enum is otherwise ZH-derived, and mixing the two schemes is a deliberate,
+    /// ratified shortcut (OQ-3, dr-0033): the live dispatcher is <c>OrderProcessor</c> and the
+    /// live vocabulary has no revive value, while the vocabulary that has the right value has
+    /// no dispatcher. Carrying the same integer means the eventual unification is a rename.
+    /// dr-0034 tracks migrating this onto the real SimOrder dispatcher when N14b lands.
+    /// <para>
+    /// There is deliberately NO CancelRevive value here: the recovered vocabulary has no
+    /// cancel-revive message (1115 is <c>MSG_TOGGLE_NO_AUTO_ACQUIRE</c>), and inventing a
+    /// number would fabricate a retail fact. Cancellation exists as a driven module method
+    /// (<c>RespawnUpdate.CancelRevive</c>) until a real value is recovered.
+    /// </para>
+    /// </remarks>
+    Revive = 1114,
+
     Zero = 0
 }
