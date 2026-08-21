@@ -171,6 +171,29 @@ End
         Assert.True(contain.IsOpened);
     }
 
+    [Fact]
+    public void RisingPastOpenDist_AboveStartZ_OpensChute()
+    {
+        // GPL ParachuteContain.cpp:315 tests fabs(m_startZ - z) >= paraOpenDist - it fires on
+        // displacement in either direction, not just descent. An explosion knockback or applied
+        // upward force that pushes the object above its recorded _startZ before the chute has
+        // opened must still open it once the magnitude of the displacement clears
+        // ParachuteOpenDist. A signed (descent-only) test would never fire here.
+        var game = NewGame();
+        var (chute, _, contain) = SpawnWithRider(game, new Vector3(0, 0, 200));
+
+        ArmingStep(game);
+        game.Step(); // establishes _startZ ~= 200
+
+        Assert.False(contain.IsOpened);
+
+        // Knocked upward 60 units - past ParachuteOpenDist (50), but *above* _startZ, not below.
+        chute.UpdateTransform(new Vector3(0, 0, 260));
+        game.Step();
+
+        Assert.True(contain.IsOpened);
+    }
+
     // ---------------------------------------------------------------- pitch/roll spring-damper
 
     [Fact]
