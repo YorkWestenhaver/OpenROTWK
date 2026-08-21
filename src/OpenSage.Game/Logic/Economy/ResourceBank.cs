@@ -28,8 +28,15 @@ namespace OpenSage.Logic.Economy;
 /// <summary>
 /// The player's money ledger, GPL <c>Money</c>. Unsigned balance; withdraw clamps.
 /// </summary>
+/// <remarks>
+/// R15 S9-05: implements <see cref="IPlayerFunds"/>. The three members below already had
+/// exactly that shape - the interface is only extracted so an order handler can be written
+/// against "a player's money" rather than against this class specifically, and so the live
+/// ledger today (<see cref="BankAccount"/>, via <see cref="BankAccountFunds"/>) can be
+/// substituted until SimPlayer makes this class the live one. No behavior changes here.
+/// </remarks>
 [SimState]
-public sealed class ResourceBank
+public sealed class ResourceBank : IPlayerFunds
 {
     // ---- mutable sim state (the whole inventory; every field is in Xfer) ----
     private uint _money;

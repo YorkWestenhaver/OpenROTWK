@@ -285,4 +285,68 @@ public sealed class Order
 
         return order;
     }
+
+    // ----------------------------------------------------------------------------------
+    // BFME2/AotR castle + build-plot orders (R15 S9-05).
+    //
+    // These are the shared human+AI construction path: the command bar's build-plot buttons
+    // and the S9 skirmish AI both produce these Orders, and OrderProcessor executes them the
+    // same way for both. Every payload is an id resolved ONCE on the issuing side (the plot's
+    // ObjectId, the template's internal id) rather than anything a peer would have to
+    // re-derive from a client-side ordering - the same rule CreateRevive's doc comment states,
+    // and the reason these are safe to broadcast.
+    // ----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Build <paramref name="objectDefinitionId"/> on the build-plot / castle foundation
+    /// <paramref name="plotId"/>. <paramref name="objectDefinitionId"/> is an
+    /// <c>ObjectDefinition.InternalId</c>, the same id form
+    /// <see cref="CreateBuildObject"/> carries.
+    /// </summary>
+    public static Order CreateFoundationConstruct(int playerId, ObjectId plotId, int objectDefinitionId)
+    {
+        var order = new Order(playerId, OrderType.FoundationConstruct);
+
+        order.AddObjectIdArgument(plotId);
+        order.AddIntegerArgument(objectDefinitionId);
+
+        return order;
+    }
+
+    /// <summary>
+    /// Cancel the in-flight construction on <paramref name="plotId"/> and refund it.
+    /// </summary>
+    public static Order CreateFoundationConstructCancel(int playerId, ObjectId plotId)
+    {
+        var order = new Order(playerId, OrderType.FoundationConstructCancel);
+
+        order.AddObjectIdArgument(plotId);
+
+        return order;
+    }
+
+    /// <summary>
+    /// Unpack the castle/camp foundation <paramref name="foundationId"/> into its castle,
+    /// charging the matched faction entry's UnpackCost.
+    /// </summary>
+    public static Order CreateCastleUnpack(int playerId, ObjectId foundationId)
+    {
+        var order = new Order(playerId, OrderType.CastleUnpack);
+
+        order.AddObjectIdArgument(foundationId);
+
+        return order;
+    }
+
+    /// <summary>
+    /// Pack the castle standing on foundation <paramref name="foundationId"/> back down.
+    /// </summary>
+    public static Order CreateCastlePack(int playerId, ObjectId foundationId)
+    {
+        var order = new Order(playerId, OrderType.CastlePack);
+
+        order.AddObjectIdArgument(foundationId);
+
+        return order;
+    }
 }
