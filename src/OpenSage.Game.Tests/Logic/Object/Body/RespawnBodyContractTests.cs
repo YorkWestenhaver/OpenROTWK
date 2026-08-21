@@ -8,6 +8,25 @@
 // permanence verdict is latched as sim state and folded into the Objects CRC channel (shadow-copy
 // CRC + CRC-participation + mid-state save/load continuation). The broader respawn lifecycle is
 // out of scope on this tip (finding F-RSB-1).
+//
+// R14 CONTRACT UPDATE (respawn seam, wave-2a adversarial review finding H1; owner-ratified as
+// dr-0033). The R8 contract this file locked in is REOPENED here on purpose, and the tests
+// below are the citation for why:
+//
+//   * The permanence verdict is now resolved from the killing blow through the public
+//     ResolvePermanenceForDeath, which the seam calls from inside GameObject.OnDie. The old
+//     "resolve after base.AttemptDamage returns" ordering was too late to be usable: ActiveBody
+//     calls obj.OnDie from INSIDE that base call, so a claim predicate reading the latch saw
+//     false for every death, permanent ones included. The post-base check survives as the
+//     FALLBACK for a RespawnBody with no revive-lifecycle module, so the observable verdict for
+//     every case this file already covered is UNCHANGED - see the four kill tests below, which
+//     are byte-for-byte the R8 assertions.
+//   * A second bool of sim state (_permanenceResolved) enforces "exactly once per death" now
+//     that there are two entry points, and Revive() clears it so a SECOND death resolves on its
+//     own killing blow. Xfer is therefore version 2 and folds both bools.
+//   * Revive(healthPercent) is the specified exit from the dead state (review finding H4):
+//     GameObject.IsEffectivelyDead is recomputed by ActiveBody from the Fix64 health ledger on
+//     every health change, so restoring health through the body IS what clears it.
 
 using System.Numerics;
 using OpenSage.Logic.Object;
@@ -232,6 +251,95 @@ End
 
         hero.AttemptCombatDamage(Damage(9999, source: infantryKiller));
         Assert.True(BodyOf(hero).IsPermanentlyKilled);
+    }
+
+    // ================================================================
+    // R14 (H1/H4) - the reopened contract
+    // ================================================================
+
+    [Fact]
+    public void ResolvePermanenceForDeath_ResolvesFromTheDamage_BeforeAnyLatchExists()
+    {
+        // The seam's own call shape: ask the body about a killing blow it has not yet taken.
+        // This is what ClaimDeath does from inside OnDie, where no latch exists yet.
+        var game = NewGame();
+        var hero = Spawn(game);
+        var structureKiller = Spawn(game, "StructureKiller");
+
+        Assert.False(BodyOf(hero).IsPermanenceResolved);
+
+        var permanent = BodyOf(hero).ResolvePermanenceForDeath(
+            new DamageInfoInput(structureKiller) { DamageType = DamageType.Magic, Amount = 9999 });
+
+        Assert.True(permanent);
+        Assert.True(BodyOf(hero).IsPermanentlyKilled);
+        Assert.True(BodyOf(hero).IsPermanenceResolved);
+    }
+
+    [Fact]
+    public void ResolvePermanenceForDeath_IsIdempotentWithinOneDeath()
+    {
+        // Both entry points can fire for the same death; the second must not re-test the
+        // filter, or a differently-sourced follow-up hit could flip a settled verdict.
+        var game = NewGame();
+        var hero = Spawn(game);
+        var structureKiller = Spawn(game, "StructureKiller");
+        var infantryKiller = Spawn(game, "InfantryKiller");
+
+        Assert.True(BodyOf(hero).ResolvePermanenceForDeath(
+            new DamageInfoInput(structureKiller) { DamageType = DamageType.Magic, Amount = 9999 }));
+
+        Assert.True(BodyOf(hero).ResolvePermanenceForDeath(
+            new DamageInfoInput(infantryKiller) { DamageType = DamageType.Magic, Amount = 9999 }));
+        Assert.True(BodyOf(hero).IsPermanentlyKilled);
+    }
+
+    [Fact]
+    public void Revive_ClearsIsEffectivelyDead_ThroughTheHealthLedger()
+    {
+        var game = NewGame();
+        var hero = Spawn(game);
+        hero.AttemptCombatDamage(Damage(9999, source: Spawn(game, "InfantryKiller")));
+
+        Assert.True(hero.IsEffectivelyDead);
+        Assert.Equal(Fix(0), BodyOf(hero).DamageCore.CurrentHealth);
+
+        BodyOf(hero).Revive(100);
+
+        // The health restore is what cleared the flag - not a bit set behind the ledger's back.
+        Assert.Equal(Fix(100), BodyOf(hero).DamageCore.CurrentHealth);
+        Assert.False(hero.IsEffectivelyDead);
+    }
+
+    [Fact]
+    public void Revive_ReArmsThePermanenceResolver_SoTheSecondDeathResolves()
+    {
+        var game = NewGame();
+        var hero = Spawn(game);
+        hero.AttemptCombatDamage(Damage(9999, source: Spawn(game, "InfantryKiller")));
+        Assert.True(BodyOf(hero).IsPermanenceResolved);
+        Assert.False(BodyOf(hero).IsPermanentlyKilled);
+
+        BodyOf(hero).Revive(100);
+        Assert.False(BodyOf(hero).IsPermanenceResolved);
+
+        hero.AttemptCombatDamage(Damage(9999, source: Spawn(game, "StructureKiller")));
+        Assert.True(BodyOf(hero).IsPermanentlyKilled);
+    }
+
+    [Fact]
+    public void Revive_RestoresTheDeclaredPercentOfInitialHealth()
+    {
+        // The percent is applied by BodyDamageCore's exact Int128 mul-div, so it is bit-stable
+        // rather than a float ratio: 40% of 250 is exactly 100.
+        var game = NewGame();
+        var hero = Spawn(game, "RespawnHeroDefaultHealth");
+        hero.AttemptCombatDamage(Damage(9999, source: Spawn(game, "InfantryKiller")));
+
+        BodyOf(hero).Revive(40);
+
+        Assert.Equal(Fix(100), BodyOf(hero).DamageCore.CurrentHealth);
+        Assert.False(hero.IsEffectivelyDead);
     }
 
     // ================================================================
