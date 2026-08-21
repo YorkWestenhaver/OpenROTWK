@@ -226,10 +226,11 @@ public sealed class ParachuteContain : UpdateModule, IContainModule, IDieModule,
 
         if (!_opened)
         {
-            // Signed test: only an actual descent of ParachuteOpenDist opens the chute. An
-            // absolute-delta test would also fire when the fudged start height sits above the
-            // spawn position, opening the chute on its first update.
-            if (_startZ.Value - parachute.Translation.Z >= _data.ParachuteOpenDist)
+            // GPL ParachuteContain.cpp:315 tests fabs(m_startZ - z) >= paraOpenDist, matched here.
+            // This fires on any ParachuteOpenDist-magnitude displacement from the recorded start
+            // height, not just a descent (e.g. an explosion knockback or applied upward force
+            // that pushes the object above _startZ before the chute has opened).
+            if (MathF.Abs(_startZ.Value - parachute.Translation.Z) >= _data.ParachuteOpenDist)
             {
                 Open(rider);
             }
