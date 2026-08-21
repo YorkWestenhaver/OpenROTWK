@@ -8,7 +8,7 @@
 // No GPL reference exists for the BFME2 chain semantics; the ordering rule implemented
 // here (sort by RequiredExperience ascending, stable on equal thresholds, an implicit
 // base level 0 prepended when the chain starts above zero experience) is the
-// deterministic reading of the INI data and is flagged as a Ghidra-gap finding in
+// deterministic reading of the INI data and is flagged as a spec-gap finding in
 // research/systems/economy-production.md.
 
 using System.Collections.Generic;

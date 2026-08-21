@@ -1,7 +1,7 @@
 // The deterministic player resource ledger - GPL Money's deposit/withdraw semantics
 // (generals-gpl GeneralsMD Common/RTS/Money.cpp: Money::withdraw / Money::deposit /
 // Money::xfer; semantics only, fresh code) plus the BFME2 command-point pool (no GPL
-// reference - INI-facts only, see the Ghidra-gap finding in
+// reference - INI-facts only, see the spec-gap finding in
 // research/systems/economy-production.md).
 //
 // DESIGN (the surface future economy/production modules and SimPlayer call):
@@ -15,7 +15,7 @@
 //     (GameData GoodCommandPointLimit / EvilCommandPointsMP* tables) and a used-count
 //     driven by unit CommandPoints values. No GPL reference exists; the accounting here
 //     is the minimal deterministic core (use/release, clamped at zero, afford test) and
-//     is flagged as a behavioral gap until a game.dat spec pins the original's edge
+//     is flagged as a behavioral gap until a written behavioral spec pins the original's edge
 //     cases.
 //
 // All state is Xfer-visible; declaration order is ours (F9).

@@ -9,7 +9,7 @@
 // UpgradeTemplate.GrantUpgrade), plus one S3 partition radius scan (R8) for the "inherit from
 // nearby" step. All consumed systems are landed public APIs; nothing is reimplemented here.
 //
-// Semantics implemented (self-evident from the field names, no GPL/Ghidra spec needed):
+// Semantics implemented (self-evident from the field names, no GPL/spec reference needed):
 //   - On create, scan objects within Radius (the S3 partition query, ascending ObjectId).
 //   - Of those neighbours, keep the ones matching ObjectFilter and that already carry the
 //     named Upgrade. If ANY such neighbour exists, this newly-created object INHERITS the

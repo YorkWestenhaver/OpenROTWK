@@ -21,7 +21,7 @@
 //   - the module keeps NO mutable state: the original's xfer is a version stamp over an
 //     empty base, and its crc is the base's. Ours says the same thing (see Xfer below).
 // BFME-only INI additions (DebrisPortionOfSelf) and BFME2-only ones (UpgradeRequired) have
-// no GPL reference and no Ghidra behavioral spec: they are parsed (audited vocabulary) but
+// no GPL reference and no written behavioral spec: they are parsed (audited vocabulary) but
 // deliberately not acted on - see research/die/CreateObjectDie.md, "behavior-fact gaps".
 //
 // Every mutable sim field appears in Xfer exactly once (§3) - here that is the empty set.

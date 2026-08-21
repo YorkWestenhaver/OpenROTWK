@@ -5,7 +5,7 @@
 //
 // Behavioral reference: BFME/BFME2-ONLY module - it does NOT exist in generals-gpl
 // (Generals / GeneralsMD), so there is NO GPL source to read. Behavioral reference is the
-// binary (Ghidra) only, clean-room. Data evidence (extracted AotR 2.02, the live install):
+// binary-derived spec only, clean-room. Data evidence (extracted AotR 2.02, the live install):
 // PorcupineFormationBody is the "pike wall" body worn by spear/pike infantry - Gondor
 // Spearmen, Isengard/Uruk Pikemen (map.ini bodies across helms deep / osgiliath / grey
 // company / durins tower, weapon.ini:43237 PikemenPorcupineDamage /
@@ -96,7 +96,7 @@ public sealed class PorcupineFormationBody : ActiveBody
     /// attacker (a valid source object that is not this object itself). Healing and subdual
     /// are not attacks and never provoke the pikes. The finer predicate - whether the
     /// original also gates on melee vs. ranged, on a per-hit throttle (the AotR normal
-    /// reflect nugget carries DelayTime 10), or on actual damage dealt - is Ghidra-gated
+    /// reflect nugget carries DelayTime 10), or on actual damage dealt - is spec-gated
     /// (F-PFB-2); this is the conservative "reacts to being attacked" reading.
     /// </summary>
     private bool ShouldReflect(in DamageInfoInput damageInput)

@@ -9,7 +9,7 @@
 // bfme2-workbench/research for this file specifically, so the BFME2-only additions below are
 // implemented from the plain field semantics the INI vocabulary itself states, kept as small
 // and literal as the field names allow, with every non-obvious choice called out as a finding
-// rather than folded in silently (CLEAN-ROOM RULE: no game.dat/Ghidra content, here or
+// rather than folded in silently (CLEAN-ROOM RULE: no binary-derived content, here or
 // anywhere - these are engineering choices over an admitted spec gap, not derived facts).
 //
 // CORE (GPL-faithful) behavior, translated: on trigger, capture the object's position/team

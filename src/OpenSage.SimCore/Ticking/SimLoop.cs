@@ -1,7 +1,7 @@
 // The fixed-step logic loop and its frozen phase sequence
 // (api-freeze-v1 F6; design-simcore-scaffolding §4.1-4.2).
 //
-// 5 Hz, confirmed in-binary (LOGICFRAMES_PER_SECOND = 5 @ 0xd9f608, 383 refs -
+// 5 Hz, confirmed by the written behavioral spec (LOGICFRAMES_PER_SECOND = 5 -
 // crc-byteorder §3.2). SimCore owns the frame counter; OpenSage.Game keeps its real-time
 // accumulation and render interpolation and calls Advance() once per due logic frame.
 // The phase sequence is a contract: tests assert it, the deep-CRC dump labels records by it,

@@ -9,8 +9,8 @@
 //     be queried for "does this object have the banner-spawn upgrade" via the module's
 //     Triggered flag.
 //   - The consumer of that flag is SimBannerCarrierUpdate.Update's UpgradeRequired check
-//     (banner-carrier unit spawning in hordes). That seam is parked pending R13 Ghidra
-//     analysis (see task packet) - this module only owns and persists the trigger state;
+//     (banner-carrier unit spawning in hordes). That seam is parked pending R13
+//     spec work (see task packet) - this module only owns and persists the trigger state;
 //     it does not (yet) gate anything itself.
 //
 // This mirrors the StatusBitsUpgrade contract shape (BehaviorModule + IUpgradeableModule +

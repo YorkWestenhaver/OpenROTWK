@@ -1,24 +1,23 @@
 // ReplenishUnitsBehavior - R10 port through the full task packet (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: NONE in generals-gpl (AddedIn Bfme; a BFME horde-identity behavior with
-// no GeneralsMD sibling). The cadence is read off a CLEAN-ROOM Ghidra spec of the retail vtable
-// (facts only, no decompiled logic transplanted; probe scripts bfme2-workbench/tools/ghidra/
-// ReplenishProbe1-4.java, evidence in bfme2-workbench/research/modules-r10/ReplenishUnitsBehavior.md):
-//   * registration: TheModuleFactory FUN_006579c9 maps "ReplenishUnitsBehavior" -> data-alloc
-//     FUN_0064c282, module-alloc FUN_0064c2ba (interface mask 0x81 = Update + Upgrade-mux).
-//   * ctor (FUN_008874b3, reading the data at +0x158/+0x154): if StartsActive is false the first
-//     wake is 0x3fffffff (SleepForever); otherwise the first wake is a LogicRandom draw in
-//     [1, ReplenishDelay] frames - a startup stagger so a crowd of hordes does not all replenish
-//     on the same frame (the same shape AutoHeal/EnemyNear use, one draw at construction,
-//     CRC-relevant).
-//   * update (FUN_00887616): (1) if not active (upgrade-mux virtual) or the object's runtime
-//     disabled bit is set -> return 0x3fffffff; (2) if ReplenishHordeMembersOnly (+0x159) require
-//     a contain module whose replenish-count (vtable+0x7c) is non-zero, else sleep forever;
-//     (3) if NoReplenishIfEnemyWithinRadius (+0x13c) is non-sentinel, a partition scan for an
-//     enemy within that radius suppresses this cycle; (4) otherwise a partition/region query
-//     (ReplenishRadius +0x144) drives the member respawn (FUN_00887569) which fires the spawn FX
-//     and applies the status; (5) the return value is ReplenishDelay (+0x154) - the steady
-//     cadence, re-evaluated even when a cycle was suppressed.
+// no GeneralsMD sibling). The cadence is read off a CLEAN-ROOM behavioral spec of the retail
+// module (facts only, no decompiled logic transplanted; evidence in
+// bfme2-workbench/research/modules-r10/ReplenishUnitsBehavior.md):
+//   * registration: TheModuleFactory maps "ReplenishUnitsBehavior" -> data-alloc / module-alloc
+//     (interface mask = Update + Upgrade-mux).
+//   * ctor: if StartsActive is false the first wake is SleepForever; otherwise the first wake is
+//     a LogicRandom draw in [1, ReplenishDelay] frames - a startup stagger so a crowd of hordes
+//     does not all replenish on the same frame (the same shape AutoHeal/EnemyNear use, one draw
+//     at construction, CRC-relevant).
+//   * update: (1) if not active (upgrade-mux virtual) or the object's runtime disabled bit is
+//     set -> return SleepForever; (2) if ReplenishHordeMembersOnly require a contain module
+//     whose replenish-count is non-zero, else sleep forever; (3) if
+//     NoReplenishIfEnemyWithinRadius is non-sentinel, a partition scan for an enemy within that
+//     radius suppresses this cycle; (4) otherwise a partition/region query (ReplenishRadius)
+//     drives the member respawn which fires the spawn FX and applies the status; (5) the return
+//     value is ReplenishDelay - the steady cadence, re-evaluated even when a cycle was
+//     suppressed.
 //
 // Landed systems consumed (task packet - nothing reimplemented): S6 hordes (SimHordeContain's
 // member roster + the TryReplenishOneMember slot-vacancy/create/FX path), S4 production (member
@@ -27,7 +26,7 @@
 // nearby-horde scans. No pathfinding (members spawn at the horde; no move orders are issued).
 //
 // FINDINGS (behavior-fact gaps, filed not invented - see modules-r10/ReplenishUnitsBehavior.md):
-//   F-RUB-1 The engine's runtime disabled bit (obj+0x458 bit0) and the upgrade-mux "is active"
+//   F-RUB-1 The engine's runtime disabled bit and the upgrade-mux "is active"
 //     virtual are not modeled: this ModuleData's frozen field set carries no TriggeredBy, so
 //     _active derives solely from StartsActive with no in-sim toggle path. _active is still
 //     xfered so a future upgrade-mux wiring round-trips.
@@ -69,7 +68,7 @@ public sealed class ReplenishUnitsBehavior : UpdateModule
         _data = data;
         _active = data.StartsActive;
 
-        // Ctor cadence (Ghidra FUN_008874b3): inactive -> never; active -> a LogicRandom startup
+        // Ctor cadence (spec): inactive -> never; active -> a LogicRandom startup
         // stagger in [1, ReplenishDelay] frames drawn from the S3 lockstep stream (Next is
         // inclusive, matching the retail logicrandom(1, delay)). A zero delay is degenerate
         // (never replenish) and skips the draw.
@@ -86,13 +85,13 @@ public sealed class ReplenishUnitsBehavior : UpdateModule
 
     public override UpdateSleepTime Update()
     {
-        // Active gate (Ghidra: inactive -> 0x3fffffff == SleepForever). F-RUB-1.
+        // Active gate (spec: inactive -> SleepForever). F-RUB-1.
         if (!_active)
         {
             return UpdateSleepTime.Forever;
         }
 
-        // Enemy suppression (Ghidra step 3): a live enemy within NoReplenishIfEnemyWithinRadius
+        // Enemy suppression (spec step 3): a live enemy within NoReplenishIfEnemyWithinRadius
         // skips this cycle without disturbing the cadence.
         if (_data.NoReplenishIfEnemyWithinRadius > Fix64.Zero &&
             EnemyWithinRadius(_data.NoReplenishIfEnemyWithinRadius))
@@ -104,7 +103,7 @@ public sealed class ReplenishUnitsBehavior : UpdateModule
         return Reschedule();
     }
 
-    /// <summary>The steady cadence (Ghidra: update returns ReplenishDelay). A zero delay parks
+    /// <summary>The steady cadence (spec: update returns ReplenishDelay). A zero delay parks
     /// the module forever rather than spin every frame.</summary>
     private UpdateSleepTime Reschedule()
         => _data.ReplenishDelay.Value > 0

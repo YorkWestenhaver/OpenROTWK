@@ -1,8 +1,8 @@
 // HordeSiegeEngineContain - R12 port. BFME-only (no generals-gpl sibling: AddedIn(SageGame.Bfme))
 // and the only field-level authority is the module inventory row in
 // bfme2-workbench/research/spec-hordes.md § 2 ("HordeGarrisonContain / HordeTransportContain /
-// HordeSiegeEngineContain / ... - structures/vehicles that hold hordes", binary anchor
-// 0xc0bb4c) - a census entry, not a behavioral recovery. No decompiled logic is transplanted
+// HordeSiegeEngineContain / ... - structures/vehicles that hold hordes")
+// - a census entry, not a behavioral recovery. No decompiled logic is transplanted
 // here (clean-room); the field grammar itself (already landed, unused, on TransportContain -
 // see FadeFilter/FadePassengerOnEnter/EnterFadeTime/FadePassengerOnExit/ExitFadeTime/
 // UpgradeCreationTrigger there) is the only faithful source for what this wrapper does.

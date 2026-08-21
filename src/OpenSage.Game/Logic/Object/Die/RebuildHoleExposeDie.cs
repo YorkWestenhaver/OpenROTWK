@@ -144,7 +144,7 @@ public sealed class RebuildHoleExposeDieModuleData : DieModuleData
 
     /// <summary>
     /// BFME2-only, seconds. Client-side fade of the exposed hole; no GPL reference and no
-    /// Ghidra behavioral spec, so it is audited vocabulary and deliberately unconsumed.
+    /// written behavioral spec, so it is audited vocabulary and deliberately unconsumed.
     /// Quantized rather than frame-converted because S5's duration function takes
     /// milliseconds and this field is not one.
     /// </summary>

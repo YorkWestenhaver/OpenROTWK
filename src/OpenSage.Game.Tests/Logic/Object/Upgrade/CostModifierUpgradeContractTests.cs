@@ -121,7 +121,7 @@ End
     public void EmptyEffectKindOf_ObjectFilterShape_DoesNotRegister()
     {
         // GPL empty-mask-matches-all would apply a global discount here; we gate registration
-        // on a non-empty EffectKindOf (the ObjectFilter path has no GPL/Ghidra spec).
+        // on a non-empty EffectKindOf (the ObjectFilter path has no GPL/spec reference).
         var game = NewGame();
         var player = game.CivilianPlayer;
         game.SpawnObject("FilterOnlyBanner", player, Vector3.Zero);

@@ -4,7 +4,7 @@
 // reimplement damage math.
 //
 // Behavioral reference: BFME/BFME2-ONLY module, ABSENT from generals-gpl (no ZH ancestor).
-// Binary/Ghidra reference only, and NO Ghidra behavioral dump for this class exists yet, so
+// Binary-derived spec reference only, and no behavioral dump for this class exists yet, so
 // the one interesting semantic - the "Symbiote" death link - has no evidenced specification.
 // AotR INI usage (evidence): wall/keep segments (IsengardTowerOfOrthanc*, Gondor/Arnor camps
 // and castles) declare `Body = SymbioticStructuresBody { Symbiote = KeepLeft }`, i.e. the
@@ -47,7 +47,7 @@ public sealed class SymbioticStructuresBody : ActiveBody
     // ---- the contract Xfer walk. With the Symbiote link deferred this body owns no mutable sim
     // state of its own, so there is no field to add to the walk - only a version wrapper (F9:
     // declaration order, ours) over the base ActiveBody walk. HasSimXfer is inherited (true) from
-    // ActiveBody. The version NUMBER is the batch convention (1); no Ghidra evidence pins the
+    // ActiveBody. The version NUMBER is the batch convention (1); no spec evidence pins the
     // BFME xfer version for this class (F-SSB-2), and self-diff (Target-A) is invariant to the
     // absolute version value. ----
 

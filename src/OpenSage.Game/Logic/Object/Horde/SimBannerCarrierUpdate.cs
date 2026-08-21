@@ -1,5 +1,5 @@
-// SimBannerCarrierUpdate - the member-side banner-carrier module (spec §4.3 parse table @
-// 0xc66090, §7 behavior), implemented FRESH from the clean-room spec. While the horde has
+// SimBannerCarrierUpdate - the member-side banner-carrier module (spec §4.3 parse table,
+// §7 behavior), implemented FRESH from the clean-room spec. While the horde has
 // been melee-free for MeleeFreeUnitSpawnTime, the banner replenishes one missing member
 // every IdleSpawnRate (FX UnitSpawnFX) - the horde owns seating and creation
 // (SimHordeContain.TryReplenishOneMember); this module owns the timers.
@@ -7,7 +7,7 @@
 // OPEN QUESTION 5 default (community consensus, recorded): idle replenish requires the
 // banner carrier alive - the timers live HERE, so a dead banner stops replenish until the
 // horde's DiedRespawnTime/MeleeFreeBannerReSpawnTime respawn path brings a new one.
-// Deferred with findings: the banner-morphs-into-needed-unit path (FUN_00876481 alternative;
+// Deferred with findings: the banner-morphs-into-needed-unit path (alternative spec path;
 // MorphCondition/BannerMorphFX parse but no-op - HORDE-F5), ReplenishNearbyHorde /
 // ReplenishAllNearbyHordes / ScanHordeDistance (parse-only - HORDE-F5), ExpLevelDraw
 // (client), UpgradeRequired gating (upgrade seam).

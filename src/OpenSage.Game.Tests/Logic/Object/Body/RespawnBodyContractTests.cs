@@ -2,7 +2,7 @@
 // audited parse path (ObjectFilter.Parse for PermanentlyKilledByFilter, the F-R7-2 InitialHealth
 // default) and the S1 Fix64 kill-resolution chain are on the tested path.
 //
-// Behavioral reference: BFME2-only class, ABSENT from generals-gpl - binary/Ghidra behavioral
+// Behavioral reference: BFME2-only class, ABSENT from generals-gpl - binary-derived spec behavioral
 // facts only, clean-room fresh code. The determinism-relevant fact under test is the ONE this
 // Body owns: on the killing blow, the killer is tested against PermanentlyKilledByFilter and the
 // permanence verdict is latched as sim state and folded into the Objects CRC channel (shadow-copy

@@ -1,7 +1,7 @@
 // CastleMemberBehavior - the member-side half of the castle system (R9 castles task).
 //
 // Behavioral reference: spec-castles.md §3.2. Runtime state is exactly the back-pointer pair
-// retail writes from CastleBehavior::unpack (FUN_0079be6a lines +0x14/+0x18): the castle
+// retail writes from CastleBehavior::unpack (spec-castles.md): the castle
 // object id and the castle's native player index - the key used for Eva routing and the
 // pack cascade. The Eva event fields themselves are parsed vocabulary; Eva routing waits on
 // an Eva surface in ISimEvents (frozen member list - finding F-CAS-10), but the death

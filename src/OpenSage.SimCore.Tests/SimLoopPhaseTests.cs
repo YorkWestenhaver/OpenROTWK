@@ -57,7 +57,7 @@ public class SimLoopPhaseTests
     [Fact]
     public void LogicRateIsFiveHertz()
     {
-        // In-binary: LOGICFRAMES_PER_SECOND = 5 @ 0xd9f608 (crc-byteorder §3.2).
+        // In-binary: LOGICFRAMES_PER_SECOND = 5, per the written behavioral spec (crc-byteorder §3.2).
         Assert.Equal(5, SimLoop.LogicFramesPerSecond);
         Assert.Equal(200, SimLoop.MsPerLogicFrame);
     }

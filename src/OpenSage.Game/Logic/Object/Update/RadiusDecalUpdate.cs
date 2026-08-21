@@ -13,7 +13,7 @@
 //     decal (client-side throb/position tracking) and keep ticking every frame.
 //   - xfer: version 1, decal state then m_killWhenNoLongerAttacking.
 //
-// Scope note (clean-room, no game.dat content): the GPL RadiusDecal/RadiusDecalTemplate pair
+// Scope note (clean-room, no binary-derived content): the GPL RadiusDecal/RadiusDecalTemplate pair
 // (GameClient/RadiusDecal.h) is a float, GPU-resident texture-throb animation - the same kind
 // of client-only presentation LargeGroupAudioUpdate's audio mix is (S8: no client-decal host
 // on ISimContext). What's deterministic and sim-visible is exactly what the GPL module reads

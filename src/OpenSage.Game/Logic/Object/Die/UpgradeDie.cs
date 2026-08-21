@@ -26,7 +26,7 @@
 // BFME2-only INI addition: UpgradeToRemove carries an optional SECOND token (a module tag -
 // AotR writes "Upgrade_TestBuilding BaseUpgradeTag_01"). ZH's field is a single AsciiString
 // (INI::parseAsciiString). The token is parsed and stored but deliberately not acted on: no GPL
-// reference and no Ghidra behavioral spec says what the original does with it (see
+// reference and no written behavioral spec says what the original does with it (see
 // research/die/UpgradeDie.md, behavior-fact gaps). Making the token OPTIONAL is the parse fix
 // this audit carries - the pre-port code called ParseIdentifier(), which is required, so every
 // AotR object file using the bare ZH one-token form died at that line.
@@ -161,7 +161,7 @@ public readonly struct UpgradeToRemove
     public LazyAssetReference<UpgradeTemplate> UpgradeName { get; }
 
     /// <summary>
-    /// BFME2-only second token. Parsed and stored; no GPL reference or Ghidra behavioral spec
+    /// BFME2-only second token. Parsed and stored; no GPL reference or written behavioral spec
     /// says what the original does with it, so nothing acts on it (behavior-fact gap).
     /// Null for the one-token ZH form.
     /// </summary>

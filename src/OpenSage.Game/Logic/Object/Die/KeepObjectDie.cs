@@ -21,7 +21,7 @@
 // does not leave one; the DeathTypes/ExemptStatus filter is honored) and what the die-batch-v1
 // scenario asserts across two engine processes.
 //
-// BFME2-only INI additions (CollapsingTime, StayOnRadar) have no GPL reference and no Ghidra
+// BFME2-only INI additions (CollapsingTime, StayOnRadar) have no GPL reference and no written
 // behavioral spec: they are parsed (audited vocabulary) but deliberately not acted on - see
 // die/KeepObjectDie.md, "behavior-fact gaps". Inventing rubble-collapse timing or radar
 // persistence here would be exactly the invention the clean-room rule forbids.
@@ -107,7 +107,7 @@ public sealed class KeepObjectDieModuleData : DieModuleData
     public int CollapsingTime { get; private set; }
 
     /// <summary>
-    /// BFME2-only, unconsumed: no GPL reference and no Ghidra behavioral spec exists for what
+    /// BFME2-only, unconsumed: no GPL reference and no written behavioral spec exists for what
     /// the kept corpse does to the radar. Parsed so the INI corpus loads; not acted on.
     /// </summary>
     [AddedIn(SageGame.Bfme2)]

@@ -23,12 +23,12 @@
 // attribute-modifier records with a diminishing-returns screen-blend identity:
 //   acc <- acc + v - acc*v            (equivalently 1-(1-acc)(1-v)), acc starting at 0.
 // See ComposeAuraStrength below - it is the exact fold that research file derives, translated
-// to Fix64, not invented. No decompiled/Ghidra-derived text appears here (clean-room rule);
-// only the behavioral fact (the fold formula) crosses into engine code.
+// to Fix64, not invented. No binary-derived text appears here (clean-room rule); only the
+// behavioral fact (the fold formula) crosses into engine code.
 //
 // TODO-spec (unverified/unmodeled retail behavior, filed not invented):
-//   - the pool query ComposeAuraStrength was measured in (AttributeModifierPoolUpdate,
-//     FUN_00eca015/FUN_00804f39) is a SEPARATE module, still [ParseOnly] on the Round-4
+//   - the pool query ComposeAuraStrength was measured against is a SEPARATE module
+//     (AttributeModifierPoolUpdate), still [ParseOnly] on the Round-4
 //     backlog (AttributeModifierPoolUpdate.cs). Wiring N simultaneous modifier RECORDS from
 //     arbitrary sources into one live pool query is that module's job, not this port's. This
 //     aura port supplies exactly the modifier record (BonusName's ModifierList) an aura grants,

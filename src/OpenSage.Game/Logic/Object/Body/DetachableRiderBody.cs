@@ -4,7 +4,7 @@
 // damage math.
 //
 // BEHAVIORAL REFERENCE: BFME/BFME2-only module - ABSENT from generals-gpl (there is no ZH
-// HighlanderBody-style GPL file for it). Per the packet, the only reference is binary/Ghidra,
+// HighlanderBody-style GPL file for it). Per the packet, the only reference is the binary-derived behavioral spec,
 // used as behavioral facts (never transplanted code); this is fresh code. The one behavior the
 // task authorizes as portable-now is the health-clamp half:
 //
@@ -16,14 +16,14 @@
 // WHO calls it and WHEN (detecting the rider's death, the Contain/rider-slot coupling) - reaches
 // beyond the Body category (api-freeze §7 lists "Contain rider slots" as deliberately unfrozen),
 // so this port exposes the drop as a public seam (OnRiderDied) that the future rider/mount
-// coupling will call, and files the coupling + the two arming fields as Ghidra-gated findings
+// coupling will call, and files the coupling + the two arming fields as spec-gated findings
 // (modules-r8/DetachableRiderBody.md), exactly as the AutoHeal pilot did with its seven
 // unacted BFME-only fields (pilot §4).
 //
 // MUTABLE SIM-STATE INVENTORY: none of its own. The mount's health lives entirely in the base
 // ActiveBody's Fix64 BodyDamageCore (which supplies the whole contract Xfer walk). The two
 // remaining INI fields (StartsActive / TriggeredBy) are an arming gate whose runtime semantics
-// are unproven without Ghidra, so they are audited-but-unacted this round - NOT modeled as
+// are unproven without a behavioral spec, so they are audited-but-unacted this round - NOT modeled as
 // mutable state (inventing a gate flag would be invention, not a port). DetachableRiderBody
 // therefore adds NO field to the Xfer walk; like ImmortalBody/HighlanderBody it only re-versions
 // and chains the base (GPL-shape version wrapper; F9 makes layout ours).
@@ -45,7 +45,7 @@ namespace OpenSage.Logic.Object;
 /// <summary>
 /// A mount body whose rider can be detached (killed independently). When the rider dies the
 /// mount's health is dropped to <see cref="DetachableRiderBodyModuleData.HealthPercentageWhenRiderDies"/>
-/// of its maximum. BFME/BFME2-only; no GPL reference (binary/Ghidra facts only, fresh code).
+/// of its maximum. BFME/BFME2-only; no GPL reference (binary-derived behavioral facts only, fresh code).
 /// </summary>
 [SimState]
 public sealed class DetachableRiderBody : ActiveBody
@@ -126,7 +126,7 @@ public sealed class DetachableRiderBodyModuleData : ActiveBodyModuleData
             // S5 audit: percent text -> Fix64 at the blessed parse boundary (ParseFix64Percentage,
             // F4), consumed by the Fix64 percent-health SET in DetachableRiderBody.OnRiderDied.
             { "HealthPercentageWhenRiderDies", (parser, x) => x.HealthPercentageWhenRiderDies = parser.ParseFix64Percentage() },
-            // Audited-but-unacted arming fields (runtime semantics need Ghidra - see the class
+            // Audited-but-unacted arming fields (runtime semantics need a behavioral spec - see the class
             // header + modules-r8/DetachableRiderBody.md). Parsed exactly as before; no field
             // grammar change, so gapmap parsing is byte-identical (G1).
             { "StartsActive", (parser, x) => x.StartsActive = parser.ParseBoolean() },
@@ -136,10 +136,10 @@ public sealed class DetachableRiderBodyModuleData : ActiveBodyModuleData
     /// <summary>Fraction of max health the mount is dropped to when its rider dies (Fix64, S5).</summary>
     public Fix64 HealthPercentageWhenRiderDies { get; private set; }
 
-    /// <summary>Arming gate; parsed and stored, not yet acted on (Ghidra-gated - finding).</summary>
+    /// <summary>Arming gate; parsed and stored, not yet acted on (spec-gated - finding).</summary>
     public bool StartsActive { get; private set; }
 
-    /// <summary>Upgrade name that arms the detach behavior; parsed and stored, not yet acted on (Ghidra-gated - finding).</summary>
+    /// <summary>Upgrade name that arms the detach behavior; parsed and stored, not yet acted on (spec-gated - finding).</summary>
     public string? TriggeredBy { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)

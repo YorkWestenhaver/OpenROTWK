@@ -196,7 +196,7 @@ public sealed class SimHordeContain : UpdateModule
     }
 
     /// <summary>
-    /// The flank test (spec §6, formula CONFIRMED from FUN_00876fc4). Called by a member's
+    /// The flank test (spec §6, formula CONFIRMED against the behavioral spec). Called by a member's
     /// SimHordeMember when it takes damage. Direction d = normalize(attacker - horde), horde
     /// forward f from the facing; flanked iff dot(d, f) &lt; cos(FrontAngle / 2); every
     /// unexpired recorded attack angle is retested the same way (multi-directional attacks
@@ -372,7 +372,7 @@ public sealed class SimHordeContain : UpdateModule
     }
 
     /// <summary>
-    /// Slot-list construction (spec §5.2 / FUN_00877751): total slots = sum of Position
+    /// Slot-list construction (spec §5.2): total slots = sum of Position
     /// counts over RankInfos, in declaration order; per position the offset gets a jitter of
     /// GameLogicRandom in [-RandomOffset .. +RandomOffset] per axis - one X draw then one Y
     /// draw per slot, rolled ONCE at (re)build, never per frame. Leader links resolve to
@@ -427,7 +427,7 @@ public sealed class SimHordeContain : UpdateModule
             }
         }
 
-        // Banner slot appended after the ranks (spec §5.2 / FUN_008776bb).
+        // Banner slot appended after the ranks (spec §5.2).
         if (_data.BannerCarriersAllowed.Count > 0)
         {
             var bannerOffset = DefaultBannerOffset();

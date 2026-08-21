@@ -58,7 +58,7 @@ public sealed class SimPartitionGrid
     /// How long a queued unlook keeps its cells revealed, in logic frames (GPL GlobalData
     /// UnlookPersistDuration, default 30 frames at 30 fps = 1 s; ours defaults to 1 s at
     /// the 5 Hz title rate = 5 frames). Data, not hardcode - the BFME2 value needs a
-    /// game.dat pin (finding F-PV-5).
+    /// behavioral-spec pin (finding F-PV-5).
     /// </summary>
     public LogicFrameSpan UnlookPersistDuration { get; set; } = new LogicFrameSpan(5);
 

@@ -17,7 +17,7 @@
 //   - every pulse re-arms soonestHealFrame = now + healingDelay.
 // BFME2-only INI additions (ButtonTriggered, HealOnlyOthers, HealOnlyIfNotInCombat,
 // AffectsContained, NonStackable, RespawnNearbyHordeMembers, HealOnlyIfNotUnderAttack) have
-// no GPL reference and no Ghidra behavioral spec yet: they are parsed (audited vocabulary)
+// no GPL reference and no written behavioral spec yet: they are parsed (audited vocabulary)
 // but deliberately not acted on - see pilot-autoheal.md, "behavior-fact gaps".
 //
 // Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's

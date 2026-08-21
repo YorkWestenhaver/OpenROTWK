@@ -85,7 +85,7 @@ namespace OpenSage.SimCore.Sync
         }
 
         /// <summary>The frame gate: frame % min(interval, 100) == 0, computed unsigned on the
-        /// raw frame counter exactly like the binary's DIV at 0x62e721.</summary>
+        /// raw frame counter exactly like the binary's DIV, per the written behavioral spec.</summary>
         public static bool IsCheckpointFrame(LogicFrame frame, uint configuredInterval)
         {
             return frame.Value % EffectiveInterval(configuredInterval) == 0;

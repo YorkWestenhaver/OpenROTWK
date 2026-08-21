@@ -3,7 +3,7 @@
 // MSG_CASTLE_UNPACK (1085), MSG_CASTLE_PACK (1086) and
 // MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (1087) - spec-castles.md §2.3/§5.6/§5.9.
 //
-// The MSG_CASTLE_UNPACK guard SEQUENCE is retail's, in retail's order (FUN_007bed64):
+// The MSG_CASTLE_UNPACK guard SEQUENCE is retail's, in retail's order (spec-castles.md):
 //   object exists -> issuing player owns it -> it has a CastleBehavior -> canUnpack(1)
 //   -> isPlayerAllowedToPackOrUnpack -> (non-explicit form only) affordability, charging
 //   UnpackCost from the matched CastleToUnpackForFaction entry -> initiateUnpack.
@@ -112,7 +112,7 @@ public sealed class CastleOrderHandler
         if (explicitCampName == null)
         {
             // Guard 6 (non-explicit form only): affordability - charge UnpackCost from the
-            // matched CastleToUnpackForFaction entry (retail FUN_0079969f).
+            // matched CastleToUnpackForFaction entry (spec-castles.md).
             entryIndex = castle.FindEntryIndexForPlayer(issuingPlayer);
             var cost = castle.GetUnpackCost(issuingPlayer);
             if (cost > 0)

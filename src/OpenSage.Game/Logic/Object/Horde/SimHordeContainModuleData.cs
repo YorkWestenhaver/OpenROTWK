@@ -1,7 +1,7 @@
 // SimHordeContainModuleData - the audited (S5 vocabulary) parse side of the S6 horde
 // system, implemented FRESH from the clean-room behavioral spec
 // bfme2-workbench/research/spec-hordes.md (BFME-only: no GPL reference exists; every
-// field below is from the binary parse table at 0xc5bb50-0xc5be00 + the shared contain
+// field below is from the binary parse table + the shared contain
 // table, as documented in spec §4.1, with the RankInfo grammar of spec §5.1).
 //
 // INTERIM VOCABULARY: registered under the module name "SimHordeContain" (the
@@ -37,7 +37,7 @@ public sealed class SimHordeContainModuleData : UpdateModuleData
     private static Fix64 ParseAttrFix64(IniParser parser, string label) =>
         parser.ParseAttribute(label, parser.ParseFix64);
 
-    /// <summary>Parses the two-attribute pair "X:&lt;f&gt; Y:&lt;f&gt;" as Fix64 (spec rndOff @ FUN_0042f298).</summary>
+    /// <summary>Parses the two-attribute pair "X:&lt;f&gt; Y:&lt;f&gt;" as Fix64 (spec rndOff).</summary>
     internal static FixVector2 ParseFix64XYPair(IniParser parser) =>
         new(ParseAttrFix64(parser, "X"), ParseAttrFix64(parser, "Y"));
 
@@ -204,7 +204,7 @@ public sealed class SimHordePayload
 }
 
 /// <summary>
-/// RankInfo grammar (spec §5.1, parser FUN_00877385): RankNumber first, then UnitType, then
+/// RankInfo grammar (spec §5.1): RankNumber first, then UnitType, then
 /// one or more Positions; a Leader entry follows a Position ("Only one 'Leader' per
 /// 'Position'") naming (rank, positionIndex); Facing is rejected by the original parser and
 /// is deliberately not accepted here either. Positions are horde-local Fix64 pairs.

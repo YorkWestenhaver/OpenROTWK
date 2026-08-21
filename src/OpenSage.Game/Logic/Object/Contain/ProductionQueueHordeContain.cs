@@ -3,7 +3,7 @@
 // the one-line family table entry (own vtable at 0xc0bacc, "separate contain family: garrisons
 // keep the horde grouping intact while contained") - no decompiled per-frame logic has been
 // recovered for this module specifically (CLEAN-ROOM RULE: nothing below is transcribed from
-// game.dat/Ghidra; every behavior traces to the parsed field's own name/shape, the same
+// binary-derived; every behavior traces to the parsed field's own name/shape, the same
 // generic Contain-family semantics every sibling module in this folder already documents
 // (OpenContainModuleData's ContainMax/DamagePercentToUnits/Allow*Inside/PassengerFilter/
 // EnterSound), or to the shared-contain header fields the task packet calls out

@@ -8,7 +8,7 @@
 // there is no GPL source to read. Behavior facts are inferred from (a) the AotR INI corpus and
 // (b) the task packet's own model ("Update-style timer state (DelayedDeathTime) +
 // ImmortalUntilDeathTime floor"). Every inference is recorded in
-// research/modules-r8/DelayedDeathBody.md and the ones needing Ghidra are flagged as
+// research/modules-r8/DelayedDeathBody.md and the ones needing a behavioral spec are flagged as
 // behavior-fact gaps (the pilot's discipline: act only on what is evidenced, park the rest).
 //
 // EVIDENCE that fixes the arming trigger (modules-r8/DelayedDeathBody.md §Evidence): every AotR
@@ -158,7 +158,7 @@ public sealed class DelayedDeathTimer : UpdateModule
 
         // Creation-armed lifetime (see the file header's evidence): if DelayedDeathTime is set,
         // schedule the death that far out and wake exactly then. Otherwise sleep forever - the
-        // health-check / prerequisite-upgrade arming triggers are Ghidra-gated behavior-fact gaps
+        // health-check / prerequisite-upgrade arming triggers are spec-gated behavior-fact gaps
         // (F-DDB-2), so with the corpus's DoHealthCheck=No units the timer is armed here or not
         // at all.
         if (_data.DelayedDeathTime > LogicFrameSpan.Zero)
@@ -248,10 +248,10 @@ public sealed class DelayedDeathBodyModuleData : ActiveBodyModuleData
     /// <summary>Frames the unit lives before the timer kills it (ms in INI, ceil-quantized, S5).</summary>
     public LogicFrameSpan DelayedDeathTime { get; private set; }
 
-    /// <summary>Whether the unit can be revived after death (respawn system - Ghidra-gated, F-DDB-2).</summary>
+    /// <summary>Whether the unit can be revived after death (respawn system - spec-gated, F-DDB-2).</summary>
     public bool CanRespawn { get; private set; }
 
-    /// <summary>Whether reaching zero health arms the delayed death (Ghidra-gated arm path, F-DDB-2).</summary>
+    /// <summary>Whether reaching zero health arms the delayed death (spec-gated arm path, F-DDB-2).</summary>
     public bool DoHealthCheck { get; private set; }
 
     /// <summary>Whether the unit is immortal (health floored) until the death time.</summary>

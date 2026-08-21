@@ -6,7 +6,7 @@
 //
 // Behavioral reference: BFME/BFME2-RotWK only (absent from generals-gpl). The arming trigger is
 // creation-armed (see DelayedDeathBody.cs header + research/modules-r8/DelayedDeathBody.md for
-// the corpus evidence); DoHealthCheck / respawn / prerequisite-upgrade paths are Ghidra-gated
+// the corpus evidence); DoHealthCheck / respawn / prerequisite-upgrade paths are spec-gated
 // behavior-fact gaps and are not asserted here.
 
 using System.Linq;

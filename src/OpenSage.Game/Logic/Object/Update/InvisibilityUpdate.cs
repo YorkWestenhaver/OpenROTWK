@@ -255,7 +255,7 @@ public sealed class InvisibilityUpdateModuleData : UpdateModuleData
     public string UnitSpecificSoundNameToUseAsVoiceMoveToStealthyArea { get; private set; }
     public string UnitSpecificSoundNameToUseAsVoiceEnterStateMoveToStealthyArea { get; private set; }
 
-    /// <summary>Broadcast stealth to nearby allies; unconsumed - no GPL/Ghidra spec for the
+    /// <summary>Broadcast stealth to nearby allies; unconsumed - no GPL/spec reference for the
     /// broadcast fact yet (see InvisibilityUpdate.md).</summary>
     public bool Broadcast { get; private set; }
 

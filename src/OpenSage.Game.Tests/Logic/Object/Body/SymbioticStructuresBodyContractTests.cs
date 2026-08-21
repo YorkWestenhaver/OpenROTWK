@@ -2,7 +2,7 @@
 // with real parsed INI so the quantizing parse path and the S1 Fix64 damage/health chain are on
 // the tested path.
 //
-// Behavioral reference: BFME/BFME2-only module, ABSENT from generals-gpl; no Ghidra dump exists.
+// Behavioral reference: BFME/BFME2-only module, ABSENT from generals-gpl; no behavioral spec exists.
 // The Symbiote death-link is DEFERRED (needs object association beyond S1 - finding F-SSB-1), so
 // the branches under test are: the module materializes as a SymbioticStructuresBody, the parsed
 // Symbiote handle is retained, the F-R7-2 InitialHealth=MaxHealth default holds through the

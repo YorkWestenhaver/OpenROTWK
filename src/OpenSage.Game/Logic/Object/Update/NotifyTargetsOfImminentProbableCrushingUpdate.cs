@@ -1,5 +1,5 @@
 // NotifyTargetsOfImminentProbableCrushingUpdate - R12 port. BFME-only (no generals-gpl
-// sibling); no clean-room Ghidra spec of this exact class exists in bfme2-workbench/research/
+// sibling); no clean-room behavioral spec of this exact class exists in bfme2-workbench/research/
 // (spec-hordes.md documents the sibling HordeNotifyTargetsOfImminentProbableCrushingUpdate,
 // which adds one field, ScanWidth, and is a SEPARATE registered module - ported alongside
 // this one in R12, see HordeNotifyTargetsOfImminentProbableCrushingUpdate.cs).
@@ -23,12 +23,12 @@
 //
 // TODO-spec (unverified/unmodeled, filed not invented):
 //   - ScanWidth is not an authorable field on this class (confirmed by corpus census above),
-//     so a scan radius constant is required for the module to function at all. No Ghidra
+//     so a scan radius constant is required for the module to function at all. No behavioral spec
 //     probe of this class's C++ default exists in the workbench. DefaultScanWidth below is
 //     set from the observed range of the sibling class's OWN authored ScanWidth values across
 //     the corpus (40..70, always described as "a little less than the horde width") - a
 //     data-anchored midpoint, not an invented magic number, but still unconfirmed against this
-//     class's actual retail default. Flagged for a future Ghidra pass (F-NTIPC-1).
+//     class's actual retail default. Flagged for a future spec pass (F-NTIPC-1).
 //   - the exact crush-PROBABILITY computation (path prediction, timing window implied by
 //     "Probable" in the class name) is not modeled: this port uses a static eligibility gate
 //     (in scan radius, enemy, CrusherLevel(self) > CrushableLevel(candidate)) rather than a

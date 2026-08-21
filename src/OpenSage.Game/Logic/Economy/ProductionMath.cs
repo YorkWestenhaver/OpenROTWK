@@ -162,7 +162,7 @@ public static class ProductionMath
     /// <summary>
     /// BFME2 ProductionUpdate <c>ProductionModifier</c> block (CostMultiplier /
     /// TimeMultiplier gated on RequiredUpgrade + ModifierFilter). No GPL reference:
-    /// the application point and rounding are a recorded Ghidra gap; pinned here as
+    /// the application point and rounding are a recorded spec gap; pinned here as
     /// one multiply + truncate-toward-zero over the already-computed value.
     /// </summary>
     public static int ApplyProductionMultiplier(int value, Fix64 multiplier)

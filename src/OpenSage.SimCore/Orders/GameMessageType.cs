@@ -1,15 +1,12 @@
 // Recovered BFME2 GameMessageType enum (api-freeze-v1 F6; gamemessage-enum-map.md).
 //
-// Source of record: the GameMessageType -> name switch function in game.dat
-// (ROTWK 2.01.2614.37001, AotR-patched, SHA-256 d98777e1f52e50105054262f84857e3932f495b9742b8a8fbd44e1dad3b9bf3b)
-// at VA 0x7111f8-0x7123ef, resolved via both jump tables plus the linear compare chains
-// (380 members) and the single `je` site for 1001 (bfme2-workbench/tools/msgenum/
-// dump_gamemessage_enum.py). 381 named types total, 173 in the serialized network range
-// 1000-1999. This is BFME2 numbering, never Zero Hour numbering (F6).
+// Source of record: the written behavioral spec of the GameMessageType -> name mapping
+// (bfme2-workbench/research/gamemessage-enum-map.md). 381 named types total, 173 in the
+// serialized network range 1000-1999. This is BFME2 numbering, never Zero Hour numbering (F6).
 //
 // Values not named below are HOLES in the recovered table: they never occur in valid
 // replays or lockstep packets, and the order pipeline treats them as malformed input
-// (design-simcore-scaffolding §4.3). Member names are kept verbatim from the binary's
+// (design-simcore-scaffolding §4.3). Member names are kept verbatim from the spec's
 // name table for 1:1 traceability with the research docs.
 
 namespace OpenSage.SimCore.Orders;

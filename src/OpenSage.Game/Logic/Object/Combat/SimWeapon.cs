@@ -29,7 +29,7 @@
 //   - Barrel count comes from the caller (GPL reads the Drawable - a client object the
 //     sim may not touch); default 1.
 //   - BFME2 ClipReloadTime/DelayBetweenShots are Min:Max ranges (ZH had scalars);
-//     the ranged reload draw mirrors the delay draw (flagged as a Ghidra gap).
+//     the ranged reload draw mirrors the delay draw (flagged as a spec gap).
 
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
@@ -326,7 +326,7 @@ public sealed class SimWeapon
     /// <summary>
     /// GPL <c>WeaponTemplate::getClipReloadTime</c>: floor(reload / bonus). ZH's reload
     /// time is a scalar; BFME2 data may carry Min:Max (range draw mirrors the shot
-    /// delay - Ghidra gap, see the design note).
+    /// delay - spec gap, see the design note).
     /// </summary>
     private LogicFrameSpan GetClipReloadTime(ISimRandom random, Fix64 rateOfFireMultiplier)
     {

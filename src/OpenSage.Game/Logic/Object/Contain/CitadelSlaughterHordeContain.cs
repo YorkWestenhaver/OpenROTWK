@@ -8,7 +8,7 @@
 // object is present does the standard slaughter/loot processing run.
 //
 // No GPL reference exists for this module (clean-room; task packet + spec-hordes.md census
-// row 0xc0bae8 give only the module's address, not decompiled logic - see
+// entry give only the module's identity, not decompiled logic - see
 // bfme2-workbench/research/spec-hordes.md S:52). The entry-permission and ring-entry shapes
 // below are implemented directly from the task packet's behavioral summary and test cases,
 // not from any decompiled source.

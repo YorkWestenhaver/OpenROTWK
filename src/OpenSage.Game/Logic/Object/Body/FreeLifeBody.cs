@@ -7,7 +7,7 @@
 // ABSENT from generals-gpl, so there is no GPL semantic reference; the behavior below is
 // implemented to the task-packet specification ("one free auto-revive at FreeLifeHealthPercent
 // when killed, then timed invincibility FreeLifeTime/FreeLifeInvincible") cross-checked against
-// the AotR INI field comments (clean-room; binary/Ghidra behavioral reference only, fresh code):
+// the AotR INI field comments (clean-room; binary-derived behavioral reference only, fresh code):
 //   FreeLifeHealthPercent  = 50    ; percentage of MaxHealth health to recover
 //   FreeLifeTime           = 10000 ; ms of post-resurrection invincibility (see finding F-FLB-1)
 //   FreeLifeInvincible     = Yes

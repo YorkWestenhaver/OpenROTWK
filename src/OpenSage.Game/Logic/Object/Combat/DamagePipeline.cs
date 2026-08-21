@@ -27,7 +27,7 @@
 //   - otherwise relationship -> required Allies/Enemies/Neutrals flag.
 // Not implemented here (recorded gaps): ZH primary/secondary radius split (BFME2
 // nuggets carry one radius), BFME2 DamageTaperOff / MinRadius / CylinderAOE / DamageArc
-// (no GPL reference - Ghidra spec needed), position-centered area damage (needs the
+// (no GPL reference - written behavioral spec needed), position-centered area damage (needs the
 // Fix64 transform port; today's seam centers on an object).
 
 using OpenSage.SimCore;

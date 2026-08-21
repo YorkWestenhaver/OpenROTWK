@@ -1,18 +1,18 @@
 // Castles / build-plots deterministic core (R9 system task, build-roadmap pillar castles).
 //
-// Behavioral reference: bfme2-workbench/research/spec-castles.md (clean-room Ghidra behavioral
+// Behavioral reference: bfme2-workbench/research/spec-castles.md (clean-room behavioral
 // spec; this system has NO GPL reference, and no decompiled code was transplanted - facts and
 // cited constants only). The pure pieces of CastleBehavior live here so they are testable
 // without a game host and analyzer-walled ([SimState]):
 //
 //   - the recovered state machine values (spec §4: 0=packed, 1=unpack-initiated,
 //     4=unpacked-instant, 5=packing/dying; 2/3 unobserved - reserved, open question Q1);
-//   - the capture-scan tally (spec §5.4, FUN_0079b3c4): a per-player integer score over the
+//   - the capture-scan tally (spec §5.4): a per-player integer score over the
 //     partition query, 20 player slots, weight w = 2 for "real" units else 1, plus a
-//     per-template capture bonus * w (the template+0x628 feed is unrecovered - Q6, default 0);
+//     per-template capture bonus * w (the template feed is unrecovered - Q6, default 0);
 //     enemy presence blocks capture; after frame 5 an empty scan reverts ownership to the
 //     civilian player (spec Q3: retail reverts to PlyrCivilian, NOT the spawn owner);
-//   - the critter-scare geometry (spec §5.8, constant 150.0 @0xc041f8), implemented as a pure
+//   - the critter-scare geometry (spec §5.8, constant 150.0), implemented as a pure
 //     Fix64 function; the pathing hookup is deliberately deferred (finding F-CAS-6).
 //
 // All math is Fix64/int; timers are frame-quantized at the 5 Hz logic rate (spec §6:
@@ -34,7 +34,7 @@ public enum CastleState
     /// <summary>Foundation visible, capturable (retail 0).</summary>
     Packed = 0,
 
-    /// <summary>Unpack initiated, delayed/normal build path (retail 1, FUN_0079c17d).</summary>
+    /// <summary>Unpack initiated, delayed/normal build path (retail 1, spec-castles.md).</summary>
     UnpackInitiated = 1,
 
     /// <summary>Reserved: likely "under construction" (unobserved, Q1).</summary>
@@ -46,7 +46,7 @@ public enum CastleState
     /// <summary>Unpacked via the instant branch (retail 4; status bit 0x4000000 set).</summary>
     Unpacked = 4,
 
-    /// <summary>Packing/dying (retail 5, FUN_0079cb47).</summary>
+    /// <summary>Packing/dying (retail 5, spec-castles.md).</summary>
     Packing = 5,
 }
 
@@ -61,13 +61,13 @@ public readonly struct CaptureCandidate
 
     /// <summary>
     /// True for a "real" unit (weight 2), false otherwise (weight 1). Retail keys this off
-    /// object+0x5c == 0 (spec §5.4); the exact predicate is unrecovered, so our pin is
+    /// an internal object flag (spec §5.4); the exact predicate is unrecovered, so our pin is
     /// "mobile, selectable non-structure" - recorded as finding F-CAS-4.
     /// </summary>
     public readonly bool IsRealUnit;
 
     /// <summary>
-    /// Per-template capture-weight bonus (retail template+0x628). The INI field feeding it is
+    /// Per-template capture-weight bonus (retail per-template field). The INI field feeding it is
     /// unrecovered (Q6); callers pass 0 until a VM memprobe pins it.
     /// </summary>
     public readonly int TemplateCaptureBonus;
@@ -104,12 +104,12 @@ public readonly struct CaptureScanResult
 
 public static class CastleCaptureScan
 {
-    /// <summary>Retail's fixed per-scan player tally array size (imm in FUN_0079b3c4).</summary>
+    /// <summary>Retail's fixed per-scan player tally array size (spec-castles.md).</summary>
     public const int PlayerSlotCount = 20;
 
     /// <summary>
     /// Frames of grace before an empty scan reverts ownership to the civilian player
-    /// (retail: "frame &gt; 5", FUN_0079b3c4).
+    /// (retail: "frame &gt; 5", spec-castles.md).
     /// </summary>
     public const uint CivilianRevertGraceFrames = 5;
 
@@ -163,11 +163,11 @@ public static class CastleCaptureScan
 
 public static class CastleMath
 {
-    /// <summary>Critter scare offset distance, retail constant 150.0f @0xc041f8 (spec §5.8).</summary>
+    /// <summary>Critter scare offset distance, retail constant 150.0f (spec §5.8).</summary>
     public static readonly Fix64 CritterScareDistance = new(150);
 
     /// <summary>
-    /// The critter-scare target (spec §5.8, FUN_00799157): scared animals path to
+    /// The critter-scare target (spec §5.8): scared animals path to
     /// animalPos + normalize(animalPos - keepPos) * 150. Pure Fix64 geometry; the caller owns
     /// wiring it into pathing (deferred, finding F-CAS-6). A zero direction (animal exactly at
     /// the keep) returns the animal position unchanged.

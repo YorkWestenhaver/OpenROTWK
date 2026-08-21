@@ -20,7 +20,7 @@
 // GPL empty-mask note: Player::getProductionCostChangeBasedOnKindOf uses testSetAndClear,
 // under which an EMPTY EffectKindOf mask matches EVERY object (a global discount). BFME2/AotR
 // data almost never sets EffectKindOf - it uses ObjectFilter (+ UpgradeDiscount /
-// ApplyToTheseUpgrades) instead, which has no GPL or Ghidra behavioral spec. To avoid
+// ApplyToTheseUpgrades) instead, which has no GPL or written behavioral spec. To avoid
 // silently applying a global production discount for those blocks, registration is gated on a
 // non-empty EffectKindOf (the only GPL-evidenced path). The ObjectFilter / UpgradeDiscount /
 // ApplyToTheseUpgrades / Slaughter / LabelForPalantirString fields are parsed (audited
@@ -187,7 +187,7 @@ public sealed class CostModifierUpgradeModuleData : UpgradeModuleData
     [AddedIn(SageGame.Bfme)]
     public string LabelForPalantirString { get; private set; }
 
-    /// <summary>BFME2 object-scope filter. Parsed (audited); no GPL/Ghidra spec, not acted on.</summary>
+    /// <summary>BFME2 object-scope filter. Parsed (audited); no GPL/spec reference, not acted on.</summary>
     [AddedIn(SageGame.Bfme)]
     public ObjectFilter ObjectFilter { get; private set; }
 
@@ -199,7 +199,7 @@ public sealed class CostModifierUpgradeModuleData : UpgradeModuleData
     [AddedIn(SageGame.Bfme2)]
     public string[] ApplyToTheseUpgrades { get; private set; }
 
-    /// <summary>BFME2 flag. Parsed (audited); no GPL/Ghidra spec, not acted on.</summary>
+    /// <summary>BFME2 flag. Parsed (audited); no GPL/spec reference, not acted on.</summary>
     [AddedIn(SageGame.Bfme2)]
     public bool Slaughter { get; private set; }
 

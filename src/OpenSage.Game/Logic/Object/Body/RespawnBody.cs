@@ -3,7 +3,7 @@
 // landed ActiveBody kill-resolution surface and does NOT reimplement damage math.
 //
 // Behavioral reference: BFME/BFME2-only class - ABSENT from generals-gpl (no ZH ancestor).
-// Semantics are therefore from the binary/Ghidra behavioral spec only (facts, never code);
+// Semantics are therefore from the binary-derived behavioral spec only (facts, never code);
 // clean-room, fresh code. The one determinism-relevant fact this Body owns:
 //
 //   On the killing blow, RespawnBody consults PermanentlyKilledByFilter against the KILLER

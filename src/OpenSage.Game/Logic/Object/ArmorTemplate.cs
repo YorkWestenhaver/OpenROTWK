@@ -67,7 +67,7 @@ public sealed class ArmorTemplate : BaseAsset
 
     /// <summary>
     /// Scales all damage done to this unit. PARSED but not yet applied: BFME-only field
-    /// with no GPL reference; where it enters the resolution order is a Ghidra gap
+    /// with no GPL reference; where it enters the resolution order is a spec gap
     /// (research/systems/weapon-damage-armor.md).
     /// </summary>
     [AddedIn(SageGame.Bfme)]
@@ -78,7 +78,7 @@ public sealed class ArmorTemplate : BaseAsset
 
     /// <summary>
     /// PARSED but not yet applied: BFME2-only flanking multiplier, no GPL reference
-    /// (Ghidra gap, see design note).
+    /// (spec gap, see design note).
     /// </summary>
     [AddedIn(SageGame.Bfme2)]
     public Fix64 FlankedPenalty { get; private set; } = Fix64.One;

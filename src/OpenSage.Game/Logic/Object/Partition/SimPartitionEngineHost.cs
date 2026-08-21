@@ -55,7 +55,7 @@ internal sealed class SimPartitionEngineHost
         // Cell size: GameData's PartitionCellSize (float substrate, quantized once through
         // the wire path). A missing/degenerate value falls back to the original's shipped
         // default of 10 world units - NOT to the grid's clamp of 1, which would explode the
-        // cell count on a large map. BFME2's actual INI value is a game.dat pin (F-PV-5/7).
+        // cell count on a large map. BFME2's actual INI value is a behavioral-spec pin (F-PV-5/7).
         var cellSizeFloat = _game.AssetStore?.GameData?.Current?.PartitionCellSize ?? 0f;
         if (cellSizeFloat < 1f)
         {

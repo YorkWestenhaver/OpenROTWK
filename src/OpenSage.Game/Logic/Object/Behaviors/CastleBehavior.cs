@@ -1,9 +1,9 @@
 // CastleBehavior - the castle/camp anchor (R9 castles system; build-roadmap pillar castles).
 //
-// Behavioral reference: bfme2-workbench/research/spec-castles.md - a clean-room Ghidra
-// behavioral spec (this system has NO GPL reference; facts and cited addresses only, no
+// Behavioral reference: bfme2-workbench/research/spec-castles.md - a clean-room
+// behavioral spec (this system has NO GPL reference; behavioral facts only, no
 // decompiled code transplanted). What is implemented here, spec section by section:
-//   §3.1  the FULL recovered retail parse table (0xc312f8..0xc31468), including the three
+//   §3.1  the FULL recovered retail parse table, including the three
 //         fields missing from the old prototype (BuildTime, DecalName,
 //         TransferFoundationHealthToCastleUponUnpack), CrewPrepareTime split from
 //         CrewPrepareInterval, and ScanDistance as a REAL with default 0 (Q2: 0 disables
@@ -151,7 +151,7 @@ internal sealed class CastleBehavior : FoundationAIUpdate
 
     /// <summary>
     /// True iff still packed, no pending instant build, and (when <paramref name="checkTimer"/>)
-    /// the post-pack FadeTime countdown has expired (threshold 0.0 @0xc1b594).
+    /// the post-pack FadeTime countdown has expired (threshold 0.0, spec-castles.md).
     /// </summary>
     public bool CanUnpack(bool checkTimer)
     {
@@ -224,7 +224,7 @@ internal sealed class CastleBehavior : FoundationAIUpdate
         foreach (var member in members)
         {
             // Members failing FilterValidOwnedEntries are given to the civilian player
-            // (spec §3.1 FilterValidOwnedEntries; PlyrCivilian @0xc24164).
+            // (spec §3.1 FilterValidOwnedEntries; PlyrCivilian).
             var owned = _moduleData.FilterValidOwnedEntries == null
                 || _moduleData.FilterValidOwnedEntries.Matches(member);
 
@@ -234,7 +234,7 @@ internal sealed class CastleBehavior : FoundationAIUpdate
             {
                 _memberIds.Add(member.Id);
 
-                // Back-refs (retail FUN_0079be6a +0x14/+0x18): castle object id + native
+                // Back-refs (spec-castles.md): castle object id + native
                 // player index, the Eva-routing/pack-cascade key.
                 member.FindBehavior<CastleMemberBehavior>()
                     ?.SetCastleBackReference(GameObject.Id, _nativePlayerIndex);
@@ -577,8 +577,8 @@ internal sealed class CastleBehavior : FoundationAIUpdate
 }
 
 // ============================================================================
-// PARSE SIDE - the full recovered retail parse table (spec-castles §3.1,
-// 0xc312f8..0xc31468). BFME1-era fields not in the BFME2 table (SidesAllowed,
+// PARSE SIDE - the full recovered retail parse table (spec-castles §3.1).
+// BFME1-era fields not in the BFME2 table (SidesAllowed,
 // UseTheNewCastleSystemInsteadOfTheClunkyBuildList, UseSecondaryBuildList) stay
 // parse-only vocabulary: the BFME2 binary does not consume them.
 // ============================================================================
@@ -647,7 +647,7 @@ public class CastleBehaviorModuleData : FoundationAIUpdateModuleData
     public LogicFrameSpan FadeTimeFrames { get; private set; }
 
     /// <summary>
-    /// Ownership-capture scan radius; 0 disables the scan. Retail parses a REAL (0x42ed00)
+    /// Ownership-capture scan radius; 0 disables the scan. Retail parses a REAL
     /// and the data-absent default is the ctor's 0 (spec Q2) - the old guessed int/100 is
     /// retired.
     /// </summary>
@@ -656,7 +656,7 @@ public class CastleBehaviorModuleData : FoundationAIUpdateModuleData
     public PreBuildObject PreBuiltList { get; private set; }
     public string PreBuiltPlayer { get; private set; }
 
-    /// <summary>Obsolete decal pair (retail warns "use W3DFloorDraw instead", 0xc31030).</summary>
+    /// <summary>Obsolete decal pair (retail warns "use W3DFloorDraw instead").</summary>
     public string DecalName { get; private set; }
     public Fix64 DecalSize { get; private set; }
 
