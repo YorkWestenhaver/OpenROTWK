@@ -242,14 +242,16 @@ End
     // ---- testcase 4: Duration application ----
 
     [Fact]
-    public void DurationApplication_StaysDisabledPastDisabledDuration_KnownEngineLimitation()
+    public void DurationApplication_StaysDisabledForDuration_ThenAutoClears()
     {
-        // F-LDB-3 (filed in LeafletDropBehavior.cs, same gap as EmpUpdate's F-EMP-6):
-        // GameObject.CheckDisabledStates - the sweep that would auto-clear DisabledType.Emp
-        // once its recorded expiry frame passes - is only ever called from GameObject.Update
-        // (), which nothing in this engine snapshot's GameLogic sleepy-module loop invokes.
-        // This test pins what this port actually controls today (disabled, and staying
-        // disabled) rather than an auto-recovery this engine snapshot cannot yet deliver.
+        // F-LDB-3 - CLOSED (A0-prime): GameObject.CheckDisabledStates (the sweep that
+        // auto-clears DisabledType.Emp once its recorded expiry frame passes) is now called
+        // from GameObject.Update(), which GameLogic.Update() wires in once per object per
+        // frame. This module's first update() tick (CurrentFrame == 1, the 2nd Step() call
+        // per this file's header comment) records expiry frame 1 + DisabledDuration(20) = 21;
+        // GameLogic.Update() runs the auto-expiry sweep AFTER incrementing its frame counter
+        // (T-frame window clears at T+1), so the tank stays disabled through CurrentFrame 21
+        // and clears once CurrentFrame reaches 22.
         var scenario = NewScenario();
         var game = scenario.Game;
         Spawn(scenario, "LeafletDropperInstant", scenario.DropperOwner, Origin, teamId: 101); // DisabledDuration = 20
@@ -259,11 +261,14 @@ End
         game.Step();
         Assert.True(enemyTank.IsDisabledByType(DisabledType.Emp));
 
-        for (var i = 0; i < 30; i++) // well past DisabledDuration = 20
+        for (var i = 0; i < 19; i++) // CurrentFrame 3..21: still within the recorded window
         {
             game.Step();
+            Assert.True(enemyTank.IsDisabledByType(DisabledType.Emp));
         }
-        Assert.True(enemyTank.IsDisabledByType(DisabledType.Emp));
+
+        game.Step(); // CurrentFrame 22: auto-expiry sweep clears it
+        Assert.False(enemyTank.IsDisabledByType(DisabledType.Emp));
     }
 
     // ---- testcase 5: early death handler ----

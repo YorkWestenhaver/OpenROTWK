@@ -104,24 +104,14 @@
 //     D-7, same restriction F-EMP-4/F-EMP-5 already document for this file). Filed, not invented
 //     around: an intended airborne victim that the radius scan itself never reaches is not
 //     disabled by this port, a narrower gap than the pre-fix state (which restricted nothing).
-//   F-EMP-6 (DisabledDuration auto-expiry): GameObject.Disable(type, frame) records the
-//     un-disable frame, but the sweep that would clear it once that frame passes
-//     (GameObject.CheckDisabledStates, private) is only ever called from the internal
-//     GameObject.Update() method - which nothing in this engine snapshot's GameLogic.Update()
-//     sleepy-module loop calls (that loop dispatches UpdateModule.Update() directly; the
-//     per-object CheckDisabledStates sweep is dead code today, a pre-existing engine gap, not
-//     something introduced by or fixable from this module). R14 UPDATE (respawn seam A0):
-//     GameObject.Update()'s duplicate module-dispatch half - and the misleading dead-object
-//     allowlist inside it - has been deleted, so the method is now exactly
-//     { VerifyHealer(); CheckDisabledStates(); } and wiring it into GameLogic.Update() no
-//     longer risks double-ticking every module. That wiring (A0', which closes THIS finding)
-//     is behaviour-changing and CRC-visible, so it is deliberately still a separate packet.
-//     A victim this module disables
-//     therefore stays disabled past DisabledDuration in the current engine, exactly as any
-//     other module's Disable() call would. This port still records the correct un-disable
-//     frame (Context.CurrentFrame + DisabledDuration, matching GPL's setDisabledUntil target)
-//     so the fix is a one-line wiring change in GameLogic/GameObject, not a re-port of this
-//     module, once that sweep is connected.
+//   F-EMP-6 (DisabledDuration auto-expiry) - CLOSED (A0-prime): GameObject.Disable(type, frame)
+//     records the un-disable frame, and the sweep that clears it once that frame passes
+//     (GameObject.CheckDisabledStates, private) is called from the internal GameObject.Update()
+//     method, which A0-prime now wires into GameLogic.Update() (one pass over all objects, after
+//     the sleepy-module loop, on the pre-increment frame counter - not a second module-dispatch
+//     loop; that loop still dispatches UpdateModule.Update() directly). A victim this module
+//     disables now clears automatically at Context.CurrentFrame + DisabledDuration, matching
+//     GPL's setDisabledUntil target, instead of staying disabled forever.
 //
 // Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's
 // conformance class at its declaration site (§4). Field order mirrors the GPL xfer() member

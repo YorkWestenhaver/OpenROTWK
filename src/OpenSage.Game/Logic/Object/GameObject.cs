@@ -1053,18 +1053,17 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     /// <summary>
     /// Per-object engine bookkeeping: the healer timeout and the <see cref="DisabledType"/>
-    /// auto-expiry sweep. This method currently has NO CALLER anywhere in the tree - the live
-    /// module dispatch is <c>GameLogic.Update()</c>'s sleepy queue - so both sweeps are dead
-    /// until it is wired up.
+    /// auto-expiry sweep. Called once per object per frame from <c>GameLogic.Update()</c>,
+    /// after the sleepy module queue, the player/partition ticks, and the frame counter
+    /// increment - separately from, and not a duplicate of, that queue's own module dispatch.
     /// <para>
     /// A0 (design-respawn-seam.md §3.7, adversarial-review-endorsed reading): the module
     /// dispatch half that used to live here has been DELETED, not the method. It duplicated
     /// <c>GameLogic</c>'s sleepy queue, so wiring this method up would have double-ticked
     /// every module; and it carried a three-class <c>IsEffectivelyDead</c> allowlist that read
-    /// like a live dead-object gate while doing nothing at all. Deleting it makes wiring the
-    /// method up (the separate A0' packet that closes F-EMP-6 / F-RING-5 / F-LDB-3) a safe,
-    /// behaviour-scoped change instead of a silent double dispatch. Zero callers today, so
-    /// this deletion is itself behaviour-free.
+    /// like a live dead-object gate while doing nothing at all. Deleting it made wiring the
+    /// method up (this A0-prime packet, closing F-EMP-6 / F-RING-5 / F-LDB-3) a safe,
+    /// behaviour-scoped change instead of a silent double dispatch.
     /// </para>
     /// </summary>
     internal void Update()

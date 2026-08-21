@@ -64,17 +64,11 @@
 //   per-emitter delay range, so this port requests exactly one attached instance of the named
 //   template (the packet's own "attached to object" contract) and leaves the lifetime/delay
 //   computation unmodeled pending that facade, rather than inventing one here.
-//   F-LDB-3 (DisabledType auto-expiry): same pre-existing engine gap EmpUpdate filed as
-//   F-EMP-6 - GameObject.CheckDisabledStates (the sweep that would auto-clear a DisabledType
-//   once its recorded expiry frame passes) is only ever called from GameObject.Update(), which
-//   nothing in this engine snapshot's GameLogic sleepy-module loop invokes. A victim this
-//   module disables therefore stays disabled past DisabledDuration in the current engine,
-//   exactly as any other module's Disable() call would; this port still records the correct
-//   un-disable frame so the fix is the one shared wiring change already filed against
-//   EmpUpdate, not a re-port of this module. R14 UPDATE (respawn seam A0): GameObject.Update()
-//   now contains only VerifyHealer()/CheckDisabledStates() - its duplicate module-dispatch half
-//   was deleted - so that shared wiring change (A0') can be made without double-ticking every
-//   module. It remains its own packet because it is behaviour-changing and CRC-visible.
+//   F-LDB-3 (DisabledType auto-expiry) - CLOSED (A0-prime): same shared engine gap EmpUpdate
+//   filed as F-EMP-6 - GameObject.CheckDisabledStates (the sweep that auto-clears a DisabledType
+//   once its recorded expiry frame passes) is called from GameObject.Update(), which A0-prime
+//   now wires into GameLogic.Update(). A victim this module disables clears automatically at
+//   the recorded un-disable frame instead of staying disabled past DisabledDuration.
 //
 // Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's
 // conformance class at its declaration site (§4). Field order is OUR choice (F9): there is no

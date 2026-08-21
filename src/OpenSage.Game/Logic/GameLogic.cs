@@ -397,6 +397,23 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         _castleOrders?.PruneFinishedConstructions();
 
         _currentFrame++;
+
+        // A0-prime (closes F-EMP-6/F-RING-5/F-LDB-3): per-object bookkeeping that is
+        // independent of the sleepy module queue - the healer timeout and DisabledType
+        // auto-expiry sweep documented on GameObject.Update() itself. This is NOT a second
+        // module dispatch loop; it is a single pass calling the (previously zero-caller)
+        // per-object Update() once per object per frame. Deliberately AFTER the frame counter
+        // advances (unlike the sim passes above, which read the pre-increment "now"):
+        // GameObject.CheckDisabledStates compares the recorded un-disable frame against the
+        // *live* CurrentFrame property with a strict less-than, so a disable window of T frames
+        // (expiry frame = disable-time CurrentFrame + T) first reads as cleared once
+        // CurrentFrame has advanced to T+1 past that starting frame - this loop must run after
+        // the increment for that to happen on the frame the T+1'th Update() call produces,
+        // rather than one call later.
+        foreach (var gameObject in _objects)
+        {
+            gameObject?.Update();
+        }
     }
 
     // Sleepy update stuff.
