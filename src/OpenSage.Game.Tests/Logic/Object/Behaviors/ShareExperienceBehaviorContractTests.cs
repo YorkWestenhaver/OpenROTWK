@@ -8,6 +8,16 @@
 // SECOND Step() after spawn, not the first. Every case that grants XP to the sharer after spawn
 // and then expects the share to have propagated calls game.Step() an extra time beyond the
 // naive frame count.
+//
+// Rank-1-floor caveat (why every case below asserts a DELTA, never an absolute total): the
+// engine adds an ExperienceUpdate helper ("ModuleTag_ExperienceHelper") to every object on
+// every non-Generals game, and on its first tick that helper raises a still-zero
+// CurrentExperience to the rank-1 floor of 1. So no trainable object in a stepped world ever
+// sits at an absolute 0, whether or not this module ever shares anything with it - asserting
+// `== 0` or `== 100` would be asserting against that unrelated engine behavior. Each case
+// therefore settles the world first (SettleFrames, enough steps for every spawned object's
+// helper to have run), captures each tracker's settled value, and asserts what this module did
+// or did not add on top of it.
 
 using System.Linq;
 using System.Numerics;
@@ -69,6 +79,10 @@ End
         return game;
     }
 
+    /// <summary>Steps enough frames for every already-spawned object's ExperienceUpdate helper
+    /// to have run its rank-1 seeding, so a value captured afterwards is a stable baseline.</summary>
+    private const int SettleFrames = 3;
+
     private static void StepFrames(HeadlessSimGame game, int frames)
     {
         for (var i = 0; i < frames; i++)
@@ -76,6 +90,8 @@ End
             game.Step();
         }
     }
+
+    private static int Experience(GameObject obj) => obj.ExperienceTracker.CurrentExperience;
 
     private static ShareExperienceBehavior ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<ShareExperienceBehavior>().Single();
@@ -105,15 +121,19 @@ End
         var sharer = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         var recipient = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
 
-        // Reach the module's second guaranteed tick before granting XP, so the ctor-time
-        // baseline seed has definitely been consumed once already.
-        StepFrames(game, 2);
+        // Settle first: the module's baseline is live and every helper's rank-1 seeding is done.
+        StepFrames(game, SettleFrames);
+        var recipientBefore = Experience(recipient);
+        var sharerBefore = Experience(sharer);
 
         sharer.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 
-        Assert.Equal(100, recipient.ExperienceTracker.CurrentExperience);
-        Assert.Equal(100, sharer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(100, Experience(recipient) - recipientBefore);
+
+        // The sharer keeps its own gain - sharing is additive, not a redirect (which is what
+        // distinguishes this from the ExperienceSink single-target-redirect mechanism).
+        Assert.Equal(100, Experience(sharer) - sharerBefore);
     }
 
     [Fact]
@@ -123,11 +143,13 @@ End
         var sharer = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         var recipient = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(200, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
+        var recipientBefore = Experience(recipient);
+
         sharer.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 
-        Assert.Equal(0, recipient.ExperienceTracker.CurrentExperience);
+        Assert.Equal(0, Experience(recipient) - recipientBefore);
     }
 
     [Fact]
@@ -137,11 +159,13 @@ End
         var sharer = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         var recipient = game.SpawnObject("NonHeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
+        var recipientBefore = Experience(recipient);
+
         sharer.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 
-        Assert.Equal(0, recipient.ExperienceTracker.CurrentExperience);
+        Assert.Equal(0, Experience(recipient) - recipientBefore);
     }
 
     [Fact]
@@ -151,10 +175,32 @@ End
         game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         var recipient = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
 
-        // Step several frames without ever granting XP to the sharer.
+        StepFrames(game, SettleFrames);
+        var recipientBefore = Experience(recipient);
+
+        // Step several more frames without ever granting XP to the sharer.
         StepFrames(game, 6);
 
-        Assert.Equal(0, recipient.ExperienceTracker.CurrentExperience);
+        Assert.Equal(0, Experience(recipient) - recipientBefore);
+    }
+
+    [Fact]
+    public void NoPhantomShareOfTheEngineRankOneSeed()
+    {
+        // Regression for the ctor baseline clamp: the engine's own ExperienceUpdate helper
+        // lifts the SHARER from 0 to the rank-1 floor of 1 on its first tick. That is an
+        // initialization, not a gain, and must not be observed as a +1 delta and broadcast.
+        // Asserted without hard-coding what the floor is: an in-range hero must end up with
+        // exactly what an identical hero parked outside Radius ends up with, since the sharer
+        // never actually earns anything here.
+        var game = NewGame();
+        game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
+        var inRange = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
+        var control = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(400, 0, 0));
+
+        StepFrames(game, 6);
+
+        Assert.Equal(Experience(control), Experience(inRange));
     }
 
     [Fact]
@@ -174,14 +220,16 @@ End
         var game = NewGame();
         var sharer = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
         sharer.ExperienceTracker.AddExperiencePoints(300);
-        StepFrames(game, 2); // baseline resyncs to 300; no recipient exists yet to receive it
+        StepFrames(game, 2); // baseline resyncs to the new total; no recipient exists yet
 
         var recipient = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
+        StepFrames(game, SettleFrames);
+        var recipientBefore = Experience(recipient);
         StepFrames(game, 2);
 
-        Assert.Equal(0, recipient.ExperienceTracker.CurrentExperience);
+        Assert.Equal(0, Experience(recipient) - recipientBefore);
     }
 
     [Fact]
@@ -192,12 +240,17 @@ End
         var recipientA = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
         var recipientB = game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(-50, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
+        var beforeA = Experience(recipientA);
+        var beforeB = Experience(recipientB);
+
         sharer.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 
-        Assert.Equal(100, recipientA.ExperienceTracker.CurrentExperience);
-        Assert.Equal(100, recipientB.ExperienceTracker.CurrentExperience);
+        // The flat share is not divided among recipients - each qualifying candidate
+        // independently receives the full delta; there is no pool to split.
+        Assert.Equal(100, Experience(recipientA) - beforeA);
+        Assert.Equal(100, Experience(recipientB) - beforeB);
     }
 
     [Fact]
@@ -207,11 +260,13 @@ End
         var sharer = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         var recipient = game.SpawnObject("NonTrainableRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
         sharer.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 
-        Assert.Equal(0, recipient.ExperienceTracker.CurrentExperience);
+        // Not trainable and no sink of its own, so AddExperiencePoints no-ops internally - the
+        // absolute 0 is meaningful here (the rank-1 seeding skips a non-trainable object too).
+        Assert.Equal(0, Experience(recipient));
     }
 
     [Fact]
@@ -221,7 +276,7 @@ End
         var liveHost = game.SpawnObject("SharerUnit", game.CivilianPlayer, new Vector3(0, 0, 0));
         game.SpawnObject("HeroRecipient", game.CivilianPlayer, new Vector3(50, 0, 0));
 
-        StepFrames(game, 2);
+        StepFrames(game, SettleFrames);
         liveHost.ExperienceTracker.AddExperiencePoints(100);
         StepFrames(game, 2);
 

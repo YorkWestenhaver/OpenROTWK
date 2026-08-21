@@ -43,6 +43,14 @@
 //     checks, so that filter currently evaluates as "matches nothing." The same gap every other
 //     landed ObjectFilter consumer (EnemyNearUpdate/EmpUpdate/EmotionTrackerUpdate) already
 //     inherits unfixed - not this port's file to fix.
+//   F-SEB-3 (poll idiom cannot separate a gain from an initialization): the engine adds an
+//     ExperienceUpdate helper ("ModuleTag_ExperienceHelper") to every object on every
+//     non-Generals game, and that helper raises a still-zero CurrentExperience to the rank-1
+//     floor of 1 on its first tick (SetExperienceAndLevel, not AddExperiencePoints). Polling
+//     sees that as an ordinary +1 delta. There is no per-point "XP gained" event to subscribe
+//     to, so the baseline is seeded at the rank-1 floor instead of at literal zero (see the
+//     ctor) - which costs at most a single point, once, on an object that genuinely earns
+//     exactly 1 XP before this module's first tick.
 
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
@@ -55,6 +63,16 @@ namespace OpenSage.Logic.Object;
 [SimState]
 public sealed class ShareExperienceBehavior : UpdateModule
 {
+    /// <summary>
+    /// Rank-1 experience floor every BFME object is initialized to by the engine-added
+    /// ExperienceUpdate helper (GameObject adds "ModuleTag_ExperienceHelper" to every object on
+    /// every non-Generals game; on its first tick it raises a still-zero CurrentExperience to
+    /// this value through SetExperienceAndLevel). That is an initialization, not a gain, and
+    /// §1.2 shares only AddExperiencePoints-shaped gains - never SetExperienceAndLevel-shaped
+    /// rewrites - so the baseline below starts at the floor rather than at literal zero.
+    /// </summary>
+    private const int EngineRankOneExperienceFloor = 1;
+
     private readonly ShareExperienceBehaviorModuleData _data;
 
     // ---- mutable sim state (the whole inventory; every field is in Xfer) ----
@@ -71,7 +89,19 @@ public sealed class ShareExperienceBehavior : UpdateModule
         // Seed from whatever XP we already have at construction time, so an object that is
         // never observed with zero XP (e.g. a template with a nonzero starting veterancy) does
         // not falsely broadcast its entire starting total as a "gain" on its first live tick.
-        _lastObservedExperience = gameObject.ExperienceTracker.CurrentExperience;
+        //
+        // Clamped up to the rank-1 floor because our ctor runs before the ExperienceUpdate
+        // helper's first tick: seeding the raw 0 here would make that helper's own 0 -> 1
+        // initialization look like a +1 gain on our next tick and broadcast a phantom point to
+        // every candidate in Radius. The clamp is ordering-independent (it holds whether the
+        // helper ticks before or after us on the first frame), which a lazy first-tick seed
+        // would not be. A genuine 1-point gain earned from zero before our first tick is
+        // indistinguishable from that guaranteed-to-happen seed under the poll idiom, and is
+        // absorbed by this clamp.
+        var startingExperience = gameObject.ExperienceTracker.CurrentExperience;
+        _lastObservedExperience = startingExperience > EngineRankOneExperienceFloor
+            ? startingExperience
+            : EngineRankOneExperienceFloor;
 
         // No delay field is authored on this block - tick every frame, same "absent delay
         // field" shape as EmpUpdate, no periodic re-arm.
