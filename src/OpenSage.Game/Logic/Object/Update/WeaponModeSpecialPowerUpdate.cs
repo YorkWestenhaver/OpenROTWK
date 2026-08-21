@@ -33,6 +33,7 @@
 //     hierarchy) is a framework-adjacent decision out of this task's scope.
 
 using System;
+using System.Collections.Generic;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
@@ -114,9 +115,9 @@ public sealed class WeaponModeSpecialPowerUpdate : BehaviorModule
             Context.Events.FireAudioEventAtObject(_data.InitiateSound, GameObject.Id);
         }
 
-        foreach (var flag in Enum.GetValues<WeaponSetConditions>())
+        foreach (var flag in EnumerateWeaponSetConditions())
         {
-            if (flag != WeaponSetConditions.None && (_data.WeaponSetFlags & flag) == flag)
+            if ((_data.WeaponSetFlags & flag) == flag)
             {
                 GameObject.SetWeaponSetCondition(flag, true);
             }
@@ -152,9 +153,9 @@ public sealed class WeaponModeSpecialPowerUpdate : BehaviorModule
             return;
         }
 
-        foreach (var flag in Enum.GetValues<WeaponSetConditions>())
+        foreach (var flag in EnumerateWeaponSetConditions())
         {
-            if (flag != WeaponSetConditions.None && (_data.WeaponSetFlags & flag) == flag)
+            if ((_data.WeaponSetFlags & flag) == flag)
             {
                 GameObject.SetWeaponSetCondition(flag, false);
             }
@@ -168,6 +169,21 @@ public sealed class WeaponModeSpecialPowerUpdate : BehaviorModule
 
         _active = false;
         _revertFrame = LogicFrame.MaxValue;
+    }
+
+    /// <summary>
+    /// Deterministic replacement for Enum.GetValues&lt;WeaponSetConditions&gt;() (SIMCORE005:
+    /// reflection defines member order, which is not stable across processes). WeaponSetConditions
+    /// is declared with no explicit values, so its members are exactly the contiguous ordinals
+    /// [0, WeaponsetToggle2]; walking that range yields the same set in declaration order, from
+    /// source rather than from reflection. None (ordinal 0) is skipped, as it was before.
+    /// </summary>
+    private static IEnumerable<WeaponSetConditions> EnumerateWeaponSetConditions()
+    {
+        for (var i = 1; i <= (int)WeaponSetConditions.WeaponsetToggle2; i++)
+        {
+            yield return (WeaponSetConditions)i;
+        }
     }
 
     // ---- the single walk (§2): save/load + CRC + deep-dump + conformance ----

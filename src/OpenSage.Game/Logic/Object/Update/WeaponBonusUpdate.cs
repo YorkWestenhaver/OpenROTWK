@@ -60,6 +60,7 @@
 
 using System.Collections.Generic;
 using OpenSage.Data.Ini;
+using OpenSage.Mathematics;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
