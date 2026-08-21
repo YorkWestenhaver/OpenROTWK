@@ -256,7 +256,11 @@ public sealed class AptRenderingContext : DisposableBase
                             //if (assignment is RectangleAssignment)
                             //    throw new NotImplementedException();
 
-                            var tex = _aptContext.GetTexture(tt.Image, shape);
+                            // A movie that ships no .dat sidecar, or a .tga that isn't in the
+                            // install, leaves this null. Draw the placeholder rather than
+                            // taking the frame down.
+                            var tex = _aptContext.GetTexture(tt.Image, shape)
+                                ?? _graphicsLoadContext.StandardGraphicsResources.PlaceholderTexture;
                             var tintColor = transform.TransformColor(ColorRgbaF.White);
                             _activeDrawingContext.FillTriangle(
                                 tex,

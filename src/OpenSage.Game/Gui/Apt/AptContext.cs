@@ -1,4 +1,5 @@
-﻿using OpenSage.Content;
+﻿using System.Collections.Generic;
+using OpenSage.Content;
 using OpenSage.Data.Apt;
 using OpenSage.Data.Apt.Characters;
 using OpenSage.Gui.Apt.ActionScript;
@@ -9,6 +10,10 @@ namespace OpenSage.Gui.Apt;
 
 public sealed class AptContext
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    private readonly HashSet<(string MovieName, int ImageId)> _missingImageMappings = new();
+
     private readonly AssetStore _assetStore;
     private readonly ImageMap _imageMap;
     private readonly string _movieName;
@@ -87,7 +92,20 @@ public sealed class AptContext
             movieName = _movieName;
         }
 
-        var texId = map.Mapping[id].TextureId;
+        // A movie's image map comes from its .dat sidecar, which is optional - a movie imported
+        // from another movie need not ship one - so an id the map doesn't know about is a
+        // missing asset, not a broken file. Let the caller substitute a placeholder.
+        if (!map.Mapping.TryGetValue(id, out var mapping))
+        {
+            if (_missingImageMappings.Add((movieName, id)))
+            {
+                Logger.Warn($"Apt movie '{movieName}' has no image map entry for image {id}; using a placeholder texture.");
+            }
+
+            return null;
+        }
+
+        var texId = mapping.TextureId;
         var textureFileName = "apt_" + movieName + "_" + texId.ToString() + ".tga";
         return _assetStore.GuiTextures.GetByName(textureFileName);
     }

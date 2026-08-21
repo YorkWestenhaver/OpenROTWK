@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Numerics;
 using OpenSage.Content;
 using OpenSage.Data.Map;
@@ -7,12 +8,22 @@ using OpenSage.Graphics.Rendering.Water;
 using OpenSage.Graphics.Shaders;
 using OpenSage.Gui;
 using OpenSage.Mathematics;
+using OpenSage.Rendering;
 using Veldrid;
 
 namespace OpenSage.Graphics.Rendering;
 
 internal sealed class RenderPipeline : DisposableBase
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>
+    /// Render items whose resource sets could not be bound. Each one is logged once and then
+    /// skipped for the rest of the process, so a single unrenderable asset can't abort a frame
+    /// or spam the log every frame.
+    /// </summary>
+    private readonly HashSet<string> _unbindableRenderItems = new();
+
     public event EventHandler<Rendering2DEventArgs> Rendering2D;
     public event EventHandler<BuildingRenderListEventArgs> BuildingRenderList;
 
@@ -369,14 +380,19 @@ internal sealed class RenderPipeline : DisposableBase
             {
                 commandList.InsertDebugMarker("Setting pipeline");
                 commandList.SetPipeline(renderItem.Material.Pipeline);
-                SetGlobalResources(commandList, passResourceSet);
+
+                // Setting a pipeline invalidates every bound resource set, so the placeholders
+                // for the slots nothing else binds have to be re-bound alongside the globals.
+                BindPlaceholderResourceSets(commandList, renderItem.Material.ShaderSet);
+
+                SetGlobalResources(commandList, renderItem.Material.ShaderSet, passResourceSet);
             }
 
             if (bucket.RenderItemName == "Water")
             {
                 CalculateWaterShaderMap(context.Scene3D, context, commandList, renderItem, forwardPassResourceSet);
 
-                SetGlobalResources(commandList, passResourceSet);
+                SetGlobalResources(commandList, renderItem.Material.ShaderSet, passResourceSet);
                 commandList.SetGraphicsResourceSet(2, _waterMapRenderer.ResourceSetForRendering);
             }
 
@@ -388,12 +404,23 @@ internal sealed class RenderPipeline : DisposableBase
             }
 
             commandList.SetIndexBuffer(renderItem.IndexBuffer, IndexFormat.UInt16);
-            commandList.DrawIndexed(
-                renderItem.IndexCount,
-                1,
-                renderItem.StartIndex,
-                0,
-                0);
+
+            try
+            {
+                commandList.DrawIndexed(
+                    renderItem.IndexCount,
+                    1,
+                    renderItem.StartIndex,
+                    0,
+                    0);
+            }
+            catch (Exception ex)
+            {
+                // One render item whose resource sets can't be bound - a material missing a
+                // resource, or a graphics backend rejecting the binding - must not take the
+                // whole frame down with it. Log it once and carry on without it.
+                LogUnbindableRenderItem(bucket, renderItem, passResourceSet, ex);
+            }
 
             lastRenderItemIndex = i;
 
@@ -403,13 +430,66 @@ internal sealed class RenderPipeline : DisposableBase
         return bucket.RenderItems.CulledItemIndices.Count;
     }
 
-    private void SetGlobalResources(CommandList commandList, ResourceSet passResourceSet)
+    private void LogUnbindableRenderItem(
+        RenderBucket bucket,
+        in RenderItem renderItem,
+        ResourceSet passResourceSet,
+        Exception exception)
+    {
+        var key = $"{bucket.RenderItemName}/{renderItem.DebugName}/{renderItem.Material.ShaderSet.GetType().Name}";
+
+        if (!_unbindableRenderItems.Add(key))
+        {
+            return;
+        }
+
+        Logger.Error(
+            exception,
+            $"Skipping render item '{renderItem.DebugName}' in the {bucket.RenderItemName} pass: " +
+            $"its resource sets could not be bound " +
+            $"(shader set {renderItem.Material.ShaderSet.GetType().Name}, " +
+            $"{renderItem.Material.ShaderSet.ResourceLayouts.Length} resource layouts, " +
+            $"material resource set {(renderItem.Material.MaterialResourceSet == null ? "missing" : "present")}, " +
+            $"pass resource set {(passResourceSet == null ? "missing" : "present")}). " +
+            $"This is logged once per render item.");
+    }
+
+    private void SetGlobalResources(CommandList commandList, ShaderSet shaderSet, ResourceSet passResourceSet)
     {
         commandList.SetGraphicsResourceSet(0, _globalShaderResourceData.GlobalConstantsResourceSet);
 
-        if (passResourceSet != null)
+        // A shader that declares no pass constants - the shadow pass's MeshDepth, for one - gets
+        // an empty layout in slot 1, which the pass resource set does not match. Those slots are
+        // covered by BindPlaceholderResourceSets instead.
+        if (passResourceSet != null && !HasPlaceholderResourceSet(shaderSet, 1))
         {
             commandList.SetGraphicsResourceSet(1, passResourceSet);
         }
+    }
+
+    /// <summary>
+    /// Binds a shared empty resource set to every slot the shader declares but leaves empty.
+    /// GLSL set indices are positional, so a shader using sets 0 and 3 still declares sets 1 and
+    /// 2, and a graphics backend may require every declared slot to be bound before a draw.
+    /// </summary>
+    private static void BindPlaceholderResourceSets(CommandList commandList, ShaderSet shaderSet)
+    {
+        var emptyResourceSets = shaderSet.EmptyResourceSets;
+
+        for (var slot = 0; slot < emptyResourceSets.Length; slot++)
+        {
+            var emptyResourceSet = emptyResourceSets[slot];
+            if (emptyResourceSet != null)
+            {
+                commandList.SetGraphicsResourceSet((uint)slot, emptyResourceSet);
+            }
+        }
+    }
+
+    private static bool HasPlaceholderResourceSet(ShaderSet shaderSet, int slot)
+    {
+        var emptyResourceSets = shaderSet.EmptyResourceSets;
+
+        return slot < emptyResourceSets.Length && emptyResourceSets[slot] != null;
     }
 }

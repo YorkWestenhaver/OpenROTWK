@@ -10,7 +10,11 @@ namespace OpenSage.Logic.Object;
 
 internal sealed class SpawnBehavior : UpdateModule
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     SpawnBehaviorModuleData _moduleData;
+
+    private bool _loggedMissingSpawnTemplate;
 
     private List<GameObject> _spawnedUnits;
     private bool _initial;
@@ -39,6 +43,21 @@ internal sealed class SpawnBehavior : UpdateModule
     private void SpawnUnit()
     {
         var spawnedObject = GameEngine.GameLogic.CreateObject(_moduleData.SpawnTemplate?.Value, GameObject.Owner);
+
+        // CreateObject returns null for a template that isn't in the loaded object set - a
+        // SpawnTemplateName naming a template this install doesn't ship. Nothing to spawn, and
+        // nothing worth aborting the tick over.
+        if (spawnedObject == null)
+        {
+            if (_loggedMissingSpawnTemplate is false)
+            {
+                _loggedMissingSpawnTemplate = true;
+                Logger.Warn($"SpawnBehavior on '{GameObject.Definition.Name}' could not resolve its SpawnTemplateName; spawning nothing.");
+            }
+
+            return;
+        }
+
         _spawnedUnits.Add(spawnedObject);
 
         spawnedObject.CreatedByObjectID = GameObject.Id;

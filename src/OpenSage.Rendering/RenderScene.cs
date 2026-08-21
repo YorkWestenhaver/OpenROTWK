@@ -88,9 +88,23 @@ public sealed class RenderBucket
 
             commandList.SetPipeline(renderObject.Item2.Pipeline);
 
+            // Slots the shader declares but leaves empty still have to be bound; see
+            // ShaderSet.EmptyResourceSets. Setting a pipeline invalidates every bound set, so
+            // this belongs here, immediately after SetPipeline.
+            var emptyResourceSets = renderObject.Item2.ShaderSet.EmptyResourceSets;
+            for (var slot = 0; slot < emptyResourceSets.Length; slot++)
+            {
+                var emptyResourceSet = emptyResourceSets[slot];
+                if (emptyResourceSet != null)
+                {
+                    commandList.SetGraphicsResourceSet((uint)slot, emptyResourceSet);
+                }
+            }
+
             commandList.SetGraphicsResourceSet(0, globalResourceSet);
 
-            if (passResourceSet != null)
+            if (passResourceSet != null
+                && (emptyResourceSets.Length <= 1 || emptyResourceSets[1] == null))
             {
                 commandList.SetGraphicsResourceSet(1, passResourceSet);
             }
