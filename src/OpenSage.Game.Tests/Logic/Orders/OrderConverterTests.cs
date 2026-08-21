@@ -105,19 +105,35 @@ public class OrderConverterTests
     }
 
     [Fact]
-    public void NaNFloatArgument_QuantizesTheSameWayFromWireFloatDoes_NeverThrows()
+    public void NaNFloatArgument_TakesTheF4BoundarysOwnPolicy_WhichIsToReject()
     {
-        // FromWireFloat's own documented contract (SimOrderArgCodecTests) handles NaN/Infinity
-        // without throwing; the converter must not add a second, different policy on top.
+        // The point of this test is that the converter adds NO second policy of its own on top of
+        // the F4 boundary - whatever Fix64.FromWireFloat does with a bit pattern is what the
+        // converter does with it. For NaN that policy is rejection: FromWireFloat's documented
+        // contract (Fix64.Parse.cs) throws ArgumentException on NaN bits, because a NaN has no
+        // Q31.32 image and silently substituting one would be a desync waiting to happen.
+        // Infinity, which *does* have a defined image (saturation to Min/MaxValue), is covered
+        // separately - the two must not be lumped together.
         var order = new Order(playerIndex: 0, OrderType.BuildObject);
         order.AddIntegerArgument(0);
         order.AddPositionArgument(Vector3.Zero);
         order.AddFloatArgument(float.NaN);
 
+        Assert.Throws<ArgumentException>(() => OrderConverter.TryConvert(order));
+    }
+
+    [Fact]
+    public void InfiniteFloatArgument_SaturatesExactlyAsFromWireFloatDoes()
+    {
+        var order = new Order(playerIndex: 0, OrderType.BuildObject);
+        order.AddIntegerArgument(0);
+        order.AddPositionArgument(Vector3.Zero);
+        order.AddFloatArgument(float.PositiveInfinity);
+
         var result = OrderConverter.TryConvert(order);
 
         Assert.True(result.Success);
-        var expected = Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(float.NaN));
+        var expected = Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(float.PositiveInfinity));
         Assert.Equal(expected, result.Order.Arguments[2].Fixed);
     }
 
