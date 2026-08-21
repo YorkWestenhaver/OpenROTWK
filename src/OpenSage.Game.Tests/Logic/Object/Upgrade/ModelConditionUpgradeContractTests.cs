@@ -74,7 +74,7 @@ Object RangeRemovalBearer
   End
   Behavior = ModelConditionUpgrade ModuleTag_Range
     TriggeredBy = Upgrade_RemoveRange
-    RemoveConditionFlagsInRange = DAMAGED REALLYDAMAGED RUBBLE
+    RemoveConditionFlagsInRange = DAMAGED RUBBLE
   End
 End
 
@@ -169,8 +169,15 @@ End
     }
 
     [Fact]
-    public void RangeRemoval_ClearsContiguousFlagBlock()
+    public void RangeRemoval_ClearsUnnamedFlagBetweenTheTwoNamedEndpoints()
     {
+        // Real shipping AotR data (createaheromodelconditionupgrades.inc, 38 occurrences,
+        // always e.g. `RemoveConditionFlagsInRange = CREATE_A_HERO_00 CREATE_A_HERO_65`) only
+        // ever names the two endpoints of a contiguous run - never every flag in it. The INI
+        // above mirrors that shape: `RemoveConditionFlagsInRange = DAMAGED RUBBLE` names only
+        // the two endpoints of the Damaged/ReallyDamaged/Rubble block and leaves the middle
+        // flag (ReallyDamaged) unnamed. If the implementation only cleared the literally-named
+        // bits (the R12 bug), ReallyDamaged would incorrectly survive the upgrade.
         var game = NewGame();
         var bearer = game.SpawnObject("RangeRemovalBearer", game.CivilianPlayer, Vector3.Zero);
 

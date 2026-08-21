@@ -18,10 +18,18 @@
 //     the same setModelConditionState call).
 //   - RemoveConditionFlags: every named bit is cleared (clearModelConditionState).
 //   - RemoveConditionFlagsInRange: parsed with the identical bit-list grammar as
-//     RemoveConditionFlags (IniParser.ParseEnumBitArray) - "InRange" names the authored
-//     intent (clearing a contiguous state-machine block, e.g. the DAMAGED/REALLYDAMAGED/
-//     RUBBLE ladder), but the runtime effect of clearing every named bit is identical to
-//     RemoveConditionFlags, so it is applied the same way.
+//     RemoveConditionFlags (IniParser.ParseEnumBitArray), but "InRange" is not a synonym for
+//     RemoveConditionFlags - every real usage in shipping AotR data (createaheromodelcondition-
+//     upgrades.inc, 38 occurrences) supplies exactly two tokens spanning a contiguous run (e.g.
+//     `RemoveConditionFlagsInRange = CREATE_A_HERO_00 CREATE_A_HERO_65`, over the 66
+//     sequentially-declared CreateAHero00..CreateAHero65 flags), and the field name plus that
+//     authoring pattern both point at "clear every flag from the first named to the last named,
+//     inclusive" (R13 fix; the R12 version of this comment claimed the two were runtime-
+//     equivalent, which is false against real data - clearing only the two endpoints leaves any
+//     Create-a-Hero subclass flag strictly between them still set, so two mutually-exclusive
+//     selector flags end up simultaneously live). Applied at trigger time by taking the min and
+//     max declaration-order index of the named bits and clearing the whole inclusive span - see
+//     OnUpgradeTriggered below.
 //   - AddTempConditionFlag / TempConditionTime: sets one flag on trigger and schedules its
 //     own removal TempConditionTime seconds later. This is the one piece of genuinely new
 //     runtime behavior (an update tick this module didn't need before), so it is built on
@@ -115,9 +123,41 @@ public sealed class ModelConditionUpgrade : UpdateModule, IUpgradeableModule
 
         if (_data.RemoveConditionFlagsInRange != null)
         {
+            // "InRange" means exactly that: the named tokens are the two endpoints of a
+            // contiguous run (real AotR data always supplies exactly two), and every flag whose
+            // declaration-order index falls between them - inclusive, endpoints in either order
+            // - gets cleared too, not just the literally-named bits. See file header.
+            var haveRange = false;
+            var minIndex = 0;
+            var maxIndex = 0;
+
             foreach (var flag in _data.RemoveConditionFlagsInRange.GetSetBits())
             {
-                GameObject.ClearModelConditionState(flag);
+                var index = (int)(object)flag;
+
+                if (!haveRange)
+                {
+                    minIndex = index;
+                    maxIndex = index;
+                    haveRange = true;
+                }
+                else
+                {
+                    if (index < minIndex)
+                    {
+                        minIndex = index;
+                    }
+
+                    if (index > maxIndex)
+                    {
+                        maxIndex = index;
+                    }
+                }
+            }
+
+            for (var index = minIndex; haveRange && index <= maxIndex; index++)
+            {
+                GameObject.ClearModelConditionState((ModelConditionFlag)index);
             }
         }
 
