@@ -23,13 +23,16 @@
 //
 // DEVIATIONS (documented, not invented):
 //   - GPL's actual weapon call allocates a brand-new disposable Weapon, force-fills its clip
-//     (loadAmmoNow) and destroys it every shot - a workaround for that call site having no
-//     persistent Weapon slot, not a meaningful "always full ammo" design signal. This port
-//     instead owns one persistent SimWeapon (the sanctioned "future WeaponModule ports" core,
-//     Combat/SimWeapon.cs) so ClipSize/AutoReloadsClip/ClipReloadTime genuinely gate fire
-//     rate and ammo, matching this port's own test packet ("fires at correct interval and
-//     cycles through available ammunition"). The clip is seeded once at construction with a
-//     zero-delay Reload (SimWeapon's own documented "no delay reloading the first time").
+//     (loadAmmoNow) and destroys it every shot (allocateNewWeapon + loadAmmoNow + fireWeapon +
+//     deleteInstance, PointDefenseLaserUpdate.cpp:216-219). Because the clip is force-filled
+//     and thrown away every single shot, it is never the same clip twice - ClipSize/
+//     AutoReloadsClip/ClipReloadTime are structurally INERT for this module in retail; cadence
+//     is governed purely by DelayBetweenShots (GPL m_nextShotAvailableInFrames). This port
+//     mirrors that exactly with a plain LogicFrameSpan cooldown (_nextShotAvailableInFrames,
+//     GPL-named) and no persistent ammo core - a prior revision wired a persistent SimWeapon
+//     here (R12 review finding, blocker), which made ClipSize/ClipReloadTime genuinely gate
+//     fire rate and diverge from the oracle for any INI with a finite ClipSize; that design is
+//     reverted.
 //   - GPL's out-of-range branch computes a velocity-predicted position (pos) but then
 //     recomputes fDist from the ORIGINAL (me, other) pair, never reading pos back - the
 //     prediction is computed and silently discarded (a retail dead-store bug). This port uses
@@ -90,10 +93,6 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
     private readonly DamageType _damageType;
     private readonly DeathType _deathType;
 
-    /// <summary>The persistent fire-timing/ammo core (Combat/SimWeapon.cs) - see file header
-    /// deviation note on why this replaces GPL's per-shot disposable Weapon.</summary>
-    private readonly SimWeapon _weapon;
-
     // ---- mutable sim state (the whole inventory; every field is in Xfer) ----
 
     /// <summary>GPL m_bestTargetID.</summary>
@@ -104,6 +103,11 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
 
     /// <summary>GPL m_nextScanFrames: frames remaining before the next periodic scan.</summary>
     private LogicFrameSpan _nextScanFrames = LogicFrameSpan.Zero;
+
+    /// <summary>GPL m_nextShotAvailableInFrames: the ONLY thing that gates fire cadence in
+    /// retail for this module (see file header deviation note - ClipSize/ClipReloadTime are
+    /// structurally inert because GPL's weapon is disposable-and-refilled every shot).</summary>
+    private LogicFrameSpan _nextShotAvailableInFrames = LogicFrameSpan.Zero;
 
     public PointDefenseLaserUpdate(GameObject gameObject, ISimContext context, PointDefenseLaserUpdateModuleData data)
         : base(gameObject, context)
@@ -132,15 +136,10 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
             _deathType = nugget.DeathType;
         }
 
-        _weapon = new SimWeapon(_weaponTemplate);
-        // GPL Weapon ctor: "no delay for reloading the first time" - seed the clip once so
-        // the very first scheduled shot isn't blocked on an empty clip that nothing has ever
-        // depleted yet (SimWeapon starts OutOfAmmo/empty by design).
-        _weapon.Reload(Context.CurrentFrame, Context.GameLogicRandom, Fix64.One, loadInstantly: true);
-
-        // GPL ctor: setWakeFrame(UPDATE_SLEEP_NONE) with m_nextScanFrames = 0, so the very
-        // first Update() always scans immediately (no stagger bias, unlike EnemyNearUpdate/
-        // StealthDetectorUpdate, whose own GPL ctors explicitly draw one).
+        // GPL ctor: setWakeFrame(UPDATE_SLEEP_NONE) with m_nextScanFrames = 0 and
+        // m_nextShotAvailableInFrames = 0, so the very first Update() always scans immediately
+        // (no stagger bias, unlike EnemyNearUpdate/StealthDetectorUpdate, whose own GPL ctors
+        // explicitly draw one).
         SetWakeFrame(UpdateSleepTime.None);
     }
 
@@ -150,8 +149,9 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
     /// <summary>Test/inspector-only view of the in-range flag; not part of the save contract.</summary>
     internal bool InRange => _inRange;
 
-    /// <summary>Test/inspector-only view of the ammo core; not part of the save contract.</summary>
-    internal SimWeapon Weapon => _weapon;
+    /// <summary>Test/inspector-only view of the fire-cooldown counter; not part of the save
+    /// contract.</summary>
+    internal LogicFrameSpan NextShotAvailableInFrames => _nextShotAvailableInFrames;
 
     public override UpdateSleepTime Update()
     {
@@ -188,20 +188,29 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
     private void FireWhenReady()
     {
         var target = ResolveTrackedTarget();
-        if (target == null)
+
+        // GPL: "if (m_nextShotAvailableInFrames > 0) { m_nextShotAvailableInFrames--; return; }"
+        // - this decrement/return happens unconditionally, BEFORE the target/in-range check,
+        // and regardless of whether a target was even resolved above.
+        if (_nextShotAvailableInFrames > LogicFrameSpan.Zero)
         {
+            _nextShotAvailableInFrames -= LogicFrameSpan.One;
             return;
         }
 
-        if (_weapon.GetStatus(Context.CurrentFrame) != SimWeaponStatus.ReadyToFire)
+        // GPL: "if (target && m_inRange)" - ResolveTrackedTarget only ever returns non-null
+        // when that condition already holds (including the stale-target case below).
+        if (target == null)
         {
             return;
         }
 
         if (!target.IsEffectivelyDead)
         {
-            _weapon.FireShot(Context.CurrentFrame, Context.GameLogicRandom, Fix64.One);
-
+            // GPL fires through a brand-new disposable Weapon every shot (allocateNewWeapon +
+            // loadAmmoNow + fireWeapon + deleteInstance) - no persistent ammo/clip state, so
+            // there is nothing here but the direct damage effect (file header deviation note)
+            // and the DelayBetweenShots cooldown re-arm.
             if (_hasDamageNugget)
             {
                 var input = new CombatDamageInput
@@ -213,12 +222,30 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
                 };
                 DamagePipeline.DealDirectDamage(target, input);
             }
+
+            _nextShotAvailableInFrames = DrawDelayBetweenShots();
         }
 
         if (target.IsEffectivelyDead)
         {
             DropTargetAndBiasRescan();
         }
+    }
+
+    /// <summary>
+    /// GPL <c>WeaponTemplate::getDelayBetweenShots</c> with the module's always-cleared
+    /// WeaponBonus (rateOfFireMultiplier == 1, so the divide/floor step never applies):
+    /// uniform draw in [min, max] frames, drawn only when min != max.
+    /// </summary>
+    private LogicFrameSpan DrawDelayBetweenShots()
+    {
+        var range = _weaponTemplate.CoolDownDelayBetweenShots;
+        if (range.Min == range.Max)
+        {
+            return range.Min;
+        }
+
+        return new LogicFrameSpan((uint)Context.GameLogicRandom.Next((int)range.Min.Value, (int)range.Max.Value));
     }
 
     /// <summary>
@@ -237,7 +264,6 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
         if (target == null || target.IsDestroyed)
         {
             _bestTargetId = ObjectId.Invalid;
-            _inRange = false;
             return null;
         }
 
@@ -252,21 +278,40 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
         if (_inRange)
         {
             // GPL: "We were in range last frame, but the target has moved out of firing
-            // range, so re-evaluate by forcing a new scan."
-            DropTargetAndBiasRescan();
+            // range, so re-evaluate by forcing a new scan." Bias-draw the next scan and
+            // unconditionally drop the tracked ID - BUT m_inRange is NOT reset to false here,
+            // and (except in the bias==0 sub-case) the local target pointer is NOT nulled
+            // either. So on the ~75% of transitions where the bias draws nonzero, GPL's own
+            // `if (target && m_inRange)` gate back in fireWhenReady() still passes and fires
+            // one more shot at the target it just decided to drop, using this frame's stale
+            // in-range/target pair (PointDefenseLaserUpdate.cpp:178-196). Only replicate the
+            // "drop and null" outcome in the bias==0 sub-case, where GPL does both explicitly.
+            var bias = new LogicFrameSpan((uint)Context.GameLogicRandom.Next(0, 3));
+            _nextScanFrames = bias;
+            _bestTargetId = ObjectId.Invalid;
+
+            if (bias == LogicFrameSpan.Zero)
+            {
+                ScanClosestTarget();
+                _nextScanFrames = _data.ScanRate;
+                return null;
+            }
+
+            // Stale-target frame: _inRange is left exactly as it was (true), and we still
+            // return the target we're about to drop next scan - matching retail's one extra
+            // shot on the transition frame.
+            return target;
         }
-        else
-        {
-            _inRange = false;
-        }
+
+        _inRange = false;
 
         // GPL: "Set target to NULL so we don't shoot at it (might be out of range)."
         return null;
     }
 
     /// <summary>
-    /// GPL's shared 0-3 frame rescan bias (target death, or an in-range-to-out-of-range
-    /// transition): drop the tracked target, and when the draw is 0, rescan immediately.
+    /// GPL's shared 0-3 frame rescan bias on target death: drop the tracked target, and when
+    /// the draw is 0, rescan immediately.
     /// </summary>
     private void DropTargetAndBiasRescan()
     {
@@ -445,8 +490,7 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
     }
 
     // ---- the single walk (§3/§4): save/load + CRC + deep-dump + conformance ----
-    // Field order = declaration order = OUR choice (F9), never the original's. The SimWeapon
-    // core walks last, through its own single-field Xfer method (Combat/SimWeapon.cs).
+    // Field order = declaration order = OUR choice (F9), never the original's.
 
     internal override bool HasSimXfer => true;
 
@@ -456,11 +500,7 @@ public sealed class PointDefenseLaserUpdate : UpdateModule
         xfer.XferObjectId("BestTargetId", ref _bestTargetId);
         xfer.XferBool("InRange", ref _inRange);
         xfer.XferFrameSpan("NextScanFrames", ref _nextScanFrames, Tolerance.Exact); // frame count: Exact (A3)
-
-        if (_weapon != null)
-        {
-            _weapon.Xfer(xfer);
-        }
+        xfer.XferFrameSpan("NextShotAvailableInFrames", ref _nextShotAvailableInFrames, Tolerance.Exact); // frame count: Exact (A3)
     }
 }
 
