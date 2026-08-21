@@ -1,0 +1,18 @@
+root = false
+
+# Every exhaustive switch expression in this directory (SimOrderArgCodec's per-kind dispatch)
+# is written deliberately without a discard arm, so that adding a new named SimOrderArgKind
+# member without updating the codec fails the build via CS8509 rather than silently defaulting
+# at runtime (task N2: "a kind with no encoder must be a compile-time-exhaustive switch
+# failure, not a runtime default"). Promoted to error, scoped to this directory only.
+#
+# CS8524 is deliberately NOT promoted here, and is expected to remain a permanent warning on
+# both switches: SimOrderArgKind's underlying byte range has a real, pre-existing hole at
+# value 5 (F6; not introduced by this codec, not SimCore's to fix in N2's scope), and Roslyn
+# reports that unnamed-value gap as CS8524 regardless of how completely the switch covers the
+# ten *named* members - verified empirically by temporarily deleting a real arm (Raw10) and
+# confirming the compiler reports THAT as a separate CS8509, distinctly, alongside the
+# ever-present CS8524. Promoting CS8524 would fail the build permanently and give no signal;
+# CS8509 is the one that actually tracks "a named member is unhandled".
+[*.cs]
+dotnet_diagnostic.CS8509.severity = error
