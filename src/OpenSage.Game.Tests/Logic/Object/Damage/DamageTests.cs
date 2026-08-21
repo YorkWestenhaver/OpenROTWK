@@ -40,8 +40,10 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(ObjectId.Invalid, data.SourceID);
         Assert.Equal(PlayerMaskType.None, data.PlayerMaskType);
-        Assert.Equal(DamageType.Explosion, data.DamageType); // this is correct - a DamageType of 0 is Explosion (see Generals_DamageDataRequest_Tomahawk)
-        Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
+        // Raw 0 in a Generals blob meant EXPLOSION; the fork now carries retail BFME2
+        // numbering (FORCE=0, research/spec-aod-crush.md 2.3), so the decoded member is Force.
+        Assert.Equal(DamageType.Force, data.DamageType);
+        Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3 (ctor default, not read from v1 stream)
         Assert.Equal(DeathType.Normal, data.DeathType);
         Assert.Equal(0, data.Amount);
         Assert.Null(data.SourceTemplate); // v3
@@ -62,7 +64,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(7u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.InfantryMissile, data.DamageType);
+        // Raw 24 was Generals INFANTRY_MISSILE; fork enums now carry retail BFME2
+        // numbering (research/spec-aod-crush.md 2.3), so the raw value decodes differently.
+        Assert.Equal((DamageType)24, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.Normal, data.DeathType);
         Assert.Equal(40, data.Amount, 0.01);
@@ -84,7 +88,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(15u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.Explosion, data.DamageType);
+        // Raw 0 was Generals EXPLOSION; retail numbering makes 0 = FORCE
+        // (research/spec-aod-crush.md 2.3).
+        Assert.Equal(DamageType.Force, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.Exploded, data.DeathType);
         Assert.Equal(150, data.Amount, 0.01);
@@ -106,7 +112,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(17u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.ComancheVulcan, data.DamageType);
+        // Raw 30 was Generals COMANCHE_VULCAN; fork enums now carry retail BFME2
+        // numbering (research/spec-aod-crush.md 2.3).
+        Assert.Equal((DamageType)30, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.Normal, data.DeathType);
         Assert.Equal(8, data.Amount, 0.01);
@@ -128,7 +136,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(5u), data.SourceID);
         Assert.Equal(PlayerMaskType.None, data.PlayerMaskType);
-        Assert.Equal(DamageType.Healing, data.DamageType);
+        // Raw 10 was Generals HEALING; retail numbering puts HEALING at 7 and 10 = PENALTY
+        // (research/spec-aod-crush.md 2.3), so the Generals blob decodes as raw 10.
+        Assert.Equal((DamageType)10, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.None, data.DeathType);
         Assert.Equal(3.333, data.Amount, 0.01);
@@ -172,7 +182,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(7u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.Explosion, data.DamageType);
+        // Raw 0 was Generals EXPLOSION; retail numbering makes 0 = FORCE
+        // (research/spec-aod-crush.md 2.3).
+        Assert.Equal(DamageType.Force, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.Suicided, data.DeathType);
         Assert.Equal(500, data.Amount, 0.01);
@@ -194,7 +206,9 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(28u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.Poison, data.DamageType);
+        // Raw 9 was Generals POISON; retail numbering puts POISON at 26 and 9 = WATER
+        // (research/spec-aod-crush.md 2.3), so the Generals blob decodes as raw 9.
+        Assert.Equal((DamageType)9, data.DamageType);
         Assert.Equal(DamageType.Unresistable, data.DamageFXOverride); // v3
         Assert.Equal(DeathType.Poisoned, data.DeathType);
         Assert.Equal(2, data.Amount, 0.01);
@@ -216,8 +230,11 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(ObjectId.Invalid, data.SourceID);
         Assert.Equal(PlayerMaskType.None, data.PlayerMaskType);
-        Assert.Equal(DamageType.Explosion, data.DamageType);
-        Assert.Equal(DamageType.Unresistable, data.DamageFXOverride);
+        // Raw 0 was Generals EXPLOSION; retail numbering makes 0 = FORCE.
+        // The v3 FXOverride raw 0x0b was ZH UNRESISTABLE=11; retail numbering puts
+        // UNRESISTABLE at 8 (research/spec-aod-crush.md 2.3), so raw 11 decodes as such.
+        Assert.Equal(DamageType.Force, data.DamageType);
+        Assert.Equal((DamageType)11, data.DamageFXOverride);
         Assert.Equal(DeathType.Normal, data.DeathType);
         Assert.Equal(0, data.Amount);
         Assert.Null(data.SourceTemplate);
@@ -241,8 +258,10 @@ public class DamageTests : StatePersisterTest
 
         Assert.Equal(new ObjectId(5u), data.SourceID);
         Assert.Equal(new PlayerMaskType(4), data.PlayerMaskType);
-        Assert.Equal(DamageType.InfantryMissile, data.DamageType);
-        Assert.Equal(DamageType.Unresistable, data.DamageFXOverride);
+        // Raw 0x18=24 was ZH INFANTRY_MISSILE and raw 0x0b=11 was ZH UNRESISTABLE;
+        // fork enums now carry retail BFME2 numbering (research/spec-aod-crush.md 2.3).
+        Assert.Equal((DamageType)24, data.DamageType);
+        Assert.Equal((DamageType)11, data.DamageFXOverride);
         Assert.Equal(DeathType.Normal, data.DeathType);
         Assert.Equal(40, data.Amount, 0.01);
         Assert.Equal("AmericaInfantryMissileDefender", data.SourceTemplate.Name);

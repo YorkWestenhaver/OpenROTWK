@@ -1457,11 +1457,20 @@ public enum ObjectBuildableType
     OnlyByAI = 3,
 }
 
+// Numbering: retail BFME2 DeadCollideSize vocabulary — SMALL=0, MEDIUM=1, LARGE=2
+// (bfme2-workbench/research/spec-aod-crush.md §2.2). This is the AOD crush tier
+// selector on ThingTemplate; the numeric values are retail-visible.
 [AddedIn(SageGame.Bfme)]
 public enum CollideSize
 {
+    [IniEnum("SMALL")]
+    Small = 0,
+
+    [IniEnum("MEDIUM")]
+    Medium = 1,
+
     [IniEnum("LARGE")]
-    Large,
+    Large = 2,
 }
 
 [AddedIn(SageGame.Bfme)]
