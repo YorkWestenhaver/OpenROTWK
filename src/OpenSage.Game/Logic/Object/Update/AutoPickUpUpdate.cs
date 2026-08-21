@@ -239,19 +239,17 @@ public sealed class EatObjectEntry
     {
         return new EatObjectEntry
         {
-            MaxHealth = ToFix64(parser.ParseAttributePercentage("MyHealth")),
-            TargetHealth = ToFix64(parser.ParseAttributePercentage("TargetHealth")),
+            MaxHealth = parser.ParseAttribute("MyHealth", parser.ParseFix64Percentage),
+            TargetHealth = parser.ParseAttribute("TargetHealth", parser.ParseFix64Percentage),
             Filter = parser.ParseAttribute("Filter", ObjectFilter.Parse)
         };
     }
 
     // S5: Percentage is float-backed with no Fix64 conversion path (OpenSage.Mathematics/
-    // Percentage.cs: readonly float _value throughout) - quantize once at the parse-time wire
-    // boundary, same idiom as GameObject.VisionRange/CollisionMinorRadius/
-    // MaxHeightAbovePosition (Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(...))). A
-    // [SimState]-scoped module may not carry a Percentage field into its runtime class.
-    private static Fix64 ToFix64(Percentage p) =>
-        Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits((float)p));
+    // Percentage.cs: readonly float _value throughout), and a [SimState]-scoped file may not
+    // name float at all (SIMCORE001 - scope is per-file, so the parse helper is policed too).
+    // The percentage text therefore goes straight to Fix64 through the parser's exact decimal
+    // path (IniParser.ScanFix64Percentage / Fix64.FromDecimalLiteral), never via float.
 
     /// <summary>"MyHealth": self's health-fraction threshold to be hungry (§1.1).</summary>
     public Fix64 MaxHealth { get; private set; }

@@ -30,7 +30,7 @@ Object Eater
   Behavior = AutoPickUpUpdate ModuleTag_Eat
     ScanDelayTime = 1000
     ScanDistance = 50
-    EatObjectEntry = MyHealth:80% TargetHealth:100% Filter:NONE+FOOD
+    EatObjectEntry = MyHealth:80% TargetHealth:100% Filter:NONE +CRATE
   End
 End
 
@@ -42,12 +42,12 @@ Object EaterLowTarget
   Behavior = AutoPickUpUpdate ModuleTag_Eat
     ScanDelayTime = 1000
     ScanDistance = 50
-    EatObjectEntry = MyHealth:80% TargetHealth:60% Filter:NONE+FOOD
+    EatObjectEntry = MyHealth:80% TargetHealth:60% Filter:NONE +CRATE
   End
 End
 
 Object FoodProp
-  KindOf = FOOD NO_COLLIDE
+  KindOf = CRATE NO_COLLIDE
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 1
   End
@@ -68,9 +68,9 @@ Object EaterWithUnwiredFields
   Behavior = AutoPickUpUpdate ModuleTag_Eat
     ScanDelayTime = 1000
     ScanDistance = 50
-    EatObjectEntry = MyHealth:80% TargetHealth:100% Filter:NONE+FOOD
+    EatObjectEntry = MyHealth:80% TargetHealth:100% Filter:NONE +CRATE
     Bored = Yes
-    BoredFilter = NONE+FOOD
+    BoredFilter = NONE +CRATE
     RunFromButton = Yes
     RunFromButtonNumber = 3
   End
