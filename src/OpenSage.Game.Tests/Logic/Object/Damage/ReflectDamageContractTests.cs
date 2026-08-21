@@ -207,10 +207,11 @@ End
 
         Assert.Equal(960f, reflector.BodyModule.Health);
         // The zero-guard is an early return, not a zero-amount delivery: the attacker's own
-        // damage history (LastDamageInfo) is untouched, proving DealDirectDamage was never
-        // invoked on it at all.
+        // damage history is untouched, proving DealDirectDamage was never invoked on it at all.
+        // (ActiveBody.LastDamageInfo is backed by a non-nullable struct field, so it is never
+        // null - "untouched" shows up as the default, source-less value it was constructed with.)
         Assert.Equal(100f, attacker.BodyModule.Health);
-        Assert.Null(attacker.BodyModule.LastDamageInfo);
+        Assert.False(attacker.BodyModule.LastDamageInfo!.Value.Request.SourceID.IsValid);
     }
 
     // ================================================================

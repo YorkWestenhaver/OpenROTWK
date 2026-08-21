@@ -24,6 +24,7 @@
 // calls out as "resolvable once HordeTransportContain lands" - see the task packet §5.
 
 using OpenSage.Data.Ini;
+using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
 
