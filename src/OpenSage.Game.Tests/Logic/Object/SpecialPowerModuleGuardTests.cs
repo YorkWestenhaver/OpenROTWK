@@ -182,12 +182,16 @@ End
         var gameObject = SpawnFromContext(context, "GuardTestObjectResolved");
         var module = gameObject.FindBehavior<SpecialPowerModule>();
 
-        // Not disabled, so these must still run their real logic without throwing. Activate() is
-        // intentionally excluded here - it reaches GameEngine.AudioSystem, which MockedGameTest's
-        // TestGame does not construct (unrelated to this guard).
+        // Not disabled, so these must still run their real logic without throwing. Two members are
+        // intentionally excluded, both for the same reason and neither having anything to do with
+        // this guard: Activate() reaches GameEngine.AudioSystem, and TryUpgrade()'s not-yet-unlocked
+        // path reaches GameObject.IsBeingConstructed() -> Drawable.ModelConditionFlags. Neither the
+        // audio system nor a Drawable is constructed by the INI-parse test harness, so calling them
+        // here would measure the harness, not the module. TryUpgrade's *disabled* path is what this
+        // suite actually needs to cover, and it is covered above - the guard returns before
+        // GameObject is ever touched, which is precisely why that case does not NRE.
         var exception = Record.Exception(() =>
         {
-            module.TryUpgrade(null);
             module.Unpause();
             module.ResetCountdown();
         });
