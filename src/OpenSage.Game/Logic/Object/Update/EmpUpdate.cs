@@ -19,11 +19,11 @@
 //   - doDisableAttack(): scans EffectRadius for every live object other than self (GPL
 //     ThePartitionManager->iterateObjectsInRange, FROM_BOUNDINGSPHERE_3D - IPartitionQuery's
 //     "live objects" contract already excludes dead/destroyed ones, so no separate liveness
-//     filter is added here). Per candidate:
+//     filter is added here). First (R13, see F-EMP-7): if the EMP's producer's AI-intended
+//     victim is airborne, the scan is restricted to airborne-only candidates. Per remaining
+//     candidate:
 //       - DoesNotAffectMyOwnBuildings: a structure owned by the same player as the EMP is
 //         exempt (GPL's own-structure guard).
-//       - DoesNotAffect: candidates matching the authored filter are exempt (see F-EMP-2 below
-//         on why ObjectFilter.Matches is the exemption test here).
 //       - non-vehicle, non-structure, non-SPAWNS_ARE_THE_WEAPONS, non-AIRCRAFT candidates
 //         are skipped entirely (GPL: "DONT DISABLE PEOPLE, EXCEPT FOR STINGER SOLDIERS");
 //         AIRCRAFT passes this guard so the dedicated airborne-aircraft branch below is
@@ -32,7 +32,9 @@
 //         DIE"), UNLESS it is EMP_HARDENED (ZH patch exemption) or it is an allied TRANSPORT
 //         (GPL "DONT DISABLE YOUR OWN TRANSPORT PLANES").
 //       - a STRUCTURE is skipped unless IsFactionStructure (GPL isFactionStructure(); this
-//         engine's IsFactionStructure is a standing `=> false` stub - see F-EMP-3).
+//         engine's IsFactionStructure is a standing `=> false` stub - see F-EMP-3); otherwise
+//         (R13, see F-EMP-2) an allied vehicle/SPAWNS_ARE_THE_WEAPONS/grounded-aircraft
+//         candidate is exempt when DoesNotAffect includes WEAPON_AFFECTS_ALLIES.
 //       - everything remaining is disabled for DisabledDuration frames (GPL
 //         curVictim->setDisabledUntil(DISABLED_EMP, now + m_disabledDuration), ported as
 //         GameObject.Disable(DisabledType.Emp, now + DisabledDuration)) and requests one
@@ -52,15 +54,17 @@
 //     ISimEvents.FireParticleSystemAtObject - the emitter multiplicity and the per-emitter
 //     random placement/delay are left as an unmodeled client-visual detail pending a Fix64
 //     geometry-volume facade.
-//   F-EMP-2 (DoesNotAffect semantics): the GeneralsMD .cpp actually gates DoesNotAffect through
-//     a WEAPON_AFFECTS bitmask (m_rejectMask, parsed via TheWeaponAffectsMaskNames) plus a
-//     pair of KindOfMaskType fields that are dead code in the shipped source (commented out at
-//     the call site). Neither shape matches ObjectFilter, the type this module's field already
-//     parses as (predating this port). Per the task packet's plain-language summary
-//     ("DoesNotAffect filter ... to exclude protected objects"), this port treats a
-//     ObjectFilter match as the exemption test (`DoesNotAffect.Matches(candidate)` => skip),
-//     the natural reading of an object-kind exemption filter and consistent with how
-//     ObjectFilter is used as a membership predicate elsewhere (e.g. LargeGroupBonusUpdate).
+//   F-EMP-2 (DoesNotAffect semantics, R13 fix): the GeneralsMD .cpp gates DoesNotAffect through
+//     a WEAPON_AFFECTS bitmask (m_rejectMask, parsed via TheWeaponAffectsMaskNames -
+//     EMPUpdate.h:101) and its only live use is
+//     `else if ((data->m_rejectMask & WEAPON_AFFECTS_ALLIES) && curVictim->getRelationship(object)
+//     == ALLIES) continue;` (EMPUpdate.cpp:281), an `else if` sibling of the STRUCTURE branch -
+//     i.e. it only ever runs for non-structure, non-airborne-aircraft candidates (vehicles,
+//     SPAWNS_ARE_THE_WEAPONS, grounded aircraft). This port now parses DoesNotAffect as
+//     `WeaponAffectsTypes` (the codebase's existing GPL WeaponAffectsMaskType/
+//     TheWeaponAffectsMaskNames facade, OpenSage.Game/Logic/Object/Combat/DamagePipeline.cs) and
+//     applies the reject-mask check at the matching `else if` position below, rather than as an
+//     early blanket ObjectFilter exemption.
 //   F-EMP-3 (IsFactionStructure): GameObject.IsFactionStructure is a standing `=> false` stub
 //     (also relied on as-is by ActiveBody), so the STRUCTURE branch below never currently
 //     passes; structures are ported faithfully to the existing (incomplete) stub rather than
@@ -80,6 +84,26 @@
 //     convergence behavior is faithfully modeled and testable); only the final "hand it to the
 //     renderer" step is parked. StartColor/EndColor are still parsed (ColorRgb, byte-valued) so
 //     authored data round-trips, but are not applied to any Drawable.
+//   F-EMP-7 (onlyEffectAirborne / intended-victim, R13 fix, radius-restriction half ported): GPL
+//     doDisableAttack() (EMPUpdate.cpp:186-199) looks up the EMP object's producer (GPL
+//     getProducerID(); this port's closest existing analogue is GameObject.CreatedByObjectID,
+//     the same "object that produced us" relationship DamagePipeline already reads for the
+//     similar "anything the source produced" check) and that producer's AIUpdate's current
+//     victim (GPL AIUpdateInterface::getCurrentVictim(), backed by m_currentVictimID - this
+//     port's AIUpdate.CurrentVictimId is the same field, not the goal-object primitive).  When
+//     that intended victim isAirborneTarget() (this port's IsSignificantlyAboveTerrain
+//     heuristic, the pre-existing engine stand-in per F-EMP-3's sibling modules), the whole
+//     radius scan is restricted to airborne-only candidates
+//     (`if (onlyEffectAirborne && !curVictim->isAirborneTarget()) continue;`, EMPUpdate.cpp:219)
+//     - now ported below, first check inside the loop, matching GPL's ordering (before the
+//     DoesNotAffectMyOwnBuildings guard). NOT ported: GPL's post-loop "missed intended target"
+//     fallback (EMPUpdate.cpp:346-363), which disables the intended aircraft anyway when it was
+//     never processed by the main loop but its raw position falls within radius*2 or 40 units of
+//     the EMP - that check subtracts two objects' literal Coord3D positions, and position is
+//     unmigrated float transform substrate a [SimState] module may not touch (design-module-api
+//     D-7, same restriction F-EMP-4/F-EMP-5 already document for this file). Filed, not invented
+//     around: an intended airborne victim that the radius scan itself never reaches is not
+//     disabled by this port, a narrower gap than the pre-fix state (which restricted nothing).
 //   F-EMP-6 (DisabledDuration auto-expiry): GameObject.Disable(type, frame) records the
 //     un-disable frame, but the sweep that would clear it once that frame passes
 //     (GameObject.CheckDisabledStates, private) is only ever called from the internal
@@ -183,9 +207,29 @@ public sealed class EmpUpdate : UpdateModule
 
         var self = GameObject;
 
+        // F-EMP-7: if the EMP's producer's AI-intended victim is airborne, the whole scan is
+        // restricted to airborne-only candidates (GPL EMPUpdate.cpp:186-199).
+        var onlyEffectAirborne = false;
+        var producer = Context.GameLogic.GetObjectById(self.CreatedByObjectID);
+        if (producer?.AIUpdate != null && producer.AIUpdate.CurrentVictimId.IsValid)
+        {
+            var intendedVictim = Context.GameLogic.GetObjectById(producer.AIUpdate.CurrentVictimId);
+            if (intendedVictim != null && Context.Terrain.IsSignificantlyAboveTerrain(intendedVictim))
+            {
+                onlyEffectAirborne = true;
+            }
+        }
+
         foreach (var candidate in Context.Partition.QueryObjectsInRadius(self, _data.EffectRadius))
         {
             if (candidate == self)
+            {
+                continue;
+            }
+
+            // F-EMP-7: airborne-only restriction (GPL: checked first, before the
+            // doesNotAffectMyOwnBuildings guard).
+            if (onlyEffectAirborne && !Context.Terrain.IsSignificantlyAboveTerrain(candidate))
             {
                 continue;
             }
@@ -194,12 +238,6 @@ public sealed class EmpUpdate : UpdateModule
             if (_data.DoesNotAffectMyOwnBuildings
                 && candidate.IsKindOf(ObjectKinds.Structure)
                 && candidate.Owner == self.Owner)
-            {
-                continue;
-            }
-
-            // F-EMP-2: DoesNotAffect exempts candidates it matches.
-            if (_data.DoesNotAffect != null && _data.DoesNotAffect.Matches(candidate))
             {
                 continue;
             }
@@ -233,10 +271,23 @@ public sealed class EmpUpdate : UpdateModule
                 continue;
             }
 
-            if (candidate.IsKindOf(ObjectKinds.Structure) && !candidate.IsFactionStructure)
+            if (candidate.IsKindOf(ObjectKinds.Structure))
             {
-                // F-EMP-3: IsFactionStructure is a standing stub, so this branch never
-                // currently passes - ported faithfully to the existing engine behavior.
+                if (!candidate.IsFactionStructure)
+                {
+                    // F-EMP-3: IsFactionStructure is a standing stub, so this branch never
+                    // currently passes - ported faithfully to the existing engine behavior.
+                    continue;
+                }
+            }
+            else if ((_data.DoesNotAffect & WeaponAffectsTypes.Allies) != 0
+                && candidate.GetRelationship(self) == RelationshipType.Allies)
+            {
+                // F-EMP-2 (R13 fix): GPL's only live use of the reject mask - "handle cases
+                // where we do not want allies to be hit by its own EMP weapons"
+                // (EMPUpdate.cpp:281). An `else if` sibling of the STRUCTURE branch: never
+                // reached for structures, only for vehicles/SPAWNS_ARE_THE_WEAPONS/grounded
+                // aircraft.
                 continue;
             }
 
@@ -290,7 +341,7 @@ public sealed class EmpUpdateModuleData : UpdateModuleData
         { "StartColor", (parser, x) => x.StartColor = parser.ParseColorRgb() },
         { "EndColor", (parser, x) => x.EndColor = parser.ParseColorRgb() },
         { "DisableFXParticleSystem", (parser, x) => x.DisableFXParticleSystem = parser.ParseFXParticleSystemTemplateReference() },
-        { "DoesNotAffect", (parser, x) => x.DoesNotAffect = ObjectFilter.Parse(parser) },
+        { "DoesNotAffect", (parser, x) => x.DoesNotAffect = parser.ParseEnumFlags<WeaponAffectsTypes>() },
         { "DoesNotAffectMyOwnBuildings", (parser, x) => x.DoesNotAffectMyOwnBuildings = parser.ParseBoolean() },
         { "EffectRadius", (parser, x) => x.EffectRadius = parser.ParseFix64() },
     };
@@ -323,9 +374,10 @@ public sealed class EmpUpdateModuleData : UpdateModuleData
     /// volume-scaled.</summary>
     public LazyAssetReference<FXParticleSystemTemplate> DisableFXParticleSystem { get; private set; }
 
-    /// <summary>F-EMP-2: candidates this filter matches are exempt from the disabling attack.</summary>
+    /// <summary>F-EMP-2 (R13 fix): GPL reject mask (TheWeaponAffectsMaskNames); only
+    /// <see cref="WeaponAffectsTypes.Allies"/> has a live effect (see DoDisableAttack).</summary>
     [AddedIn(SageGame.CncGeneralsZeroHour)]
-    public ObjectFilter DoesNotAffect { get; private set; }
+    public WeaponAffectsTypes DoesNotAffect { get; private set; }
 
     [AddedIn(SageGame.CncGeneralsZeroHour)]
     public bool DoesNotAffectMyOwnBuildings { get; private set; }

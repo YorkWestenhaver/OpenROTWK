@@ -30,6 +30,7 @@
 // (no GPL reference - written behavioral spec needed), position-centered area damage (needs the
 // Fix64 transform port; today's seam centers on an object).
 
+using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 
@@ -42,12 +43,19 @@ namespace OpenSage.Logic.Object;
 public enum WeaponAffectsTypes
 {
     None = 0,
+    [IniEnum("SELF")]
     Self = 1 << 0,
+    [IniEnum("ALLIES")]
     Allies = 1 << 1,
+    [IniEnum("ENEMIES")]
     Enemies = 1 << 2,
+    [IniEnum("NEUTRALS")]
     Neutrals = 1 << 3,
+    [IniEnum("SUICIDE")]
     Suicide = 1 << 4,          // GPL WEAPON_KILLS_SELF
+    [IniEnum("NOT_SIMILAR")]
     NotSimilar = 1 << 5,       // GPL WEAPON_DOESNT_AFFECT_SIMILAR
+    [IniEnum("NOT_AIRBORNE")]
     NotAirborne = 1 << 6,      // GPL WEAPON_DOESNT_AFFECT_AIRBORNE
 }
 

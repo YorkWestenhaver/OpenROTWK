@@ -69,8 +69,17 @@ Object EmpBombFiltered
     TargetScaleMin = 1.0
     TargetScaleMax = 1.0
     EffectRadius = 300
-    DoesNotAffect = ALL +VEHICLE
+    DoesNotAffect = ALLIES
     DoesNotAffectMyOwnBuildings = Yes
+  End
+End
+
+Object EmpProducer
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
   End
 End
 
@@ -405,19 +414,49 @@ End
 
     // ---- test case 5: DoesNotAffect / DoesNotAffectMyOwnBuildings exemptions ----
 
+    // F-EMP-2 (R13 fix): GPL's DoesNotAffect is a WeaponAffectsTypes (TheWeaponAffectsMaskNames)
+    // reject mask, and its only live use in EMPUpdate.cpp is an `else if` sibling of the
+    // STRUCTURE branch that exempts an ALLIED vehicle/SPAWNS_ARE_THE_WEAPONS/grounded-aircraft
+    // candidate specifically when WEAPON_AFFECTS_ALLIES is rejected
+    // (EMPUpdate.cpp:281) - NOT an ObjectFilter KindOf match. The two tests below assert that
+    // GPL-correct semantics: an ALLIED vehicle is exempted, a non-allied one is not, mirroring
+    // the AirborneAlliedTransport_IsSpared / AirborneEnemyTransport_IsKilled pair above.
+
     [Fact]
-    public void DoesNotAffectFilter_ExemptsMatchingVehicles()
+    public void DoesNotAffectAllies_ExemptsAlliedVehicle()
     {
         var game = NewGame();
-        var emp = game.SpawnObject("EmpBombFiltered", game.CivilianPlayer, OnGround); // DoesNotAffect = ALL +VEHICLE
-        var exemptTank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+        var emp = game.SpawnObject("EmpBombFiltered", game.CivilianPlayer, OnGround); // DoesNotAffect = ALLIES
+        var alliedTank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+
+        // candidate.GetRelationship(self) resolves through the CANDIDATE's owner, so the
+        // override belongs on the tank's player, pointed at the EMP's player - same shape as
+        // AirborneAlliedTransport_IsSpared above.
+        game.PlayerManager.NeutralPlayer.SetRelationship(game.CivilianPlayer, RelationshipType.Allies);
+        emp.Team = new Team(new TeamTemplate(game.TeamFactory, 905, "EmpTeam3", game.CivilianPlayer, isSingleton: true), 905);
+        alliedTank.Team = new Team(new TeamTemplate(game.TeamFactory, 906, "AlliedTankTeam", game.PlayerManager.NeutralPlayer, isSingleton: true), 906);
 
         for (var i = 0; i < 6; i++)
         {
             game.Step();
         }
 
-        Assert.False(exemptTank.IsDisabledByType(DisabledType.Emp), "VEHICLE is exempted by DoesNotAffect");
+        Assert.False(alliedTank.IsDisabledByType(DisabledType.Emp), "WEAPON_AFFECTS_ALLIES is rejected by DoesNotAffect = ALLIES");
+    }
+
+    [Fact]
+    public void DoesNotAffectAllies_DoesNotExemptNonAlliedVehicle()
+    {
+        var game = NewGame();
+        var emp = game.SpawnObject("EmpBombFiltered", game.CivilianPlayer, OnGround); // DoesNotAffect = ALLIES
+        var neutralTank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+        }
+
+        Assert.True(neutralTank.IsDisabledByType(DisabledType.Emp), "the reject mask only exempts ALLIES, not neutral/enemy candidates");
     }
 
     [Fact]
@@ -437,6 +476,58 @@ End
 
         Assert.False(ownTurret.IsDisabledByType(DisabledType.Emp));
         Assert.False(ownTurret.IsDestroyed);
+    }
+
+    // ---- test case 5b: onlyEffectAirborne (F-EMP-7, R13 fix) ----
+
+    [Fact]
+    public void ProducerIntendedVictimIsAirborne_RestrictsScanToAirborneOnly_GroundVehicleSpared()
+    {
+        // GPL EMPUpdate.cpp:186-199: when the EMP's producer's AI-intended victim is airborne,
+        // the whole radius scan is restricted to airborne-only candidates - ground vehicles in
+        // the blast radius are NOT disabled.
+        var game = NewGame();
+        var producer = game.SpawnObject("EmpProducer", game.CivilianPlayer, OnGround);
+        var intendedVictim = game.SpawnObject("EmpTestChopper", game.PlayerManager.NeutralPlayer, new Vector3(80, 0, HighUp.Z));
+        producer.AIUpdate.SetCurrentVictim(intendedVictim.Id);
+
+        var emp = game.SpawnObject("EmpBomb", game.CivilianPlayer, OnGround);
+        emp.CreatedByObjectID = producer.Id;
+        var groundTank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+        }
+
+        Assert.False(groundTank.IsDisabledByType(DisabledType.Emp),
+            "a ground vehicle must be spared when the EMP's producer intended an airborne target");
+        // The airborne-aircraft branch itself is unaffected by the restriction: an airborne
+        // candidate found by the (now airborne-only) scan is still killed as normal.
+        Assert.True(intendedVictim.IsDestroyed);
+    }
+
+    [Fact]
+    public void ProducerIntendedVictimIsGrounded_DoesNotRestrictScan()
+    {
+        // Control case: when the producer's AI-intended victim is NOT airborne (or there is no
+        // producer/AI/intended victim at all), the scan is unrestricted - matching every other
+        // test in this file, none of which sets up a producer.
+        var game = NewGame();
+        var producer = game.SpawnObject("EmpProducer", game.CivilianPlayer, OnGround);
+        var intendedVictim = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(80, 0, 0));
+        producer.AIUpdate.SetCurrentVictim(intendedVictim.Id);
+
+        var emp = game.SpawnObject("EmpBomb", game.CivilianPlayer, OnGround);
+        emp.CreatedByObjectID = producer.Id;
+        var groundTank = game.SpawnObject("EmpTestTank", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+        }
+
+        Assert.True(groundTank.IsDisabledByType(DisabledType.Emp));
     }
 
     // ---- test case 6: disable-FX particle system requested per disabled victim ----
