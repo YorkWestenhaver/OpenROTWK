@@ -229,6 +229,74 @@ End
         Assert.Equal(Fix64.Zero.RawValue, module.OpacityAtFrame(exitUnit.Id, now).RawValue);
     }
 
+    // ---- R13 regression: terminal opacity must survive real game.Step() ticks past
+    // completion, not just direct OpacityAtFrame(now) reads against an unpurged in-memory list.
+    // Update() runs every frame (SetWakeFrame(UpdateSleepTime.None)); the R12 bug purged each
+    // PassengerFade record once its timeline finished, which silently reset
+    // GetPassengerOpacity's fallback to Fix64.One - correct for a completed ENTER fade, WRONG
+    // for a completed EXIT fade (and for a FadeReverse-flipped ENTRY fade, whose terminal value
+    // is also Zero). These tests call game.Step() well past each fade's duration and assert the
+    // real GetPassengerOpacity(now) read (not a direct OpacityAtFrame(id, startFrame) read).
+
+    [Fact]
+    public void MemberExited_OpacityStaysZero_AfterGameStepsPastExitFadeTime()
+    {
+        var game = NewGame();
+        var host = game.SpawnObject("SiegeEngineHost", game.CivilianPlayer, Origin);
+        var module = ModuleOf(host);
+        var infantry = game.SpawnObject("InfantryUnit", game.CivilianPlayer, Origin);
+
+        module.NotifyMemberExited(infantry.Id);
+
+        // ExitFadeTime = 500ms -> 3 frames. Step well past that so a real Update() runs on
+        // every intervening frame.
+        for (var i = 0; i < 10; i++)
+        {
+            game.Step();
+        }
+
+        // Correct terminal value for a completed EXIT fade is Zero (fully faded out /
+        // departed) - not the One a purged-record fallback would wrongly report.
+        Assert.Equal(Fix64.Zero.RawValue, module.GetPassengerOpacity(infantry.Id).RawValue);
+    }
+
+    [Fact]
+    public void FadeReverse_ReversedEntry_OpacityStaysZero_AfterGameStepsPastEnterFadeTime()
+    {
+        var game = NewGame();
+        var host = game.SpawnObject("SiegeEngineHostReversed", game.CivilianPlayer, Origin);
+        var module = ModuleOf(host);
+        var enterUnit = game.SpawnObject("InfantryUnit", game.CivilianPlayer, Origin);
+
+        // Reversed entry fades OUT (1->0); EnterFadeTime = 800ms -> 4 frames.
+        module.NotifyMemberEntered(enterUnit.Id);
+
+        for (var i = 0; i < 10; i++)
+        {
+            game.Step();
+        }
+
+        Assert.Equal(Fix64.Zero.RawValue, module.GetPassengerOpacity(enterUnit.Id).RawValue);
+    }
+
+    [Fact]
+    public void ZeroDurationExitFade_OpacityStaysZero_AfterASingleGameStep()
+    {
+        var game = NewGame();
+        var host = game.SpawnObject("SiegeEngineHostInstant", game.CivilianPlayer, Origin);
+        var module = ModuleOf(host);
+        var exitUnit = game.SpawnObject("InfantryUnit", game.CivilianPlayer, Origin);
+
+        module.NotifyMemberExited(exitUnit.Id);
+
+        // A zero-duration fade is eligible for purge on the very next Update() tick under the
+        // R12 bug (now >= StartFrame + 0 is true immediately), so a single step is enough to
+        // reproduce the corruption.
+        game.Step();
+
+        Assert.Equal(Fix64.Zero.RawValue, module.GetPassengerOpacity(exitUnit.Id).RawValue);
+    }
+
     // ---- UpgradeCreationTrigger ----
 
     [Fact]
