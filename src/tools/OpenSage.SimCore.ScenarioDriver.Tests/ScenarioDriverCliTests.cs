@@ -11,7 +11,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using OpenSage.SimCore.DumpDiff;
 using Xunit;
 
 namespace OpenSage.SimCore.ScenarioDriver.Tests;
@@ -255,7 +257,37 @@ End
 
         var lines = File.ReadAllLines(outPath);
         Assert.Equal("# opensage-deepdump v2", lines[0]);
-        Assert.StartsWith("# arch ", lines[1], StringComparison.Ordinal);
+        // Canonical metadata shape is "# key=value" (DumpDiff.DumpParser.TryHarvestMetadata) --
+        // arch and rid are separate lines, never packed onto one line together.
+        Assert.StartsWith("# arch=", lines[1], StringComparison.Ordinal);
+        Assert.DoesNotContain(" ", lines[1].Substring("# arch=".Length), StringComparison.Ordinal);
+        Assert.StartsWith("# rid=", lines[2], StringComparison.Ordinal);
+    }
+
+    // Cross-tool round-trip: the driver (this project) and DumpDiff.DumpParser (a sibling
+    // project, referenced only by this test project) each independently document the "# key=
+    // value" metadata convention in their own comments. Nothing enforced they agree -- that's
+    // exactly how the arch/exclude shape mismatch shipped to main unreconciled. This test
+    // proves the two sides actually interoperate: it runs the real driver and feeds its real
+    // output file through the real parser, not a hand-authored fixture string standing in for
+    // either side.
+    [Fact]
+    public void ArchAndExcludeMetadata_RoundTripsThroughDumpDiffParser()
+    {
+        var schedule = WriteEmptySchedule();
+        var outPath = NewTempFile(".ddump");
+
+        var (exitCode, _, _) = RunDriver(
+            "--schedule", schedule, "--out", outPath,
+            "--until-frame", "5", "--arch-stamp",
+            "--exclude", "Players", "--exclude", "Taint");
+        Assert.Equal(0, exitCode);
+
+        var dump = DumpParser.Parse(File.ReadAllText(outPath));
+
+        Assert.Equal(RuntimeInformation.ProcessArchitecture.ToString(), dump.Metadata["arch"]);
+        Assert.Equal(RuntimeInformation.RuntimeIdentifier, dump.Metadata["rid"]);
+        Assert.Equal("Players,Taint", dump.Metadata["exclude"]);
     }
 
     // -----------------------------------------------------------------------

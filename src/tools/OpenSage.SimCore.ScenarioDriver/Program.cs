@@ -179,17 +179,26 @@ internal static class Program
             loop.Orders.SubmitScheduled(o.Order, new LogicFrame(o.Frame), o.SubmissionIndex);
         }
 
+        // Metadata comment shape is "# key=value" (DumpDiff.DumpParser.TryHarvestMetadata's
+        // canonical convention -- see the reconciliation note on that method). One key per
+        // line: arch, rid, and exclude are each their own "# key=value" line, never packed
+        // together the way the pre-reconcile emitter used to pack arch+rid on one line.
+        var excludedSummary = excludedChannels.Count == 0
+            ? "none"
+            : string.Join(",", excludedChannels.ConvertAll(CrcChannels.NameOf));
+
         var mapScenario = scenario as MapScenario;
         using (var stream = new StreamWriter(outPath, append: false, new UTF8Encoding(false)) { NewLine = "\n" })
         {
             var writer = new DeepCrcWriter(stream, leaveOpen: true, streamOnly: streamOnly);
             if (archStamp)
             {
-                writer.Comment($"arch {RuntimeInformation.ProcessArchitecture} {RuntimeInformation.RuntimeIdentifier}");
+                writer.Comment($"arch={RuntimeInformation.ProcessArchitecture}");
+                writer.Comment($"rid={RuntimeInformation.RuntimeIdentifier}");
             }
-            foreach (var channel in excludedChannels)
+            if (excludedChannels.Count > 0)
             {
-                writer.Comment($"exclude {CrcChannels.NameOf(channel)}");
+                writer.Comment($"exclude={excludedSummary}");
             }
             scenario.AttachWriter(writer);
             while (loop.CurrentFrame.Value <= stopAfter
@@ -198,10 +207,6 @@ internal static class Program
                 loop.Advance();
             }
         }
-
-        var excludedSummary = excludedChannels.Count == 0
-            ? "none"
-            : string.Join(",", excludedChannels.ConvertAll(CrcChannels.NameOf));
         Console.WriteLine(
             $"{scenarioName}: frames=0..{stopAfter} orders={orders.Count} dispatched={scenario.Dispatched} " +
             $"checkpoints={scenario.Checkpoints} objects={scenario.ObjectCount} " +

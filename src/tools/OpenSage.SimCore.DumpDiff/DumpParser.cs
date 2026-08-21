@@ -16,9 +16,11 @@ public sealed class DumpFile
 
     /// <summary>
     /// Metadata harvested from "# key=value" comment lines (case-insensitive keys, first
-    /// occurrence of a given key wins). This is a convention this tool defines pending
-    /// n14a-driver-cli landing the emitter side -- see the METADATA CONVENTION note in
-    /// Program.cs. Absence of a key just means the report shows "unspecified"; it is never
+    /// occurrence of a given key wins). ScenarioDriver (n14a-driver-cli) is the emitter side of
+    /// this convention -- see the METADATA CONVENTION note in Program.cs and
+    /// OpenSage.SimCore.ScenarioDriver.Program's --arch-stamp/--exclude handling, which writes
+    /// exactly this shape (one key per comment line; arch/rid are never packed onto one line
+    /// together). Absence of a key just means the report shows "unspecified"; it is never
     /// treated as a format error on its own.
     /// </summary>
     public IReadOnlyDictionary<string, string> Metadata { get; init; } = new Dictionary<string, string>();
@@ -103,7 +105,9 @@ public static class DumpParser
     };
 
     /// <summary>
-    /// METADATA CONVENTION (proposed by this packet, pending adoption by n14a-driver-cli):
+    /// METADATA CONVENTION (adopted by ScenarioDriver's --arch-stamp/--exclude emitter, see
+    /// OpenSage.SimCore.ScenarioDriver.Program; cross-tool round-trip coverage lives in
+    /// ScenarioDriverCliTests.ArchAndExcludeMetadata_RoundTripsThroughDumpDiffParser):
     /// a comment line of the exact shape "# key=value" (no spaces around '=', key is
     /// [A-Za-z0-9_-]+) is harvested as metadata. Recognized keys this tool acts on:
     ///   arch      RuntimeInformation.ProcessArchitecture of the leg that produced the dump

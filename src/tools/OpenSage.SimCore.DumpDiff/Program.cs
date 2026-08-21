@@ -20,11 +20,12 @@
 // the first differing line IS the diagnosis (api-freeze-v1 F14: no triage step between
 // "divergence detected" and "module X, field Y, frame N").
 //
-// METADATA CONVENTION (this tool's own addition, pending adoption by the dump emitter side --
-// see DumpParser.TryHarvestMetadata): a comment line shaped exactly "# key=value" anywhere
-// after the header is harvested as metadata and stripped from the lockstep walk, like every
-// other "#" line. Recognized keys: arch, os, rid, exclude. Any dump lacking these lines still
-// compares fine -- the report just shows "unspecified" for what it doesn't know.
+// METADATA CONVENTION (this tool's own addition; the emitter side -- ScenarioDriver's
+// --arch-stamp/--exclude handling in OpenSage.SimCore.ScenarioDriver.Program -- writes exactly
+// this shape; see DumpParser.TryHarvestMetadata): a comment line shaped exactly "# key=value"
+// anywhere after the header is harvested as metadata and stripped from the lockstep walk, like
+// every other "#" line. Recognized keys: arch, os, rid, exclude. Any dump lacking these lines
+// still compares fine -- the report just shows "unspecified" for what it doesn't know.
 //
 // ============================================================================================
 // THE DIVERGENCE REPORT CONTRACT (the load-bearing deliverable -- read this before changing

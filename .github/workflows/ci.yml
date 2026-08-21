@@ -44,6 +44,122 @@ jobs:
     - name: Run-twice determinism suite
       run: dotnet test src/OpenSage.SimCore.Tests --configuration Release --filter Category=Determinism
 
+  # M3 cross-arch gate (S11 N14a, docs/crossarch-ci-gate.md). Runs the frozen job-009 script
+  # corpus (checked into this repo - no retail assets, no self-hosted runner) through
+  # ScenarioDriver on three OSes, then lockstep-compares the three per-frame per-channel CRC
+  # streams with the in-repo DumpDiff comparator. This is the FIRST wave to exercise this job
+  # end-to-end; watch its first real runs before trusting it as a settled gate.
+  crossarch:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Install .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '8.x'
+
+    # Deliberately no `dotnet publish`/`--runtime` here: the `build` job's macOS leg publishes
+    # a self-contained osx-arm64 binary by RID selection, which says nothing about what
+    # actually EXECUTES this step. `dotnet run` is framework-dependent and always executes as
+    # the host process's native architecture, so ScenarioDriver's --arch-stamp
+    # (RuntimeInformation.ProcessArchitecture, read at run time, not at publish time) reports
+    # the runner's real arch with no RID cross-compilation footgun possible. GH's macos-latest
+    # runners are Apple Silicon (arm64); ubuntu-latest/windows-latest are x64 - so this matrix
+    # is expected to yield {Arm64, X64, X64}, and crossarch-compare's --require-cross-arch
+    # checks that the set actually came out that way rather than assuming it.
+    - name: Run map-v1 (job-009 corpus)
+      shell: bash
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release --
+        --scenario map-v1
+        --map src/OpenSage.Game.Tests/Logic/Script/Assets/job009_creep_fight.map
+        --ini src/OpenSage.Game.Tests/Logic/Script/Assets/job009_creep_fight_subset.ini
+        --checkpoint-interval 1
+        --stream-only
+        --arch-stamp
+        --until-frame 501
+        --out stream-${{ matrix.os }}.txt
+
+    # --ignore-map-exit is intentionally NOT passed (job009's own MapExitFrame is 501, so
+    # --until-frame 501 pins the same bound either way until N14c's corpus registry exists to
+    # carry this per-map instead of hardcoding it here).
+    - name: Upload stream
+      uses: actions/upload-artifact@v6
+      with:
+        name: crossarch-stream-${{ matrix.os }}
+        path: stream-${{ matrix.os }}.txt
+
+  crossarch-compare:
+    needs: crossarch
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Install .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '8.x'
+
+    - name: Download macos-latest stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-stream-macos-latest
+        path: streams
+
+    - name: Download ubuntu-latest stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-stream-ubuntu-latest
+        path: streams
+
+    - name: Download windows-latest stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-stream-windows-latest
+        path: streams
+
+    - name: Build DumpDiff
+      run: dotnet build src/tools/OpenSage.SimCore.DumpDiff --configuration Release
+
+    # Full pairwise comparison across all three legs (per-channel, no tolerance, no exclusion
+    # - "never weaken the comparison": a real desync on ANY pair fails the gate). The two pairs
+    # that actually mix architectures also carry --require-cross-arch, which is the assertion
+    # that this gate proved something about crossplay rather than diffing two same-arch runs
+    # that happen to both look like x64. ubuntu-vs-windows are both X64, so that pair is
+    # deliberately compared WITHOUT --require-cross-arch - passing it there would always fail
+    # with CrossArchRequirementUnmet for a reason that has nothing to do with a real
+    # divergence.
+    - name: Compare macos(arm64) vs ubuntu(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        streams/stream-macos-latest.txt streams/stream-ubuntu-latest.txt
+        --label-a macos-latest --label-b ubuntu-latest
+        --require-cross-arch
+
+    - name: Compare macos(arm64) vs windows(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        streams/stream-macos-latest.txt streams/stream-windows-latest.txt
+        --label-a macos-latest --label-b windows-latest
+        --require-cross-arch
+
+    - name: Compare ubuntu(x64) vs windows(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        streams/stream-ubuntu-latest.txt streams/stream-windows-latest.txt
+        --label-a ubuntu-latest --label-b windows-latest
+
   build:
     strategy:
       fail-fast: false
@@ -70,6 +186,14 @@ jobs:
 
     - name: Test
       run: dotnet test src --configuration Release --filter Category!=Interactive --collect:"XPlat Code Coverage"
+
+    # OpenSage.SimCore.DumpDiff.Tests is deliberately NOT registered in src/OpenSage.sln (its
+    # sibling ScenarioDriver.Tests project sits inside the sln; the two wave-0 packets that
+    # created them made opposite choices, see docs/crossarch-ci-gate.md). "dotnet test src"
+    # above therefore never discovers it - it must be invoked by explicit project path or its
+    # 17 tests silently never run in CI.
+    - name: Test DumpDiff (out-of-sln, explicit project path)
+      run: dotnet test src/tools/OpenSage.SimCore.DumpDiff.Tests --configuration Release
 
     - name: Upload coverage
       uses: codecov/codecov-action@v5

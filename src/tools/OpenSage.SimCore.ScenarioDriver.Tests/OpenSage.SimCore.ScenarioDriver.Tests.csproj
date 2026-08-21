@@ -18,6 +18,10 @@
          directly in-process is how these tests exercise the real CLI arg parsing instead of a
          subprocess. -->
     <ProjectReference Include="..\OpenSage.SimCore.ScenarioDriver\OpenSage.SimCore.ScenarioDriver.csproj" />
+    <!-- Cross-tool round-trip coverage: proves the driver's emitted "# key=value" metadata
+         lines are actually harvested by DumpDiff.DumpParser the way the two tools' comments
+         each independently claim, rather than trusting the two docs to agree. -->
+    <ProjectReference Include="..\OpenSage.SimCore.DumpDiff\OpenSage.SimCore.DumpDiff.csproj" />
   </ItemGroup>
 
   <ItemGroup>
