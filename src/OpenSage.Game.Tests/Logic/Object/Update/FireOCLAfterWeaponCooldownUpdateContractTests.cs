@@ -36,6 +36,14 @@ Object SmokePuff
   End
 End
 
+Upgrade Upgrade_Overcharge
+  Type = PLAYER
+End
+
+Upgrade Upgrade_Silencer
+  Type = PLAYER
+End
+
 Object Turret
   KindOf = VEHICLE
   Body = ActiveBody ModuleTag_Body
@@ -49,6 +57,19 @@ Object Turret
     MinShotsToCreateOCL = 3
     OCLLifetimePerSecond = 500
     OCLLifetimeMaxCap = 2000
+    RemovesUpgrades = Upgrade_Silencer
+    FXListUpgrade = FX_Overcharge
+    RequiresAllTriggers = Yes
+  End
+End
+
+Object TurretDefaults
+  KindOf = VEHICLE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = FireOCLAfterWeaponCooldownUpdate ModuleTag_FireOCL
+    OCL = OCL_Smoke
   End
 End
 ";
@@ -79,6 +100,35 @@ End
         Assert.Equal(500, data.OCLLifetimePerSecond);
         // OCLLifetimeMaxCap = 2000 ms, quantized at parse to logic frames (BFME2: 5 fps).
         Assert.Equal(new LogicFrameSpan(10), data.OCLLifetimeMaxCap);
+
+        // UpgradeMuxData's three fields (UpgradeModule.h:93-101), added on top of this
+        // module's own five - legal INI keys the FieldParseTable must accept without throwing.
+        Assert.Equal(new[] { "Upgrade_Silencer" }, data.RemovesUpgrades.Select(u => u.Value.Name));
+        Assert.Equal("FX_Overcharge", data.FXListUpgrade);
+        Assert.True(data.RequiresAllTriggers);
+    }
+
+    [Fact]
+    public void OmittedNumericFields_DefaultToGplConstructorValues()
+    {
+        var (game, _) = Spawn();
+        var defaultsUnit = game.SpawnObject("TurretDefaults", game.CivilianPlayer, Vector3.Zero);
+
+        var data = (FireOCLAfterWeaponCooldownUpdateModuleData)game.AssetStore.ObjectDefinitions
+            .GetByName("TurretDefaults").Behaviors["ModuleTag_FireOCL"].Data;
+
+        // GPL FireOCLAfterWeaponCooldownUpdateModuleData::FireOCLAfterWeaponCooldownUpdateModuleData()
+        // (FireOCLAfterWeaponCooldownUpdate.cpp:64-66): these three are non-mandatory INI keys
+        // that fall back to the constructor defaults when an object's block omits them.
+        Assert.Equal(1, data.MinShotsToCreateOCL);
+        Assert.Equal(1000, data.OCLLifetimePerSecond);
+        // m_oclMaxFrames's default (1000) is a raw frame count set directly in the constructor,
+        // not a millisecond value run through the ms->frames conversion the INI path uses.
+        Assert.Equal(new LogicFrameSpan(1000), data.OCLLifetimeMaxCap);
+        Assert.Equal(WeaponSlot.Primary, data.WeaponSlot);
+        Assert.False(data.RequiresAllTriggers);
+        Assert.Null(data.FXListUpgrade);
+        Assert.NotNull(defaultsUnit.BehaviorModules.OfType<FireOCLAfterWeaponCooldownUpdate>().SingleOrDefault());
     }
 
     [Fact]

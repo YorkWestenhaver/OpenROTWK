@@ -86,7 +86,13 @@ public sealed class FireOCLAfterWeaponCooldownUpdateModuleData : UpdateModuleDat
         { "MinShotsToCreateOCL", (parser, x) => x.MinShotsToCreateOCL = parser.ParseInteger() },
         { "OCLLifetimePerSecond", (parser, x) => x.OCLLifetimePerSecond = parser.ParseInteger() },
         // GPL parseDurationUnsignedInt: ms -> logic frames, quantized once at parse (S5).
-        { "OCLLifetimeMaxCap", (parser, x) => x.OCLLifetimeMaxCap = parser.ParseDurationLogicFrames() }
+        { "OCLLifetimeMaxCap", (parser, x) => x.OCLLifetimeMaxCap = parser.ParseDurationLogicFrames() },
+        // GPL buildFieldParse adds UpgradeMuxData::getFieldParse() on top of the five fields
+        // above (UpgradeModule.h:93-101) - three more legal keys. Parsed and audited, not yet
+        // consumed (see module header), same posture as TriggeredBy/ConflictsWith.
+        { "RemovesUpgrades", (parser, x) => x.RemovesUpgrades = parser.ParseUpgradeReferenceArray() },
+        { "FXListUpgrade", (parser, x) => x.FXListUpgrade = parser.ParseAssetReference() },
+        { "RequiresAllTriggers", (parser, x) => x.RequiresAllTriggers = parser.ParseBoolean() }
     };
 
     /// <summary>Which weapon slot's firing activity is tracked (GPL m_weaponSlot).</summary>
@@ -103,15 +109,33 @@ public sealed class FireOCLAfterWeaponCooldownUpdateModuleData : UpdateModuleDat
     /// <summary>The OCL to fire when firing stops with enough consecutive shots (GPL m_ocl).</summary>
     public LazyAssetReference<ObjectCreationList> OCL { get; private set; }
 
-    /// <summary>Consecutive-shot threshold before the OCL may fire (GPL m_minShotsRequired).</summary>
-    public int MinShotsToCreateOCL { get; private set; }
+    /// <summary>Consecutive-shot threshold before the OCL may fire (GPL m_minShotsRequired,
+    /// constructor default 1 - FireOCLAfterWeaponCooldownUpdate.cpp:64).</summary>
+    public int MinShotsToCreateOCL { get; private set; } = 1;
 
     /// <summary>Milli-fraction scale of OCL lifetime per second of firing duration (GPL
-    /// m_oclLifetimePerSecond, used as value * 0.001 real seconds-per-second).</summary>
-    public int OCLLifetimePerSecond { get; private set; }
+    /// m_oclLifetimePerSecond, used as value * 0.001 real seconds-per-second; constructor
+    /// default 1000 - FireOCLAfterWeaponCooldownUpdate.cpp:65).</summary>
+    public int OCLLifetimePerSecond { get; private set; } = 1000;
 
-    /// <summary>Upper bound on the computed OCL lifetime (GPL m_oclMaxFrames).</summary>
-    public LogicFrameSpan OCLLifetimeMaxCap { get; private set; }
+    /// <summary>Upper bound on the computed OCL lifetime (GPL m_oclMaxFrames, constructor
+    /// default 1000 frames - FireOCLAfterWeaponCooldownUpdate.cpp:66; note this default is a
+    /// raw frame count, not a millisecond value run through the ms-&gt;frames conversion the
+    /// INI-parsed value goes through).</summary>
+    public LogicFrameSpan OCLLifetimeMaxCap { get; private set; } = new LogicFrameSpan(1000);
+
+    /// <summary>Upgrades removed when this module's OCL trigger fires (GPL UpgradeMuxData
+    /// m_removalUpgradeNames). Parsed, not yet consumed - see module header.</summary>
+    public LazyAssetReference<UpgradeTemplate>[] RemovesUpgrades { get; private set; }
+
+    /// <summary>FXList played when this module's upgrade trigger activates (GPL UpgradeMuxData
+    /// m_fxListUpgrade). Parsed, not yet consumed - see module header.</summary>
+    public string FXListUpgrade { get; private set; }
+
+    /// <summary>Whether all TriggeredBy upgrades (vs. any one) are required to arm the OCL
+    /// trigger (GPL UpgradeMuxData m_requiresAllTriggers). Parsed, not yet consumed - see
+    /// module header.</summary>
+    public bool RequiresAllTriggers { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
