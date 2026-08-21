@@ -1,4 +1,4 @@
-// R7 ActiveBody contract tests: the Body ModuleData audit (Fix64 health/subdual) and the
+﻿// R7 ActiveBody contract tests: the Body ModuleData audit (Fix64 health/subdual) and the
 // completed Objects-CRC fold (armor-set condition flags now ride the contract Xfer). Exercised
 // on HeadlessSimGame with real parsed INI so the ParseFix64 quantizing path is on the tested
 // path. Complements the S1 WeaponDamageArmorSystemTests (which own the armor->health chain,

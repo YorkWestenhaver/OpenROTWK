@@ -1,4 +1,4 @@
-// CreateObjectDie - Die-batch task 4, ported to the frozen module contract.
+﻿// CreateObjectDie - Die-batch task 4, ported to the frozen module contract.
 //
 // Behavioral reference: generals-gpl GeneralsMD CreateObjectDie.cpp/.h (GPL semantics
 // reference only; this is fresh code against the frozen contract). Behavior facts used:

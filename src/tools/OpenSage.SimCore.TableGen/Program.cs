@@ -1,4 +1,4 @@
-// OpenSage.SimCore.TableGen — emits FixTrig.Tables.g.cs, the checked-in LUT artifact of
+﻿// OpenSage.SimCore.TableGen — emits FixTrig.Tables.g.cs, the checked-in LUT artifact of
 // record for FixTrig (design-simcore-scaffolding §1.4, api-freeze-v1 F2).
 //
 // This tool runs at DEVELOPMENT time only and is therefore allowed to use System.Math:

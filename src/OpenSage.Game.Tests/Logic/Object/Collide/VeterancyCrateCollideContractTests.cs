@@ -1,4 +1,4 @@
-// Contract tests for the VeterancyCrateCollide port (R12): one test per packet testCase,
+﻿// Contract tests for the VeterancyCrateCollide port (R12): one test per packet testCase,
 // driven directly through OnCollide on a real (headless) game, mirroring the shape of
 // HordeMemberCollideContractTests and EjectPilotDieContractTests in this directory/batch.
 //

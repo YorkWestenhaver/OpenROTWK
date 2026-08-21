@@ -1,4 +1,4 @@
-// DetachableRiderBody R8 contract tests (template v1.1 §5): the rider-death health drop,
+﻿// DetachableRiderBody R8 contract tests (template v1.1 §5): the rider-death health drop,
 // exercised on HeadlessSimGame with real parsed INI so the quantizing parse path (percent ->
 // Fix64) and the S1 Fix64 damage/health chain are on the tested path. One test per behavioral
 // branch, plus the Xfer contract walk (shadow-copy CRC + mid-state save/load continuation).

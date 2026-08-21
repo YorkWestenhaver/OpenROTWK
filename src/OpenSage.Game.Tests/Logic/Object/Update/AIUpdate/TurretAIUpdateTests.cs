@@ -1,4 +1,4 @@
-// R12 port contract tests for TurretAIUpdate (legacy/IGameEngine surface, owned directly by
+﻿// R12 port contract tests for TurretAIUpdate (legacy/IGameEngine surface, owned directly by
 // AIUpdate rather than the generic ModuleData.CreateModule dispatch). Drives the module's
 // internal Update(BitArray<AutoAcquireEnemiesType>) directly against a real GameObject hosted
 // by HeadlessSimGame (so GameClient/Drawable exist and GameObject.ModelConditionFlags works),

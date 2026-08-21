@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageFakeBuildingCrateCollide port (R12): the
+﻿// Mocked-game contract tests for the SabotageFakeBuildingCrateCollide port (R12): the
 // saboteur-vs-fake-building collide handler validates target kind, life, relationship and
 // the saboteur's AI goal object before destroying the building with max-health unresistable
 // DEATH_DETONATED damage and reporting a radar infiltration event.

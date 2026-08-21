@@ -1,4 +1,4 @@
-// MissileLauncherBuildingUpdate - R12 port (api-freeze-v1 §6 / template v1.1).
+﻿// MissileLauncherBuildingUpdate - R12 port (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD MissileLauncherBuildingUpdate.cpp/.h (GPL
 // semantics reference only; this is fresh code against the frozen contract). Behavior facts

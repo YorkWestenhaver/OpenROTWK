@@ -1,4 +1,4 @@
-// SpecialPowerCompletionDie - the one GREENFIELD [ParseOnly] class of the Die batch
+﻿// SpecialPowerCompletionDie - the one GREENFIELD [ParseOnly] class of the Die batch
 // (experiment-round-4 §4 row 11): the fork had a 16-line ModuleData and no runtime module,
 // so there is no legacy module to replace and - per template v1.1 delta D-9 - no retail
 // `.sav` Load to keep and remap. This file is the whole class.

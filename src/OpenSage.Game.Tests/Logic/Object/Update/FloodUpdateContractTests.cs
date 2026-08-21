@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the FloodUpdate swarm-spawn port (api-freeze-v1 §6 fitness
+﻿// Mocked-game contract tests for the FloodUpdate swarm-spawn port (api-freeze-v1 §6 fitness
 // item 4 shape): spawn-time control-point rotation (AngleOfFlow / DirectionIsRelative),
 // per-frame Bezier curve following at a constant arc-length speed, Z-offset control points,
 // despawn on completion, spawner-death cleanup - plus the shadow-copy base test and a

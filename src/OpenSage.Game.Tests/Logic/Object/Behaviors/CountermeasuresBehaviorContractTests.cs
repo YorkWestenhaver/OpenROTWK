@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CountermeasuresBehavior R12 port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the CountermeasuresBehavior R12 port (api-freeze-v1 §6 fitness
 // item 4): one test per task-packet behavior, plus the mid-behavior save/load round-trip and
 // the shadow-copy base test. Object/Locomotor definitions are parsed from INI text through the
 // real parser, so the quantizing S5 parses (DelayBetweenVolleys/ReloadTime/
@@ -285,7 +285,7 @@ End
             game.Step();
         }
 
-        Assert.Equal(1, module.CounterMeasures.Count);
+        Assert.Single(module.CounterMeasures);
         Assert.Equal(0u, module.AvailableCountermeasures);
         Assert.Equal(LogicFrame.Zero, module.ReloadFrame); // ReloadTime=0 -> auto-reload never arms
     }

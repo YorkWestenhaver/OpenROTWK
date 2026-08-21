@@ -1,4 +1,4 @@
-// One cell of the deterministic partition grid (GPL PartitionCell, fresh code).
+﻿// One cell of the deterministic partition grid (GPL PartitionCell, fresh code).
 // Holds the per-player shroud ledger and the list of entries whose footprint covers
 // the cell (the COI list, flattened). The four shroud algorithms that mutate the
 // ledger live on SimPartitionGrid so their edge-trigger bookkeeping stays in one place.

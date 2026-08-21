@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — the deterministic per-frame evaluator.
+﻿// S8 script-engine runtime (subset) — the deterministic per-frame evaluator.
 //
 // Behavioral reference (clean-room, semantics only — no code transcribed):
 // generals-gpl GeneralsMD ScriptEngine.cpp:
@@ -411,34 +411,34 @@ public sealed class SimScriptEngine
 
             case SimScriptActionKind.SetTimer:
             case SimScriptActionKind.SetMillisecondTimer:
-            {
-                // IntValue is frames for both: SET_TIMER is authored in frames; the msec
-                // variant was quantized ceil(seconds x rate) at compile.
-                var counter = _counters[action.SlotIndex];
-                counter.Value = action.IntValue;
-                counter.IsCountdownTimer = true;
-                _counters[action.SlotIndex] = counter;
-                break;
-            }
-
-            case SimScriptActionKind.PauseTimer:
-            {
-                var counter = _counters[action.SlotIndex];
-                counter.IsCountdownTimer = false;
-                _counters[action.SlotIndex] = counter;
-                break;
-            }
-
-            case SimScriptActionKind.RestartTimer:
-            {
-                var counter = _counters[action.SlotIndex];
-                if (counter.Value > 0)
                 {
+                    // IntValue is frames for both: SET_TIMER is authored in frames; the msec
+                    // variant was quantized ceil(seconds x rate) at compile.
+                    var counter = _counters[action.SlotIndex];
+                    counter.Value = action.IntValue;
                     counter.IsCountdownTimer = true;
                     _counters[action.SlotIndex] = counter;
+                    break;
                 }
-                break;
-            }
+
+            case SimScriptActionKind.PauseTimer:
+                {
+                    var counter = _counters[action.SlotIndex];
+                    counter.IsCountdownTimer = false;
+                    _counters[action.SlotIndex] = counter;
+                    break;
+                }
+
+            case SimScriptActionKind.RestartTimer:
+                {
+                    var counter = _counters[action.SlotIndex];
+                    if (counter.Value > 0)
+                    {
+                        counter.IsCountdownTimer = true;
+                        _counters[action.SlotIndex] = counter;
+                    }
+                    break;
+                }
 
             case SimScriptActionKind.EnableScript:
                 SetScriptOrGroupActive(action, true);

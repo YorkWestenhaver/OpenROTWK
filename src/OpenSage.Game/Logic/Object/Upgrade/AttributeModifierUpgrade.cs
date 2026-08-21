@@ -1,4 +1,4 @@
-// AttributeModifierUpgrade - R11 Track B port. BFME-only (no generals-gpl sibling) and no
+﻿// AttributeModifierUpgrade - R11 Track B port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/, so this is the minimal behavior the INI
 // chain needs (e.g. AotR default/object.ini difficulty bonuses, TriggeredBy campaign/solo
 // upgrades): when the upgrade mux fires, register the named ModifierList on the owning

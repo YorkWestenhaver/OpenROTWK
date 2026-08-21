@@ -1,4 +1,4 @@
-// LargeGroupBonusUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
+﻿// LargeGroupBonusUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/, so this is the minimal behavior the job-009
 // INI chain needs (AotR MordorFighterHorde ModuleTag_LargeGroupBonus: every UpdateRate ms,
 // count nearby friendly Mordor infantry; at Count or more within Radius the horde gains the

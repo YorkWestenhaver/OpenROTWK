@@ -1,4 +1,4 @@
-// PorcupineFormationBody - Body-batch port to the frozen module contract (api-freeze-v1
+﻿// PorcupineFormationBody - Body-batch port to the frozen module contract (api-freeze-v1
 // §3/§5, template v1.1 = pilot-autoheal §3/§6). Builds ON S1 (weapon/damage/armor): the
 // thorn-reflect delivery goes through the landed DamagePipeline + CombatDamageInput; it does
 // NOT reimplement any damage / armor / health math.

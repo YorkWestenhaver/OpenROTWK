@@ -1,4 +1,4 @@
-// SmartBombTargetHomingUpdate - R12 port. Behavioral reference (semantics only):
+﻿// SmartBombTargetHomingUpdate - R12 port. Behavioral reference (semantics only):
 // generals-gpl GeneralsMD GameLogic/Module/SmartBombTargetHomingUpdate.h/.cpp. Nudges a
 // falling projectile's X/Y position each frame toward a designated target coordinate, an
 // exponential-decay pull rather than a full physics steer:

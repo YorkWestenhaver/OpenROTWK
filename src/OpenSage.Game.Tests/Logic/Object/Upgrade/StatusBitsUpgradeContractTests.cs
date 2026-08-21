@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the StatusBitsUpgrade port (experiment-round-4 §4.1 DoD
+﻿// Mocked-game unit tests for the StatusBitsUpgrade port (experiment-round-4 §4.1 DoD
 // item 4): one test per INI-configurable branch, [create -> trigger -> observable
 // effect], plus the shadow-copy base test and the mid-state save/load round-trip.
 // Object definitions are parsed from INI text through the real parser, so the parse path

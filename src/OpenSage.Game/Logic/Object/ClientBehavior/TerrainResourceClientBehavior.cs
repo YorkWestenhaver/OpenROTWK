@@ -1,4 +1,4 @@
-// TerrainResourceClientBehavior - R12 port. The client-side counterpart to the sim-side
+﻿// TerrainResourceClientBehavior - R12 port. The client-side counterpart to the sim-side
 // TerrainResourceBehavior (Logic/Object/Behaviors/TerrainResourceBehavior.cs, not yet
 // ported). Its INI block declares no fields, so the module has no configuration to hold
 // and no sim-visible state of its own. Nothing in ISimContext (S8) models a client-side

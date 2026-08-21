@@ -1,4 +1,4 @@
-// ReplaceSelfUpgrade - R12 port. No generals-gpl sibling and no clean-room spec in
+﻿// ReplaceSelfUpgrade - R12 port. No generals-gpl sibling and no clean-room spec in
 // bfme2-workbench/research/ (gplRef empty in the task packet), so this is the minimal
 // faithful behavior the task packet describes: a triggered upgrade that metamorphoses the
 // owning object into another object.

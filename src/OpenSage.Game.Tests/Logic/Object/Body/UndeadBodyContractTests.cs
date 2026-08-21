@@ -1,4 +1,4 @@
-// R7 UndeadBody contract tests (Body/Damage category), on HeadlessSimGame with real
+﻿// R7 UndeadBody contract tests (Body/Damage category), on HeadlessSimGame with real
 // parsed INI so the quantizing parse path (ParseFix64 for SecondLifeMaxHealth) is on the
 // tested path. Covers the GPL second-life branch tree, the F-UB-1 self-recursion fix
 // (the first-life lethal hit reaching *base* ActiveBody rather than re-entering this

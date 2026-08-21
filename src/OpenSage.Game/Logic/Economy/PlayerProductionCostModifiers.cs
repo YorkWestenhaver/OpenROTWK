@@ -1,4 +1,4 @@
-// mod/costmodifierupgrademoduledata (R9): the Player-side sink CostModifierUpgrade writes
+﻿// mod/costmodifierupgrademoduledata (R9): the Player-side sink CostModifierUpgrade writes
 // to. Additive partial-class member only - no change to any existing Player member (merge
 // hygiene). GPL parallel: Player::m_kindOfPercentProductionChangeList + its add/remove/get
 // methods (Common/RTS/Player.cpp). The registry is transient derived sim state rebuilt on

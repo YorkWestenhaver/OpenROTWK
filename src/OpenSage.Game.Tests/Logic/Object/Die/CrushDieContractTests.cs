@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CrushDie port (experiment-round-4 §4.1 DoD item 4): one
+﻿// Mocked-game unit tests for the CrushDie port (experiment-round-4 §4.1 DoD item 4): one
 // test per INI/behaviour branch, each [create -> trigger death -> observable effect] via the
 // batch's death-trigger helper, plus the shadow-copy base test and the mid-behavior
 // save/load continuation. Object definitions come from INI text through the real parser, so

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CostModifierUpgrade port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the CostModifierUpgrade port (api-freeze-v1 §6 fitness item 4):
 // one test per INI branch [create -> trigger -> observable effect on the player's production-
 // cost registry], plus the shadow-copy base test and a mid-behavior save/load round-trip.
 // Object definitions are parsed from INI text through the real parser, so the S5 quantizing

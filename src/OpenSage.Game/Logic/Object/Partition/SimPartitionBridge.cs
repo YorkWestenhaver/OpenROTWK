@@ -1,4 +1,4 @@
-// The one float crossing for the partition system - deliberately NOT [SimState].
+﻿// The one float crossing for the partition system - deliberately NOT [SimState].
 //
 // A GameObject's transform, geometry and template ranges are still float substrate; this
 // bridge quantizes them exactly once, through the F4 wire boundary

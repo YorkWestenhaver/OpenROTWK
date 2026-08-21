@@ -1,4 +1,4 @@
-// AudioLoopUpgrade - parked runtime port (R12). Audio-only upgrade module: on trigger the
+﻿// AudioLoopUpgrade - parked runtime port (R12). Audio-only upgrade module: on trigger the
 // retail module starts a looping sound named by SoundToPlay, stopping it either when the
 // owning object dies (KillOnDeath) or after KillAfterMS milliseconds (0/unset = indefinite,
 // runs until the object dies or the upgrade's own lifetime ends).

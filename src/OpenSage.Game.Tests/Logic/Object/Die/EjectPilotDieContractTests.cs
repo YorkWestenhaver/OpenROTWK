@@ -1,4 +1,4 @@
-// Contract tests for the EjectPilotDie port (experiment-round-4 §4.1 DoD item 4: one test
+﻿// Contract tests for the EjectPilotDie port (experiment-round-4 §4.1 DoD item 4: one test
 // per INI branch, minimum [create -> trigger death -> observable effect], plus a mid-behavior
 // save/load continuation). Shape cloned from AutoHealContractTests; the death half comes from
 // the batch's shared PortedModuleTestKit death-trigger helper.

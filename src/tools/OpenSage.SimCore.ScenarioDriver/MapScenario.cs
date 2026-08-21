@@ -1,4 +1,4 @@
-// map-v1 - the Target-B conformance scenario: a real authored .map end-to-end. SimMapRun
+﻿// map-v1 - the Target-B conformance scenario: a real authored .map end-to-end. SimMapRun
 // (OpenSage.Game) does the load half - MapFile -> SimScriptCompiler -> HeadlessSimGame with
 // waypoints/teams/objects registered on a SimScriptHostAdapter - and this wrapper gives it
 // the driver's dump plumbing: every checkpoint folds the real Objects walk, the logic RNG

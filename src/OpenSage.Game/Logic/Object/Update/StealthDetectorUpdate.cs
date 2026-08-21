@@ -1,4 +1,4 @@
-// StealthDetectorUpdate - R9 module port (experiment-round-4 §4.1, template v1.1).
+﻿// StealthDetectorUpdate - R9 module port (experiment-round-4 §4.1, template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD StealthDetectorUpdate.cpp/.h (GPL semantics
 // reference only; this is fresh code against the frozen contract). Behavior facts used:

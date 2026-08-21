@@ -1,4 +1,4 @@
-// Recovered BFME2 GameMessageType enum (api-freeze-v1 F6; gamemessage-enum-map.md).
+﻿// Recovered BFME2 GameMessageType enum (api-freeze-v1 F6; gamemessage-enum-map.md).
 //
 // Source of record: the written behavioral spec of the GameMessageType -> name mapping
 // (bfme2-workbench/research/gamemessage-enum-map.md). 381 named types total, 173 in the

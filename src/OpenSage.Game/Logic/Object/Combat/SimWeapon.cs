@@ -1,4 +1,4 @@
-// The deterministic weapon fire-timing core - GPL Weapon's reload/clip/status machine
+﻿// The deterministic weapon fire-timing core - GPL Weapon's reload/clip/status machine
 // rebuilt on logic frames and Fix64 (generals-gpl GeneralsMD GameLogic/Object/Weapon.cpp:
 // Weapon ctor / getStatus / privateFireWeapon / reloadWithBonus / setClipPercentFull /
 // onWeaponBonusChange / getPercentReadyToFire; WeaponTemplate::getDelayBetweenShots /

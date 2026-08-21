@@ -1,4 +1,4 @@
-// LargeGroupAudioUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
+﻿// LargeGroupAudioUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/. The retail module's entire output is the
 // large-group ambient audio mix (per-key unit weights feeding the crowd sound chooser) -
 // audio is deliberately absent from ISimContext (S8), and its bookkeeping feeds nothing
@@ -10,10 +10,10 @@
 // membership scan and the crowd-audio chooser live client-side; model them when an audio
 // host exists.
 
+using System.Collections.Generic;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Sync;
-using System.Collections.Generic;
 
 namespace OpenSage.Logic.Object;
 

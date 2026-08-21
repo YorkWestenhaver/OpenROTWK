@@ -1,4 +1,4 @@
-// FXListDie - Round-5 Die batch, class 1 of 11 (experiment-round-4 §4).
+﻿// FXListDie - Round-5 Die batch, class 1 of 11 (experiment-round-4 §4).
 //
 // Behavioral reference: generals-gpl GeneralsMD FXListDie.cpp/.h (GPL semantics reference
 // only; this is fresh code against the frozen contract). Behavior facts used:

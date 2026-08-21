@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the NotifyTargetsOfImminentProbableCrushingUpdate port
+﻿// Mocked-game contract tests for the NotifyTargetsOfImminentProbableCrushingUpdate port
 // (R12): the periodic scan within DefaultScanWidth, the enemy/non-structure/CrusherLevel vs
 // CrushableLevel eligibility gate, simultaneous multi-target warning, the falling edge on a
 // target leaving range or dying, the no-module-means-no-broadcast baseline, plus the

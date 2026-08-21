@@ -1,4 +1,4 @@
-// Contract tests for the AttributeModifierPoolUpdate port (R12): the screen-blend
+﻿// Contract tests for the AttributeModifierPoolUpdate port (R12): the screen-blend
 // accumulation core exercised directly against hand-built pools (packet test cases), plus
 // the shadow-copy base test on a real spawned object.
 

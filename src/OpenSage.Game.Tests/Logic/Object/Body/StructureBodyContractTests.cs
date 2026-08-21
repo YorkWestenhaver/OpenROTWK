@@ -1,4 +1,4 @@
-// StructureBody port contract tests (Round-7 Body batch). StructureBody is a thin
+﻿// StructureBody port contract tests (Round-7 Body batch). StructureBody is a thin
 // ActiveBody subclass whose only added state is the constructor object id; the point of
 // interest is that this extra ObjectId folds into the SAME Objects CRC channel as the
 // inherited Fix64 health ledger (GPL StructureBody::xfer chains ActiveBody::xfer then

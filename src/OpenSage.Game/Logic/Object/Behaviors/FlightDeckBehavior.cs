@@ -1,4 +1,4 @@
-// FlightDeckBehavior - R12 port (api-freeze-v1 / template v1.1).
+﻿// FlightDeckBehavior - R12 port (api-freeze-v1 / template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD FlightDeckBehavior.cpp/.h (GPL semantics
 // reference; aircraft-carrier parking/runway management, Kris Morness, May 2003). GPL is

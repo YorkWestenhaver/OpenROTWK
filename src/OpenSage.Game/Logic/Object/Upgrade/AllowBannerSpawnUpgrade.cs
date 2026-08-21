@@ -1,4 +1,4 @@
-// AllowBannerSpawnUpgrade - R12 module port. Marker upgrade module: the whole retail
+﻿// AllowBannerSpawnUpgrade - R12 module port. Marker upgrade module: the whole retail
 // state inventory is the shared upgrade-mux triggered flag (UpgradeLogic), same shape as
 // the StatusBitsUpgrade / LargeGroupAudioUpdate pilots.
 //

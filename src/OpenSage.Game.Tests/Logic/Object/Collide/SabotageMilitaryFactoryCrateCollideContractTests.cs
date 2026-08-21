@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageMilitaryFactoryCrateCollide port (R12): the
+﻿// Mocked-game contract tests for the SabotageMilitaryFactoryCrateCollide port (R12): the
 // REAL INI name (SabotageDuration data block) must produce a live CrateCollide runtime
 // module instead of the [ParseOnly] hole. See the module header for why the retail
 // execute-on-collide behavior (isValidToExecute/executeCrateBehavior: enemy-only,

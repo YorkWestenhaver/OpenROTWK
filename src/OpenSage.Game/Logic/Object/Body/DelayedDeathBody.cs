@@ -1,4 +1,4 @@
-// DelayedDeathBody - Round-8 Body-batch port to the frozen module contract
+﻿// DelayedDeathBody - Round-8 Body-batch port to the frozen module contract
 // (api-freeze-v1 §3/§5, template v1.1 = pilot-autoheal §3/§6). Builds ON S1
 // (weapon/damage/armor): it consumes the landed ActiveBody / BodyDamageCore health ledger
 // and the ImmortalBody-style Fix64 floor seam (ClampCombatHealthLoss); it does NOT

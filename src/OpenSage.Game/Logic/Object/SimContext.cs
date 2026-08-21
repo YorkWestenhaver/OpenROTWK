@@ -1,4 +1,4 @@
-// The one ISimContext implementation: an adapter over the (partially migrated) engine.
+﻿// The one ISimContext implementation: an adapter over the (partially migrated) engine.
 //
 // This file is a float-boundary file, NOT [SimState]: it is where the Fix64 world of ported
 // modules meets the float substrate that has not migrated yet (quadtree, Body). Every such

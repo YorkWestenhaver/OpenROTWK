@@ -1,4 +1,4 @@
-// HordeSiegeEngineContain - R12 port. BFME-only (no generals-gpl sibling: AddedIn(SageGame.Bfme))
+﻿// HordeSiegeEngineContain - R12 port. BFME-only (no generals-gpl sibling: AddedIn(SageGame.Bfme))
 // and the only field-level authority is the module inventory row in
 // bfme2-workbench/research/spec-hordes.md § 2 ("HordeGarrisonContain / HordeTransportContain /
 // HordeSiegeEngineContain / ... - structures/vehicles that hold hordes")

@@ -1,4 +1,4 @@
-// CastleMemberBehavior - the member-side half of the castle system (R9 castles task).
+﻿// CastleMemberBehavior - the member-side half of the castle system (R9 castles task).
 //
 // Behavioral reference: spec-castles.md §3.2. Runtime state is exactly the back-pointer pair
 // retail writes from CastleBehavior::unpack (spec-castles.md): the castle

@@ -63,7 +63,7 @@ public static class Program
         [Option("mod", Default = null, Required = false, HelpText = "Load a mod on top of the game, the same way the retail engine's -mod argument does. Accepts either a mod directory (its loose files and its .BIG archives are layered over the game) or a single .big archive.")]
         public string? ModPath { get; set; }
 
-        [Option('u', "uniqueports",Default = false, Required = false, HelpText = "Use a unique port for each client in a multiplayer game. Normally, port 8088 is used, but when we want to run multiple game instances on the same machine (for debugging purposes), each client needs a different port.")]
+        [Option('u', "uniqueports", Default = false, Required = false, HelpText = "Use a unique port for each client in a multiplayer game. Normally, port 8088 is used, but when we want to run multiple game instances on the same machine (for debugging purposes), each client needs a different port.")]
         public bool UseUniquePorts { get; set; }
     }
 

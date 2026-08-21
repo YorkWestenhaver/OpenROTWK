@@ -1,4 +1,4 @@
-// CastleBehavior - the castle/camp anchor (R9 castles system; build-roadmap pillar castles).
+﻿// CastleBehavior - the castle/camp anchor (R9 castles system; build-roadmap pillar castles).
 //
 // Behavioral reference: bfme2-workbench/research/spec-castles.md - a clean-room
 // behavioral spec (this system has NO GPL reference; behavioral facts only, no

@@ -1,4 +1,4 @@
-// FloodTransformBridge - the ONE float-substrate crossing FloodUpdate needs (the D-7
+﻿// FloodTransformBridge - the ONE float-substrate crossing FloodUpdate needs (the D-7
 // boundary pattern, same shape as Locomotion/SimTransformBridge.cs): [SimState] code in
 // FloodUpdate.cs computes every flood-member position/facing in Fix64 and never touches a
 // float; this file is the single place that quantizes a spawned member's position into the

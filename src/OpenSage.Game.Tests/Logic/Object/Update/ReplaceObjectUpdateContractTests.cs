@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ReplaceObjectUpdate port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the ReplaceObjectUpdate port (api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch, [create -> trigger/tick -> observable effect], covering the
 // R12 task packet's testCases.
 //
@@ -125,11 +125,11 @@ End
     private static ReplaceObjectUpdate ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<ReplaceObjectUpdate>().Single();
 
-    private static uint _nextTestTeamId = 700;
+    private static uint NextTestTeamId = 700;
 
     private static Team AssignSingletonTeam(HeadlessSimGame game, GameObject obj, Player owner)
     {
-        var id = _nextTestTeamId++;
+        var id = NextTestTeamId++;
         var template = new TeamTemplate(game.TeamFactory, id, $"ReplaceTestTeam{id}", owner, isSingleton: true);
         var team = new Team(template, id);
         obj.Team = team;

@@ -1,4 +1,4 @@
-// Castles / build-plots deterministic core (R9 system task, build-roadmap pillar castles).
+﻿// Castles / build-plots deterministic core (R9 system task, build-roadmap pillar castles).
 //
 // Behavioral reference: bfme2-workbench/research/spec-castles.md (clean-room behavioral
 // spec; this system has NO GPL reference, and no decompiled code was transplanted - facts and

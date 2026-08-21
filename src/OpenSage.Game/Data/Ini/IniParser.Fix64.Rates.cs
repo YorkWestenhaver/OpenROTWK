@@ -1,4 +1,4 @@
-// Rate-quantizing INI parse functions for the S2 locomotor system (api-freeze-v1 seam S5
+﻿// Rate-quantizing INI parse functions for the S2 locomotor system (api-freeze-v1 seam S5
 // pattern, extended for per-second -> per-logic-frame vocabulary the movement templates use).
 //
 // SAGE's INI text expresses movement in per-SECOND units (dist/sec, degrees/sec, dist/sec^2);

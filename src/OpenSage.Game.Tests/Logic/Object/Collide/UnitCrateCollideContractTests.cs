@@ -1,4 +1,4 @@
-// Mocked-game contract tests for UnitCrateCollide (R12 port; task packet unit-crate-collide,
+﻿// Mocked-game contract tests for UnitCrateCollide (R12 port; task packet unit-crate-collide,
 // testCases TC1-TC6): spawning UnitCount units of UnitName around the crate on pickup, each
 // inheriting the collector's orientation and belonging to the collector's owning
 // player/default team, plus the invalid-UnitName and UnitCount=0 no-op paths.

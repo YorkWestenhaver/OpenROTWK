@@ -1,4 +1,4 @@
-// The ONE place the S1 combat system crosses the float substrate during migration
+﻿// The ONE place the S1 combat system crosses the float substrate during migration
 // (deliberately NOT [SimState]: this file's whole job is the crossing, D-7 pattern).
 //
 // - Float -> Fix64 enters through QuantizeFloat: the IEEE bit pattern is decomposed by

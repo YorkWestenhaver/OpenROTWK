@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the FXListDie port (experiment-round-4 §4.1, DoD item 4): one
+﻿// Mocked-game unit tests for the FXListDie port (experiment-round-4 §4.1, DoD item 4): one
 // test per INI-configurable branch, each [create -> trigger death -> observable effect] via
 // the batch's shared death-trigger helper, plus the shadow-copy base test taken mid-behavior
 // and a save/load continuation. Object definitions are parsed from INI text through the real

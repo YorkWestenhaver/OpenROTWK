@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the MissileLauncherBuildingUpdate port (api-freeze-v1 §6
+﻿// Mocked-game unit tests for the MissileLauncherBuildingUpdate port (api-freeze-v1 §6
 // fitness item 4): one test per behavior branch, [create -> tick/notify -> observable
 // effect], covering the R12 task packet's testCases.
 //
@@ -70,7 +70,7 @@ End
             }
         }
 
-        Assert.True(false, $"predicate never became true within {maxSteps} steps");
+        Assert.Fail($"predicate never became true within {maxSteps} steps");
         return 0;
     }
 

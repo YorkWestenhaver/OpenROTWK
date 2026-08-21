@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the ModelConditionSoundSelectorClientBehavior port (R12):
+﻿// Mocked-game contract tests for the ModelConditionSoundSelectorClientBehavior port (R12):
 // the audio-only module parses its condition-indexed SoundState config, instantiates as a
 // live (permanently parked) runtime module, and round-trips its empty state - the
 // [ParseOnly] hole is closed without inventing sim behavior for a client-audio feature (see

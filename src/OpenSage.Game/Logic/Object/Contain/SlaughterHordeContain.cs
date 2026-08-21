@@ -1,4 +1,4 @@
-// SlaughterHordeContain - R12 port from [ParseOnly].
+﻿// SlaughterHordeContain - R12 port from [ParseOnly].
 //
 // Behavioral reference: bfme2-workbench/research/spec-hordes.md §2 (module inventory table,
 // the CitadelSlaughterHordeContain row @ 0xc0bae8) - that table entry ("structures/vehicles

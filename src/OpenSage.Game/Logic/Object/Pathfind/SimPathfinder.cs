@@ -1,4 +1,4 @@
-// S5 pathfinding - the deterministic A* engine + the FIFO request queue (GPL Pathfinder).
+﻿// S5 pathfinding - the deterministic A* engine + the FIFO request queue (GPL Pathfinder).
 //
 // Behavioral reference (clean-room, semantics only): AIPathfind.cpp -
 //   internalFindPath (start/goal setup, tunneling, pop-head goal test, cleanup),

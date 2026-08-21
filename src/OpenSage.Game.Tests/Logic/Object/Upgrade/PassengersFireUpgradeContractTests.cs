@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the PassengersFireUpgrade port (R12): one test per packet
+﻿// Mocked-game unit tests for the PassengersFireUpgrade port (R12): one test per packet
 // testCase [create -> trigger -> observable effect], plus the shadow-copy base test and the
 // mid-state save/load round-trip, mirroring StatusBitsUpgradeContractTests.
 

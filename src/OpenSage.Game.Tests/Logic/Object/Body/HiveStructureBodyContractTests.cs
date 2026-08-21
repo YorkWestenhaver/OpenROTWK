@@ -1,4 +1,4 @@
-// R7 Body-batch port: HiveStructureBody redirect-to-slave/rider damage semantics, on
+﻿// R7 Body-batch port: HiveStructureBody redirect-to-slave/rider damage semantics, on
 // HeadlessSimGame with real parsed INI so the ParseEnumBitArray damage-type flags and the
 // real SpawnBehavior spawn path are on the tested path. One test per GPL branch of
 // HiveStructureBody::attemptDamage, plus the shadow-copy base test and a mid-state

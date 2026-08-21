@@ -1,4 +1,4 @@
-// R9 castles system tests (spec-castles.md; template v1.1 shape - HeadlessSimGame + INI
+﻿// R9 castles system tests (spec-castles.md; template v1.1 shape - HeadlessSimGame + INI
 // text per branch + shadow-copy + mid-state save/load continuation).
 //
 // The headless host has no .bse files, so tests inject an ICastleTemplateProvider; the

@@ -1,4 +1,4 @@
-// CitadelSlaughterHordeContain - R12 module port. BFME2 One Ring citadel "slaughterhouse":
+﻿// CitadelSlaughterHordeContain - R12 module port. BFME2 One Ring citadel "slaughterhouse":
 // a horde that enters the citadel is normally consumed by the base SlaughterHordeContain
 // mechanic (unit loot/destruction). This module layers the Ring-entry extension on top: if
 // the entering horde is carrying an object that matches ObjectToDestroyForRingEntry (the

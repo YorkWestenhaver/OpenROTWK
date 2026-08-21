@@ -1,4 +1,4 @@
-// S3 system tests (build-roadmap pillar partition-vision): the deterministic partition
+﻿// S3 system tests (build-roadmap pillar partition-vision): the deterministic partition
 // grid — cell mapping, coverage, the getObjectsInRange query family, the shroud ledger
 // algorithms, the look/unlook vision model with the timed undo queue, whole-object
 // shroud status incl. the fog-memory rules, terrain LOS, and the Xfer/CRC walk with a

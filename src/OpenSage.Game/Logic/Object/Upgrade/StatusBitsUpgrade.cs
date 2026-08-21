@@ -1,4 +1,4 @@
-// StatusBitsUpgrade - Round-4 module port (experiment-round-4 §4.1; template v1.1,
+﻿// StatusBitsUpgrade - Round-4 module port (experiment-round-4 §4.1; template v1.1,
 // pilot-autoheal.md §6 runbook). Behavioral reference: generals-gpl / BFME-RotWK
 // GameEngine Module/StatusBitsUpgrade.cpp/.h (GPL semantics only; this is fresh code
 // against the frozen contract).

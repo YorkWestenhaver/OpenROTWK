@@ -1,4 +1,4 @@
-// AutoHealBehavior - THE Round-4 pilot port (api-freeze-v1 §5: the canonical template).
+﻿// AutoHealBehavior - THE Round-4 pilot port (api-freeze-v1 §5: the canonical template).
 //
 // Behavioral reference: generals-gpl GeneralsMD AutoHealBehavior.cpp/.h (GPL semantics
 // reference only; this is fresh code against the frozen contract). Behavior facts used:

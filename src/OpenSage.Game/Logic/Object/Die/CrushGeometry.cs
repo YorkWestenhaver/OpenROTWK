@@ -1,4 +1,4 @@
-// The float-substrate boundary for the CrushDie port (pilot-autoheal D-7).
+﻿// The float-substrate boundary for the CrushDie port (pilot-autoheal D-7).
 //
 // CrushDie's crush-point selection is geometry: it reads the victim's position, its 2D unit
 // direction vector and its major radius, and compares three squared distances. Those three

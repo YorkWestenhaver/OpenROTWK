@@ -1,4 +1,4 @@
-// SIMCORE-EXEMPT: guess-accelerator, result guess-independent, see design-simcore-scaffolding §1.4
+﻿// SIMCORE-EXEMPT: guess-accelerator, result guess-independent, see design-simcore-scaffolding §1.4
 //
 // Square root for the vendored Fix64 (api-freeze-v1 F2). Math.Sqrt supplies ONLY a first
 // guess; the integer fixup walks it to the exact floor square root, so the result is
@@ -15,114 +15,113 @@
 
 using System;
 
-namespace OpenSage.SimCore.Numerics
+namespace OpenSage.SimCore.Numerics;
+
+public readonly partial struct Fix64
 {
-    public readonly partial struct Fix64
+    /// <summary>
+    /// Deterministic Q31.32 square root, rounded to nearest raw ulp.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The argument was negative.</exception>
+    public static Fix64 Sqrt(Fix64 x)
     {
-        /// <summary>
-        /// Deterministic Q31.32 square root, rounded to nearest raw ulp.
-        /// </summary>
-        /// <exception cref="ArgumentOutOfRangeException">The argument was negative.</exception>
-        public static Fix64 Sqrt(Fix64 x)
+        var xl = x.m_rawValue;
+        if (xl < 0)
         {
-            var xl = x.m_rawValue;
-            if (xl < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(x), "Negative value passed to Sqrt");
-            }
-
-            return new Fix64((long)SqrtRawWide((UInt128)(ulong)xl << FRACTIONAL_PLACES));
+            throw new ArgumentOutOfRangeException(nameof(x), "Negative value passed to Sqrt");
         }
 
-        /// <summary>
-        /// Round-to-nearest integer square root of a 128-bit target: the s minimizing
-        /// |s² − t| (ties resolved upward, matching the vendored reference: round up
-        /// exactly when t − floor² &gt; floor). Also used by FixMath.Distance to take
-        /// sqrt of a Q62.64 squared-distance without materializing a Fix64 square.
-        /// </summary>
-        internal static ulong SqrtRawWide(UInt128 t)
+        return new Fix64((long)SqrtRawWide((UInt128)(ulong)xl << FRACTIONAL_PLACES));
+    }
+
+    /// <summary>
+    /// Round-to-nearest integer square root of a 128-bit target: the s minimizing
+    /// |s² − t| (ties resolved upward, matching the vendored reference: round up
+    /// exactly when t − floor² &gt; floor). Also used by FixMath.Distance to take
+    /// sqrt of a Q62.64 squared-distance without materializing a Fix64 square.
+    /// </summary>
+    internal static ulong SqrtRawWide(UInt128 t)
+    {
+        if (t == 0)
         {
-            if (t == 0)
-            {
-                return 0;
-            }
-
-            // Hardware-double guess (correctly rounded IEEE-754 sqrt everywhere, but the
-            // fixup below is what guarantees the answer, not the guess).
-            var s = (ulong)Math.Sqrt((double)t);
-
-            // Integer fixup to the exact floor square root. The guess is within a few
-            // ulps, so these loops run at most a handful of iterations.
-            while (s > 0 && (UInt128)s * s > t)
-            {
-                s--;
-            }
-            while ((UInt128)(s + 1) * (s + 1) <= t)
-            {
-                s++;
-            }
-
-            // Round to nearest: remainder greater than s means (s + 0.5)² < t.
-            if (t - (UInt128)s * s > s)
-            {
-                s++;
-            }
-            return s;
+            return 0;
         }
 
-        /// <summary>
-        /// Pure-integer reference implementation: the vendored digit-by-digit restoring
-        /// algorithm at full 128-bit width, with the identical explicit nearest rounding.
-        /// Exists solely so CI can prove the guess-accelerated <see cref="Sqrt"/> equivalent.
-        /// </summary>
-        internal static Fix64 SqrtReference(Fix64 x)
-        {
-            var xl = x.m_rawValue;
-            if (xl < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(x), "Negative value passed to Sqrt");
-            }
+        // Hardware-double guess (correctly rounded IEEE-754 sqrt everywhere, but the
+        // fixup below is what guarantees the answer, not the guess).
+        var s = (ulong)Math.Sqrt((double)t);
 
-            return new Fix64((long)SqrtRawWideReference((UInt128)(ulong)xl << FRACTIONAL_PLACES));
+        // Integer fixup to the exact floor square root. The guess is within a few
+        // ulps, so these loops run at most a handful of iterations.
+        while (s > 0 && (UInt128)s * s > t)
+        {
+            s--;
+        }
+        while ((UInt128)(s + 1) * (s + 1) <= t)
+        {
+            s++;
         }
 
-        /// <summary>
-        /// Pure-integer 128-bit restoring square root, round-to-nearest — the reference
-        /// for <see cref="SqrtRawWide"/>.
-        /// </summary>
-        internal static ulong SqrtRawWideReference(UInt128 t)
+        // Round to nearest: remainder greater than s means (s + 0.5)² < t.
+        if (t - (UInt128)s * s > s)
         {
-            var num = t;
-            var result = (UInt128)0;
-
-            // second-to-top bit
-            var bit = (UInt128)1 << 126;
-
-            while (bit > num)
-            {
-                bit >>= 2;
-            }
-
-            while (bit != 0)
-            {
-                if (num >= result + bit)
-                {
-                    num -= result + bit;
-                    result = (result >> 1) + bit;
-                }
-                else
-                {
-                    result = result >> 1;
-                }
-                bit >>= 2;
-            }
-
-            // If the next bit would have been 1, round the result upwards.
-            if (num > result)
-            {
-                ++result;
-            }
-            return (ulong)result;
+            s++;
         }
+        return s;
+    }
+
+    /// <summary>
+    /// Pure-integer reference implementation: the vendored digit-by-digit restoring
+    /// algorithm at full 128-bit width, with the identical explicit nearest rounding.
+    /// Exists solely so CI can prove the guess-accelerated <see cref="Sqrt"/> equivalent.
+    /// </summary>
+    internal static Fix64 SqrtReference(Fix64 x)
+    {
+        var xl = x.m_rawValue;
+        if (xl < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(x), "Negative value passed to Sqrt");
+        }
+
+        return new Fix64((long)SqrtRawWideReference((UInt128)(ulong)xl << FRACTIONAL_PLACES));
+    }
+
+    /// <summary>
+    /// Pure-integer 128-bit restoring square root, round-to-nearest — the reference
+    /// for <see cref="SqrtRawWide"/>.
+    /// </summary>
+    internal static ulong SqrtRawWideReference(UInt128 t)
+    {
+        var num = t;
+        var result = (UInt128)0;
+
+        // second-to-top bit
+        var bit = (UInt128)1 << 126;
+
+        while (bit > num)
+        {
+            bit >>= 2;
+        }
+
+        while (bit != 0)
+        {
+            if (num >= result + bit)
+            {
+                num -= result + bit;
+                result = (result >> 1) + bit;
+            }
+            else
+            {
+                result = result >> 1;
+            }
+            bit >>= 2;
+        }
+
+        // If the next bit would have been 1, round the result upwards.
+        if (num > result)
+        {
+            ++result;
+        }
+        return (ulong)result;
     }
 }

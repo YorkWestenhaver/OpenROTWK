@@ -1,4 +1,4 @@
-// The firing -> damage delivery half of the S1 system: GPL
+﻿// The firing -> damage delivery half of the S1 system: GPL
 // WeaponTemplate::dealDamageInternal's victim selection and affects-mask filtering
 // (generals-gpl GeneralsMD GameLogic/Object/Weapon.cpp:1221-1504, semantics only;
 // fresh code), rebuilt on the frozen ISimContext seams.

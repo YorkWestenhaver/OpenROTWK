@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the DemoTrapUpdate port (R12), one test per behavior branch
+﻿// Mocked-game contract tests for the DemoTrapUpdate port (R12), one test per behavior branch
 // the task packet's testCases enumerate: [create -> tick -> observable effect].
 //
 // This module is legacy (GameObject, IGameEngine), not [SimState] (see the file header on
@@ -103,11 +103,11 @@ End
     /// SabotageSupplyCenterCrateCollideContractTests uses, so a real (non-Neutral) relationship
     /// is actually observable.
     /// </summary>
-    private static uint _nextTestTeamId = 900;
+    private static uint NextTestTeamId = 900;
 
     private static void AssignSingletonTeam(HeadlessSimGame game, GameObject obj, Player owner)
     {
-        var id = _nextTestTeamId++;
+        var id = NextTestTeamId++;
         var template = new TeamTemplate(game.TeamFactory, id, $"TestTeam{id}", owner, isSingleton: true);
         obj.Team = new Team(template, id);
     }

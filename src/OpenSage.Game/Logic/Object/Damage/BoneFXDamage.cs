@@ -1,4 +1,4 @@
-// BoneFXDamage - Round-7 Damage-batch port (full task packet, template v1.1).
+﻿// BoneFXDamage - Round-7 Damage-batch port (full task packet, template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD BoneFXDamage.cpp/.h (GPL semantics reference
 // only; this is fresh code against the frozen contract). Behavior facts used:

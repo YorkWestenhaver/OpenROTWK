@@ -1,4 +1,4 @@
-// ImmortalBody R7 contract tests (template v1.1 §5): the immortality floor, exercised on
+﻿// ImmortalBody R7 contract tests (template v1.1 §5): the immortality floor, exercised on
 // HeadlessSimGame with real parsed INI so the quantizing parse path and the S1 Fix64
 // damage/armor/health chain are on the tested path. One test per behavioral branch, plus
 // the Xfer contract walk (shadow-copy CRC + mid-state save/load continuation).

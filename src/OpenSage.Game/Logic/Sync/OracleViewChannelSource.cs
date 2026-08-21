@@ -1,4 +1,4 @@
-// The harness's oracle view: one uniform record group per game object - Position / Angle /
+﻿// The harness's oracle view: one uniform record group per game object - Position / Angle /
 // Health / MaxHealth - the exact per-object state the workbench extracts from a retail
 // memory dump, so a Target-B diff lines up field-for-field without knowing module layouts.
 //

@@ -1,4 +1,4 @@
-// SimHordeContainModuleData - the audited (S5 vocabulary) parse side of the S6 horde
+﻿// SimHordeContainModuleData - the audited (S5 vocabulary) parse side of the S6 horde
 // system, implemented FRESH from the clean-room behavioral spec
 // bfme2-workbench/research/spec-hordes.md (BFME-only: no GPL reference exists; every
 // field below is from the binary parse table + the shared contain

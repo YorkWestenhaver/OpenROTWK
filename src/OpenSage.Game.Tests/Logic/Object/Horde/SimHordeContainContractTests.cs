@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the S6 horde/formation system (api-freeze-v1 §6 fitness
+﻿// Mocked-game contract tests for the S6 horde/formation system (api-freeze-v1 §6 fitness
 // item 4 shape): slot construction with deterministic jitter, InitialPayload + banner
 // spawn, member steering to slot world positions through the S2 locomotor, melee rank
 // release + back-up shuffle, the confirmed flanking formula, banner replenish and

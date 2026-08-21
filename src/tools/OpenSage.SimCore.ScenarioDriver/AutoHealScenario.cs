@@ -1,4 +1,4 @@
-// autoheal-v1 - build-order step 7's targeted scenario: the FIRST REAL MODULE through the
+﻿// autoheal-v1 - build-order step 7's targeted scenario: the FIRST REAL MODULE through the
 // harness pipeline (harness-v1.md finding H2-3 closes here).
 //
 // Everything around the module is the same real thing scripted-v1 proved: orders enter
@@ -131,32 +131,32 @@ End
         switch (order.Type)
         {
             case GameMessageType.MSG_DO_ATTACK_OBJECT:
-            {
-                if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                 {
-                    target.AttemptDamage(new DamageInfoInput(null)
+                    if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                     {
-                        DamageType = DamageType.Explosion,
-                        DeathType = DeathType.Normal,
-                        Amount = amount,
-                    });
-                }
-                break;
-            }
-            case GameMessageType.MSG_DO_SPECIAL_POWER:
-            {
-                if (TryTarget(order, out var target))
-                {
-                    foreach (var module in target.BehaviorModules)
-                    {
-                        if (module is AutoHealBehavior autoHeal)
+                        target.AttemptDamage(new DamageInfoInput(null)
                         {
-                            autoHeal.StopHealing();
+                            DamageType = DamageType.Explosion,
+                            DeathType = DeathType.Normal,
+                            Amount = amount,
+                        });
+                    }
+                    break;
+                }
+            case GameMessageType.MSG_DO_SPECIAL_POWER:
+                {
+                    if (TryTarget(order, out var target))
+                    {
+                        foreach (var module in target.BehaviorModules)
+                        {
+                            if (module is AutoHealBehavior autoHeal)
+                            {
+                                autoHeal.StopHealing();
+                            }
                         }
                     }
+                    break;
                 }
-                break;
-            }
         }
     }
 

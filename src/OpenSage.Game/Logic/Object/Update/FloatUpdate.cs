@@ -1,4 +1,4 @@
-// FloatUpdate - R12 port. Every frame the retail module (when Enabled) samples the water
+﻿// FloatUpdate - R12 port. Every frame the retail module (when Enabled) samples the water
 // table under the object's X/Y and snaps Z to it (GPL FloatUpdate::update, TheTerrainLogic->
 // isUnderwater), then unconditionally applies a small sinusoidal yaw/pitch bob to the
 // drawable's instance matrix keyed off the global frame counter - both branches run

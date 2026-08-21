@@ -1,4 +1,4 @@
-// S1 system tests (build-roadmap Tier-1 weapon-damage-armor): the firing -> damage ->
+﻿// S1 system tests (build-roadmap Tier-1 weapon-damage-armor): the firing -> damage ->
 // armor -> health chain, exercised on HeadlessSimGame with real parsed INI so the
 // quantizing parse path (ParseFix64 / ParseFix64Percentage / RangeDuration) is on the
 // tested path. One test per core formula/branch, plus Xfer round-trips (SimWeapon via

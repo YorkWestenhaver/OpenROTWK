@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the InvisibilityUpdate port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the InvisibilityUpdate port (api-freeze-v1 §6 fitness item 4):
 // one test per INI-configurable behavior branch, [create -> tick -> observable effect on the
 // object's ObjectStatus stealth bits], plus the shadow-copy base test and a mid-behavior
 // save/load continuation. Object definitions are parsed from INI text through the real parser,

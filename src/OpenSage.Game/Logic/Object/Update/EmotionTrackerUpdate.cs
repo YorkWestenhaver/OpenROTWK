@@ -1,4 +1,4 @@
-// EmotionTrackerUpdate - R11 Track B PARTIAL port. BFME-only (no generals-gpl sibling) and
+﻿// EmotionTrackerUpdate - R11 Track B PARTIAL port. BFME-only (no generals-gpl sibling) and
 // no clean-room spec in bfme2-workbench/research/ (searched: only the EmotionNugget asset
 // parse exists), so this ports the slice the job-009 INI chain exercises: the periodic
 // emotion scan cadence and the FEAR edge - an AfraidOf/AlwaysAfraidOf-matching enemy inside

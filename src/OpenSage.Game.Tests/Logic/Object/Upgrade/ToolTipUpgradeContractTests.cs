@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the ToolTipUpgrade port (R12): a client-UI module whose
+﻿// Mocked-game contract tests for the ToolTipUpgrade port (R12): a client-UI module whose
 // only sim-visible effect is CurrentDisplayName flipping to the parsed DisplayName once
 // the shared upgrade mux fires, mirroring the StatusBitsUpgrade test shape.
 

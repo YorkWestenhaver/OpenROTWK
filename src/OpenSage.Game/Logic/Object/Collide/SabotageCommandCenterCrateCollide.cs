@@ -1,4 +1,4 @@
-// SabotageCommandCenterCrateCollide - R12 port.
+﻿// SabotageCommandCenterCrateCollide - R12 port.
 //
 // Behavioral reference: generals-gpl GeneralsMD SabotageCommandCenterCrateCollide.cpp/.h and
 // its base, CrateCollide.cpp/.h (GPL semantics reference only; this is fresh code against the

@@ -1,4 +1,4 @@
-// The step-5 run-twice gate (api-freeze-v1 §6, Target A): the same scripted scenario, run
+﻿// The step-5 run-twice gate (api-freeze-v1 §6, Target A): the same scripted scenario, run
 // twice in one process with GC pressure between runs (and again by the CI determinism job
 // under different GC/tiering configurations - see .github/workflows/ci.yml), must produce a
 // byte-identical checkpoint CRC stream AND a byte-identical deep dump. Any divergence is a

@@ -1,4 +1,4 @@
-// HordeGarrisonContain - R12 port. BFME-only garrison container for hordes: no GPL sibling
+﻿// HordeGarrisonContain - R12 port. BFME-only garrison container for hordes: no GPL sibling
 // exists for this module family (generals-gpl has no horde system at all), so this is fresh
 // code against the task packet's spec summary/testCases, not a decompiled translation.
 //

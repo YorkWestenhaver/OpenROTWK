@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the AllowBannerSpawnUpgrade port (R12): one test per
+﻿// Mocked-game unit tests for the AllowBannerSpawnUpgrade port (R12): one test per
 // INI-configurable branch, [create -> trigger -> observable Triggered flag], plus the
 // shadow-copy base test and the mid-state save/load round-trip. This module is a pure
 // marker (see file header on the module) so the only observable is the shared upgrade-mux

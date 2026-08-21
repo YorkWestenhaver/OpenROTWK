@@ -1,4 +1,4 @@
-// HighlanderBody port contract tests (experiment-round-4 §4.1 item 4): the immortality
+﻿// HighlanderBody port contract tests (experiment-round-4 §4.1 item 4): the immortality
 // clamp exercised on HeadlessSimGame with real parsed INI, one test per branch, plus the
 // shadow-copy base test and a mid-state save/load continuation.
 //

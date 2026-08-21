@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageInternetCenterCrateCollide port (R12): the
+﻿// Mocked-game contract tests for the SabotageInternetCenterCrateCollide port (R12): the
 // [ParseOnly] hole is closed the same way as the other landed CrateCollide siblings in this
 // directory (ConvertToHijackedVehicleCrateCollide, ConvertToCarBombCrateCollide,
 // MoneyCrateCollide, SalvageCrateCollide) - a structurally real, loadable module - rather than

@@ -1,4 +1,4 @@
-// BridgeScaffoldTransformBridge - the ONE float-substrate crossing BridgeScaffoldBehavior
+﻿// BridgeScaffoldTransformBridge - the ONE float-substrate crossing BridgeScaffoldBehavior
 // needs (the D-7 boundary pattern, same shape as Locomotion/SimTransformBridge.cs and
 // Update/FloodTransformBridge.cs): [SimState] code in BridgeScaffoldBehavior.cs computes
 // every frame's new position in Fix64 and never touches a float; this file is the single

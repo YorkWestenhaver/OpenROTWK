@@ -1,4 +1,4 @@
-// CrateData - the crate-template flyweight CreateCrateDie tests and draws against
+﻿// CrateData - the crate-template flyweight CreateCrateDie tests and draws against
 // (generals-gpl GeneralsMD CrateSystem.h/.cpp `CrateTemplate`; GPL semantics reference only).
 //
 // Audited to the quantized sim vocabulary for the Round-5 Die batch: the two probabilities are

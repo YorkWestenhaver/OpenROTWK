@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the HordeGarrisonContain port (R12), one test per behavior
+﻿// Mocked-game contract tests for the HordeGarrisonContain port (R12), one test per behavior
 // branch the task packet's testCases enumerate.
 //
 // This module is legacy (GameObject, IGameEngine), matching its ModuleData ancestor

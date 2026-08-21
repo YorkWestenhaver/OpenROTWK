@@ -1,4 +1,4 @@
-// EnemyNearUpdate - R9 port through the full task packet (api-freeze-v1 §6 / template v1.1).
+﻿// EnemyNearUpdate - R9 port through the full task packet (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD EnemyNearUpdate.cpp/.h + AI::findClosestEnemy
 // (GPL semantics reference only; this is fresh code against the frozen contract). Behavior

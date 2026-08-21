@@ -1,4 +1,4 @@
-// KeepObjectDie - Die-batch port #3 (experiment-round-4 §4, replace-an-existing-module path).
+﻿// KeepObjectDie - Die-batch port #3 (experiment-round-4 §4, replace-an-existing-module path).
 //
 // Behavioral reference: generals-gpl GeneralsMD KeepObjectDie.cpp/.h (GPL semantics reference
 // only; this is fresh code against the frozen contract). Behavior facts used:

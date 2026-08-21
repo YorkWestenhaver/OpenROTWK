@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SmartBombTargetHomingUpdate port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the SmartBombTargetHomingUpdate port (api-freeze-v1 §6 fitness
 // item 4): one test per behavior branch from the R12 task packet, [create -> tick ->
 // observable effect], plus the mid-behavior save/load round-trip and the shadow-copy base
 // test - the same shape as CheckpointUpdateContractTests, its category exemplar.

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the AutoHealBehavior pilot port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the AutoHealBehavior pilot port (api-freeze-v1 §6 fitness
 // item 4): one test per INI-configurable behavior branch, [create -> tick -> observable
 // effect], plus the mid-behavior save/load round-trip and the shadow-copy base test.
 // Object definitions are parsed from INI text through the real parser, so the quantizing

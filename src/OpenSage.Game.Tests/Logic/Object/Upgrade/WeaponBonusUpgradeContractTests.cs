@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the WeaponBonusUpgrade port (experiment-round-4 §4.1 DoD item 4).
+﻿// Mocked-game unit tests for the WeaponBonusUpgrade port (experiment-round-4 §4.1 DoD item 4).
 // One test per INI branch, each shaped [create -> trigger upgrade -> observable effect].
 //
 // Behavioral reference: generals-gpl GeneralsMD WeaponBonusUpgrade.cpp (GPL as fact source only).

@@ -1,4 +1,4 @@
-// CreateCrateDie - Round-5 Die batch, class 5 of 11 (experiment-round-4 §4).
+﻿// CreateCrateDie - Round-5 Die batch, class 5 of 11 (experiment-round-4 §4).
 //
 // Behavioral reference: generals-gpl GeneralsMD CreateCrateDie.cpp/.h + CrateSystem.cpp
 // (GPL semantics reference only; this is fresh code against the frozen contract).

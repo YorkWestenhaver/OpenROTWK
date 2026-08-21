@@ -1,4 +1,4 @@
-// Gate tests for scaffolding step 5, part 3: the F8 channel walk, the interval clamp, the
+﻿// Gate tests for scaffolding step 5, part 3: the F8 channel walk, the interval clamp, the
 // checkpoint message wire form, per-channel localization, exclude switches, and the
 // LogicRandom channel round-trip.
 

@@ -1,4 +1,4 @@
-// Gate tests for scaffolding step 5, part 1 (api-freeze-v1 §6 build order): the F7 fold
+﻿// Gate tests for scaffolding step 5, part 1 (api-freeze-v1 §6 build order): the F7 fold
 // against hand-computed vectors. Every expected constant below was worked by hand from the
 // behavioral spec of crc-byteorder §4 (init 0; per step crc = rotl1(crc) + value, unsigned
 // wrap; native-LE words first, then zero-extended trailing bytes; PER-CALL word/remainder

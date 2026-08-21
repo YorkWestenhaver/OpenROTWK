@@ -1,4 +1,4 @@
-// DamDie - Die-batch class 8 (experiment-round-4 §4, "smallest file in the dir").
+﻿// DamDie - Die-batch class 8 (experiment-round-4 §4, "smallest file in the dir").
 //
 // Behavioral reference: generals-gpl GeneralsMD .../Object/Die/DamDie.cpp|.h (GPL semantics
 // reference only; this is fresh code against the frozen contract). Behavior facts used:

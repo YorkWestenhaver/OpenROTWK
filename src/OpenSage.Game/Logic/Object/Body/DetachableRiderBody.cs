@@ -1,4 +1,4 @@
-// DetachableRiderBody - R8 Body-batch port to the frozen module contract (api-freeze-v1 §3/§5
+﻿// DetachableRiderBody - R8 Body-batch port to the frozen module contract (api-freeze-v1 §3/§5
 // as amended v1.1; template v1.1 = pilot-autoheal §3/§6). Builds ON S1 (weapon/damage/armor):
 // consumes the landed ActiveBody / BodyDamageCore Fix64 health surface and does NOT reimplement
 // damage math.

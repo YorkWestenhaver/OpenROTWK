@@ -1,4 +1,4 @@
-// One registered object in the deterministic partition grid — the fresh analog of GPL
+﻿// One registered object in the deterministic partition grid — the fresh analog of GPL
 // PartitionData (cell coverage + per-player shroudedness cache) fused with the Object's
 // partition-facing sighting state (GPL Object::m_partitionLastLook /
 // m_partitionRevealAllLastLook / m_partitionLastShroud, each a SightingInfo).

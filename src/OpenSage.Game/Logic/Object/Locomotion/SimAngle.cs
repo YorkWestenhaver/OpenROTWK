@@ -1,4 +1,4 @@
-// Deterministic angle helpers for the S2 locomotor system (fresh code; GPL semantic
+﻿// Deterministic angle helpers for the S2 locomotor system (fresh code; GPL semantic
 // reference: GameCommon.h normalizeAngle / stdAngleDiff - wrap into (-Pi, Pi]).
 // All angles are plain Fix64 radians (api-freeze-v1 S2: FixedAngle does not exist).
 

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the FlightDeckBehavior port (R12), one test per packet
+﻿// Mocked-game unit tests for the FlightDeckBehavior port (R12), one test per packet
 // testCase: parked-aircraft healing, the takeoff ramp/catapult/launch-wave sequence, landing
 // runway reservation plus the ApproachHeight-derived descent target, R1/R2 space
 // interleaving, and the replacement-payload spawn timer.

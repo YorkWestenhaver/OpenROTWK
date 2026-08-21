@@ -1,4 +1,4 @@
-// ProductionQueueHordeContain - the Round-12 runtime port. BFME-only module (no GPL sibling)
+﻿// ProductionQueueHordeContain - the Round-12 runtime port. BFME-only module (no GPL sibling)
 // and no dedicated clean-room spec doc: bfme2-workbench/research/spec-hordes.md only carries
 // the one-line family table entry (own vtable at 0xc0bacc, "separate contain family: garrisons
 // keep the horde grouping intact while contained") - no decompiled per-frame logic has been

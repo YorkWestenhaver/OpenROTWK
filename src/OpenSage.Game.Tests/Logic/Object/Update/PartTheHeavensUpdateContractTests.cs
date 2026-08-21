@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the PartTheHeavensUpdate port (R12): the visual-effect
+﻿// Mocked-game contract tests for the PartTheHeavensUpdate port (R12): the visual-effect
 // module (ring/circle texture with color and time-based radius/opacity/angle FCurves)
 // parses, instantiates as a live (permanently parked) runtime module, and round-trips its
 // empty state - the [ParseOnly] hole is closed without inventing rendering behavior for a

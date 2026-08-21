@@ -1,4 +1,4 @@
-// Unit tests for the Die-batch death-trigger helper (experiment-round-4 §4.1: "Die modules
+﻿// Unit tests for the Die-batch death-trigger helper (experiment-round-4 §4.1: "Die modules
 // need a death-trigger helper - build it once for the batch"). These test the HELPER, not any
 // Die port: they prove that PortedModuleTestKit.TriggerDeath really drives GameObject.OnDie
 // over an object's real Die modules, that the death type it carries is the one the Die

@@ -1,4 +1,4 @@
-// The streaming deep-CRC dump (design-simcore-scaffolding §5.3; the 0 A.D. -ooslog pattern).
+﻿// The streaming deep-CRC dump (design-simcore-scaffolding §5.3; the 0 A.D. -ooslog pattern).
 // One text record per xfer call: channel / objectId / moduleIndex / tag / class / field /
 // tolerance / raw bytes. The dump doubles as the conformance harness's comparator input, and
 // `ddiff` (bfme2-workbench/tools/ddiff.py) prints the first divergent record of two dumps.
@@ -20,183 +20,182 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace OpenSage.SimCore.Sync
+namespace OpenSage.SimCore.Sync;
+
+public sealed class DeepCrcWriter : IDisposable
 {
-    public sealed class DeepCrcWriter : IDisposable
+    public const string HeaderLine = "# opensage-deepdump v2";
+
+    private readonly TextWriter _writer;
+    private readonly bool _leaveOpen;
+    private readonly StringBuilder _line = new();
+
+    public DeepCrcWriter(TextWriter writer, bool leaveOpen = false)
     {
-        public const string HeaderLine = "# opensage-deepdump v2";
+        ArgumentNullException.ThrowIfNull(writer);
+        _writer = writer;
+        _leaveOpen = leaveOpen;
+        _writer.Write(HeaderLine);
+        _writer.Write('\n');
+    }
 
-        private readonly TextWriter _writer;
-        private readonly bool _leaveOpen;
-        private readonly StringBuilder _line = new();
+    public void BeginFrame(uint frame)
+    {
+        _writer.Write("F ");
+        WriteUInt(frame);
+        _writer.Write('\n');
+    }
 
-        public DeepCrcWriter(TextWriter writer, bool leaveOpen = false)
+    public void BeginChannel(CrcChannel channel)
+    {
+        _writer.Write("C ");
+        WriteUInt((byte)channel);
+        _writer.Write(' ');
+        _writer.Write(CrcChannels.NameOf(channel));
+        _writer.Write('\n');
+    }
+
+    public void EndChannel(CrcChannel channel, uint channelCrc)
+    {
+        _writer.Write("E ");
+        WriteUInt((byte)channel);
+        _writer.Write(' ');
+        WriteHex8(channelCrc);
+        _writer.Write('\n');
+    }
+
+    public void Record(in XferModuleId module, string fieldName, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> rawBytes)
+    {
+        _line.Clear();
+        _line.Append("R ");
+        AppendUInt(module.ObjectId);
+        _line.Append(' ');
+        AppendInt(module.ModuleIndex);
+        _line.Append(' ');
+        AppendToken(module.Tag);
+        _line.Append(' ');
+        AppendToken(module.ClassName);
+        _line.Append(' ');
+        AppendToken(fieldName);
+        _line.Append(' ');
+        _line.Append(TolLetter(tol));
+        _line.Append(' ');
+        _line.Append(XferValueKinds.TokenOf(kind));
+        _line.Append(' ');
+        for (var i = 0; i < rawBytes.Length; i++)
         {
-            ArgumentNullException.ThrowIfNull(writer);
-            _writer = writer;
-            _leaveOpen = leaveOpen;
-            _writer.Write(HeaderLine);
-            _writer.Write('\n');
+            AppendHexByte(rawBytes[i]);
         }
+        _line.Append('\n');
+        _writer.Write(_line);
+    }
 
-        public void BeginFrame(uint frame)
+    /// <summary>
+    /// Writes the checkpoint vector line: the frame, the combined CRC, and one entry per
+    /// CrcChannel ordinal (excluded/inactive/unregistered channels hold 0, matching the
+    /// checkpoint message's positional-zero ruling). The harness decodes this into its
+    /// crcVector record.
+    /// </summary>
+    public void CrcVector(uint frame, uint combined, System.Collections.Generic.IReadOnlyList<uint> channelCrcs)
+    {
+        ArgumentNullException.ThrowIfNull(channelCrcs);
+        _writer.Write("V ");
+        WriteUInt(frame);
+        _writer.Write(' ');
+        WriteHex8(combined);
+        for (var i = 0; i < channelCrcs.Count; i++)
         {
-            _writer.Write("F ");
-            WriteUInt(frame);
-            _writer.Write('\n');
-        }
-
-        public void BeginChannel(CrcChannel channel)
-        {
-            _writer.Write("C ");
-            WriteUInt((byte)channel);
             _writer.Write(' ');
-            _writer.Write(CrcChannels.NameOf(channel));
-            _writer.Write('\n');
+            WriteHex8(channelCrcs[i]);
         }
+        _writer.Write('\n');
+    }
 
-        public void EndChannel(CrcChannel channel, uint channelCrc)
+    public void Flush() => _writer.Flush();
+
+    public void Dispose()
+    {
+        _writer.Flush();
+        if (!_leaveOpen)
         {
-            _writer.Write("E ");
-            WriteUInt((byte)channel);
-            _writer.Write(' ');
-            WriteHex8(channelCrc);
-            _writer.Write('\n');
+            _writer.Dispose();
         }
+    }
 
-        public void Record(in XferModuleId module, string fieldName, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> rawBytes)
+    private static char TolLetter(Tolerance tol) => tol switch
+    {
+        Tolerance.Exact => 'E',
+        Tolerance.Quantum => 'Q',
+        Tolerance.Band => 'B',
+        Tolerance.Outcome => 'O',
+        Tolerance.DrawCount => 'D',
+        _ => '?',
+    };
+
+    // Integer-to-text without culture involvement: digits are computed, not formatted.
+
+    private void WriteUInt(uint value)
+    {
+        _line.Clear();
+        AppendUInt(value);
+        _writer.Write(_line);
+    }
+
+    private void WriteHex8(uint value)
+    {
+        _line.Clear();
+        AppendHexByte((byte)(value >> 24));
+        AppendHexByte((byte)(value >> 16));
+        AppendHexByte((byte)(value >> 8));
+        AppendHexByte((byte)value);
+        _writer.Write(_line);
+    }
+
+    private void AppendUInt(uint value)
+    {
+        Span<char> digits = stackalloc char[10];
+        var n = 0;
+        do
         {
-            _line.Clear();
-            _line.Append("R ");
-            AppendUInt(module.ObjectId);
-            _line.Append(' ');
-            AppendInt(module.ModuleIndex);
-            _line.Append(' ');
-            AppendToken(module.Tag);
-            _line.Append(' ');
-            AppendToken(module.ClassName);
-            _line.Append(' ');
-            AppendToken(fieldName);
-            _line.Append(' ');
-            _line.Append(TolLetter(tol));
-            _line.Append(' ');
-            _line.Append(XferValueKinds.TokenOf(kind));
-            _line.Append(' ');
-            for (var i = 0; i < rawBytes.Length; i++)
-            {
-                AppendHexByte(rawBytes[i]);
-            }
-            _line.Append('\n');
-            _writer.Write(_line);
+            digits[n++] = (char)('0' + value % 10);
+            value /= 10;
+        } while (value != 0);
+        for (var i = n - 1; i >= 0; i--)
+        {
+            _line.Append(digits[i]);
         }
+    }
 
-        /// <summary>
-        /// Writes the checkpoint vector line: the frame, the combined CRC, and one entry per
-        /// CrcChannel ordinal (excluded/inactive/unregistered channels hold 0, matching the
-        /// checkpoint message's positional-zero ruling). The harness decodes this into its
-        /// crcVector record.
-        /// </summary>
-        public void CrcVector(uint frame, uint combined, System.Collections.Generic.IReadOnlyList<uint> channelCrcs)
+    private void AppendInt(int value)
+    {
+        if (value < 0)
         {
-            ArgumentNullException.ThrowIfNull(channelCrcs);
-            _writer.Write("V ");
-            WriteUInt(frame);
-            _writer.Write(' ');
-            WriteHex8(combined);
-            for (var i = 0; i < channelCrcs.Count; i++)
-            {
-                _writer.Write(' ');
-                WriteHex8(channelCrcs[i]);
-            }
-            _writer.Write('\n');
+            _line.Append('-');
+            AppendUInt((uint)-(long)value);
         }
-
-        public void Flush() => _writer.Flush();
-
-        public void Dispose()
+        else
         {
-            _writer.Flush();
-            if (!_leaveOpen)
-            {
-                _writer.Dispose();
-            }
+            AppendUInt((uint)value);
         }
+    }
 
-        private static char TolLetter(Tolerance tol) => tol switch
+    private void AppendHexByte(byte b)
+    {
+        const string hex = "0123456789abcdef";
+        _line.Append(hex[b >> 4]);
+        _line.Append(hex[b & 0xF]);
+    }
+
+    private void AppendToken(string? s)
+    {
+        if (string.IsNullOrEmpty(s))
         {
-            Tolerance.Exact => 'E',
-            Tolerance.Quantum => 'Q',
-            Tolerance.Band => 'B',
-            Tolerance.Outcome => 'O',
-            Tolerance.DrawCount => 'D',
-            _ => '?',
-        };
-
-        // Integer-to-text without culture involvement: digits are computed, not formatted.
-
-        private void WriteUInt(uint value)
-        {
-            _line.Clear();
-            AppendUInt(value);
-            _writer.Write(_line);
+            _line.Append('~');
+            return;
         }
-
-        private void WriteHex8(uint value)
+        foreach (var c in s)
         {
-            _line.Clear();
-            AppendHexByte((byte)(value >> 24));
-            AppendHexByte((byte)(value >> 16));
-            AppendHexByte((byte)(value >> 8));
-            AppendHexByte((byte)value);
-            _writer.Write(_line);
-        }
-
-        private void AppendUInt(uint value)
-        {
-            Span<char> digits = stackalloc char[10];
-            var n = 0;
-            do
-            {
-                digits[n++] = (char)('0' + value % 10);
-                value /= 10;
-            } while (value != 0);
-            for (var i = n - 1; i >= 0; i--)
-            {
-                _line.Append(digits[i]);
-            }
-        }
-
-        private void AppendInt(int value)
-        {
-            if (value < 0)
-            {
-                _line.Append('-');
-                AppendUInt((uint)-(long)value);
-            }
-            else
-            {
-                AppendUInt((uint)value);
-            }
-        }
-
-        private void AppendHexByte(byte b)
-        {
-            const string hex = "0123456789abcdef";
-            _line.Append(hex[b >> 4]);
-            _line.Append(hex[b & 0xF]);
-        }
-
-        private void AppendToken(string? s)
-        {
-            if (string.IsNullOrEmpty(s))
-            {
-                _line.Append('~');
-                return;
-            }
-            foreach (var c in s)
-            {
-                _line.Append(char.IsWhiteSpace(c) ? '_' : c);
-            }
+            _line.Append(char.IsWhiteSpace(c) ? '_' : c);
         }
     }
 }

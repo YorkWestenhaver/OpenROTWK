@@ -1,4 +1,4 @@
-// The REAL Objects channel source (api-freeze-v1 F8 channel 0; step-5 handoff: "real
+﻿// The REAL Objects channel source (api-freeze-v1 F8 channel 0; step-5 handoff: "real
 // channel sources implement ICrcChannelSource in OpenSage.Game and must iterate ascending
 // (ObjectId, ModuleIndex)").
 //

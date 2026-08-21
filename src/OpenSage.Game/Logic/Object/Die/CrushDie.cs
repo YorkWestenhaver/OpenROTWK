@@ -1,4 +1,4 @@
-// CrushDie - Round-5 Die batch, class 6 of 11 (collision-sourced death).
+﻿// CrushDie - Round-5 Die batch, class 6 of 11 (collision-sourced death).
 //
 // Behavioral reference: generals-gpl GeneralsMD CrushDie.cpp/.h (GPL semantics reference
 // only; this is fresh code against the frozen contract). Behavior facts used:

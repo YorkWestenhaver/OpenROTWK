@@ -1,4 +1,4 @@
-// The deterministic cost/build-time formulas - GPL ThingTemplate::calcCostToBuild /
+﻿// The deterministic cost/build-time formulas - GPL ThingTemplate::calcCostToBuild /
 // calcTimeToBuild and Player's production-change modifiers (generals-gpl GeneralsMD
 // Common/Thing/ThingTemplate.cpp:1532-1600, Common/RTS/Player.cpp
 // getProductionCostChangePercent / getProductionTimeChangePercent /

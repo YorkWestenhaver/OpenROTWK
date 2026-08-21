@@ -1,4 +1,4 @@
-// The Partition and Shroud CRC channel sources (api-freeze-v1 F8 channels 2 and 4),
+﻿// The Partition and Shroud CRC channel sources (api-freeze-v1 F8 channels 2 and 4),
 // wired by sys/partition-wiring (R9, closes the F-PV-1 channel-walk item).
 //
 // Partition (channel 2): the grid's own walk - geometry guards, the per-cell per-player

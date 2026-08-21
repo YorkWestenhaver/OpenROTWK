@@ -1,4 +1,4 @@
-// ToggleHiddenSpecialAbilityUpdate - R12 port (api-freeze-v1 §6 / template v1.1).
+﻿// ToggleHiddenSpecialAbilityUpdate - R12 port (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: generals-gpl carries no ToggleHiddenSpecialAbilityUpdate at all (grep
 // confirms - it is a BFME2-only class); the closest GPL relative is the generic

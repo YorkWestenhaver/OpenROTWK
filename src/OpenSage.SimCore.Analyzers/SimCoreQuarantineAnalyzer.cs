@@ -507,7 +507,7 @@ public sealed class SimCoreQuarantineAnalyzer : DiagnosticAnalyzer
                         case MemberRole.Mutating:
                             CollectFieldSymbols(context, body, assignedOnly: true, mutatedOutside);
                             break;
-                        // MemberRole.Construction: ignored - initialisation, not live mutation.
+                            // MemberRole.Construction: ignored - initialisation, not live mutation.
                     }
                 }
             }

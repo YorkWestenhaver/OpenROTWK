@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the ModelConditionAudioLoopClientBehavior port (R12): the
+﻿// Mocked-game contract tests for the ModelConditionAudioLoopClientBehavior port (R12): the
 // audio-only module parses, and its runtime module (once instantiated) round-trips its empty
 // state, mirroring LargeGroupAudioUpdateContractTests (R11 Track B).
 //

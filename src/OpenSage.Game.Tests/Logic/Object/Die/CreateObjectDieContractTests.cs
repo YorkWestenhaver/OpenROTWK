@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CreateObjectDie port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the CreateObjectDie port (api-freeze-v1 §6 fitness item 4):
 // one test per INI-configurable branch, each [create -> trigger death -> observable
 // effect] via the batch's death-trigger helper, plus the shadow-copy base test and the
 // mid-behavior save/load continuation. Object definitions and the ObjectCreationLists are

@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — the world seam.
+﻿// S8 script-engine runtime (subset) — the world seam.
 //
 // The [SimState] runtime (SimScriptEngine) is world-agnostic: every condition that reads the
 // world and every action that changes it goes through this interface. The real adapter

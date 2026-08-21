@@ -1,4 +1,4 @@
-// S5 pathfinding - the path result (GPL Path / PathNode) and the path-follow projection
+﻿// S5 pathfinding - the path result (GPL Path / PathNode) and the path-follow projection
 // (GPL Path::computePointOnPath), all Fix64.
 //
 // Behavioral reference (clean-room, semantics only): AIPathfind.cpp - Path::prependNode/

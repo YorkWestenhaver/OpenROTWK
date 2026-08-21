@@ -1,4 +1,4 @@
-// PilotFindVehicleUpdate - R12 port, translated from generals-gpl GeneralsMD
+﻿// PilotFindVehicleUpdate - R12 port, translated from generals-gpl GeneralsMD
 // PilotFindVehicleUpdate.cpp/.h (GPL semantics reference; api-freeze-v1 §6 / template v1.1).
 // AI-only: "instructs the pilot to go find a friendly vehicle to enter."
 //

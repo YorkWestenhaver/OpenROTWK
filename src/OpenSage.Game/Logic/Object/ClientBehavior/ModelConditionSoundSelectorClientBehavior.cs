@@ -1,4 +1,4 @@
-// ModelConditionSoundSelectorClientBehavior - R12 port. Client-side audio-selection module
+﻿// ModelConditionSoundSelectorClientBehavior - R12 port. Client-side audio-selection module
 // that maps a single unit model-condition flag to a bundle of voice/sound asset references
 // (SoundState). Audio selection and playback are deliberately absent from ISimContext (S8;
 // see LargeGroupAudioUpdate's header for the same finding), and the parsed state has no

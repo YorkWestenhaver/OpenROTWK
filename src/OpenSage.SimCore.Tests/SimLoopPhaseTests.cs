@@ -1,4 +1,4 @@
-// Gate tests for scaffolding step 4 (api-freeze-v1 §6 build order): the frozen SimPhase
+﻿// Gate tests for scaffolding step 4 (api-freeze-v1 §6 build order): the frozen SimPhase
 // sequence, the 5 Hz constants, the checkpoint cadence gate, the +2-frame order schedule,
 // deterministic dispatch order, wire quantization at ingestion, and the recovered
 // GameMessageType vocabulary pins.

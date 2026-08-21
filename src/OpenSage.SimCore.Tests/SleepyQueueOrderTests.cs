@@ -1,4 +1,4 @@
-// Gate tests for scaffolding step 4 (api-freeze-v1 §6 build order): the SleepyUpdateQueue's
+﻿// Gate tests for scaffolding step 4 (api-freeze-v1 §6 build order): the SleepyUpdateQueue's
 // deterministic total order. The design-doc guarantee (design-simcore-scaffolding §4.4):
 // ties never break by heap-insertion accident, and the pop sequence equals a full sort.
 

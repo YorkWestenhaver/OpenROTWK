@@ -1,4 +1,4 @@
-// SimLocomotorUpdate - the S2 system's driver UpdateModule: owns the object's
+﻿// SimLocomotorUpdate - the S2 system's driver UpdateModule: owns the object's
 // SimLocomotorSet, its current SimLocomotor, its SimPhysics integrator state, and the
 // current movement goal, and runs the frozen per-frame order
 //     locomotor pass  ->  physics integration  ->  display push
@@ -357,31 +357,31 @@ public sealed class SimLocomotorUpdate : UpdateModule, OpenSage.Logic.Object.Pat
         switch (_mode)
         {
             case SimMoveMode.MoveToPosition:
-            {
-                // Arrival (GPL AIUpdate close-enough): collapse to Maintain.
-                var dx = _goalPosition.X - _physics.Position.X;
-                var dy = _goalPosition.Y - _physics.Position.Y;
-                var dz = _goalPosition.Z - _physics.Position.Z;
-                var distSq = locomotor.IsCloseEnoughDist3D
-                    ? dx * dx + dy * dy + dz * dz
-                    : dx * dx + dy * dy;
-                var closeEnough = locomotor.CloseEnoughDist;
-                if (distSq <= closeEnough * closeEnough)
                 {
-                    _mode = SimMoveMode.Maintain;
-                    goto case SimMoveMode.Maintain;
-                }
+                    // Arrival (GPL AIUpdate close-enough): collapse to Maintain.
+                    var dx = _goalPosition.X - _physics.Position.X;
+                    var dy = _goalPosition.Y - _physics.Position.Y;
+                    var dz = _goalPosition.Z - _physics.Position.Z;
+                    var distSq = locomotor.IsCloseEnoughDist3D
+                        ? dx * dx + dy * dy + dz * dz
+                        : dx * dx + dy * dy;
+                    var closeEnough = locomotor.CloseEnoughDist;
+                    if (distSq <= closeEnough * closeEnough)
+                    {
+                        _mode = SimMoveMode.Maintain;
+                        goto case SimMoveMode.Maintain;
+                    }
 
-                // Straight-line path: onPathDistToGoal = 2D distance (the pathfinder that
-                // would supply a path distance is S5).
-                var onPathDist = Fix64.Sqrt(dx * dx + dy * dy);
-                var blocked = _blocked;
-                locomotor.MoveTowardsPosition(
-                    _physics, condition, _goalPosition, onPathDist, _desiredSpeed,
-                    ref blocked, now, surfaceZ);
-                _blocked = blocked;
-                break;
-            }
+                    // Straight-line path: onPathDistToGoal = 2D distance (the pathfinder that
+                    // would supply a path distance is S5).
+                    var onPathDist = Fix64.Sqrt(dx * dx + dy * dy);
+                    var blocked = _blocked;
+                    locomotor.MoveTowardsPosition(
+                        _physics, condition, _goalPosition, onPathDist, _desiredSpeed,
+                        ref blocked, now, surfaceZ);
+                    _blocked = blocked;
+                    break;
+                }
 
             case SimMoveMode.MoveTowardsAngle:
                 locomotor.MoveTowardsAngle(_physics, condition, _goalAngle, now, surfaceZ);
@@ -390,14 +390,14 @@ public sealed class SimLocomotorUpdate : UpdateModule, OpenSage.Logic.Object.Pat
             // S5 pathfinding (additive): the POSITION_ON_PATH body. Falls through to
             // Maintain when PathfindFollowPath collapses the mode on arrival.
             case SimMoveMode.PathfindMoveToPosition:
-            {
-                if (!PathfindFollowPath(now, surfaceZ, condition) &&
-                    _mode == SimMoveMode.Maintain)
                 {
-                    goto case SimMoveMode.Maintain;
+                    if (!PathfindFollowPath(now, surfaceZ, condition) &&
+                        _mode == SimMoveMode.Maintain)
+                    {
+                        goto case SimMoveMode.Maintain;
+                    }
+                    break;
                 }
-                break;
-            }
 
             case SimMoveMode.Maintain:
                 requiresConstantCalling =

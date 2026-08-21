@@ -1,4 +1,4 @@
-// EjectPilotDie - Die-batch port to the frozen module contract (api-freeze-v1 §3/§5,
+﻿// EjectPilotDie - Die-batch port to the frozen module contract (api-freeze-v1 §3/§5,
 // template v1.1 = pilot-autoheal §3/§6).
 //
 // Behavioral reference: generals-gpl GeneralsMD EjectPilotDie.cpp/.h (GPL semantics only;

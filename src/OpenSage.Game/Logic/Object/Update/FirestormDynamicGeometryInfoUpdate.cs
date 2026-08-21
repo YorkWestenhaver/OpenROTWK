@@ -1,4 +1,4 @@
-// FirestormDynamicGeometryInfoUpdate - R12 port. Behavioral reference (semantics only):
+﻿// FirestormDynamicGeometryInfoUpdate - R12 port. Behavioral reference (semantics only):
 // generals-gpl GeneralsMD GameLogic/Object/Update/FirestormDynamicGeometryInfoUpdate.cpp
 // (class FirestormDynamicGeometryInfoUpdate, extending DynamicGeometryInfoUpdate).
 //

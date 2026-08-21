@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — CRC/persist channel source.
+﻿// S8 script-engine runtime (subset) — CRC/persist channel source.
 //
 // The F8 channel walk is frozen with no dedicated Script channel; the original persists its
 // script engine inside the GameLogic snapshot and CRC-covers it through the same whole-state

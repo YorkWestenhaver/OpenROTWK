@@ -1,4 +1,4 @@
-// Per-Player registry of KindOf production-cost-change modifiers (S4 economy sink for
+﻿// Per-Player registry of KindOf production-cost-change modifiers (S4 economy sink for
 // CostModifierUpgrade). Behavioral reference: generals-gpl GeneralsMD Common/RTS/Player.cpp
 // Player::addKindOfProductionCostChange / removeKindOfProductionCostChange /
 // getProductionCostChangeBasedOnKindOf (semantics only; fresh code, Q31.32).

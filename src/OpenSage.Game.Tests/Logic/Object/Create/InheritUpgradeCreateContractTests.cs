@@ -1,4 +1,4 @@
-// Contract tests for the InheritUpgradeCreate port (experiment-round-4 §4.1 DoD item 4: one
+﻿// Contract tests for the InheritUpgradeCreate port (experiment-round-4 §4.1 DoD item 4: one
 // test per INI branch, minimum [create -> observable effect]). InheritUpgradeCreate is a
 // fire-once create reaction with EMPTY mutable state whose Xfer is the legacy version+base
 // walk (it mirrors GrantUpgradeCreate exactly - HasSimXfer is false, so the shadow-copy CRC

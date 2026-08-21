@@ -1,4 +1,4 @@
-// RadiusDecalUpdate - R12 port. GPL reference:
+﻿// RadiusDecalUpdate - R12 port. GPL reference:
 // Generals/Code/GameEngine/Include/GameLogic/Module/RadiusDecalUpdate.h (+ .cpp),
 // GeneralsMD carries the identical shape. Behavior facts used:
 //   - ctor: no decal, m_killWhenNoLongerAttacking = false, wake forever (nothing to do

@@ -1,4 +1,4 @@
-// InvisibilityUpdate - BFME2 stealth/camouflage update (experiment-round-4 §4.1; template v1.1).
+﻿// InvisibilityUpdate - BFME2 stealth/camouflage update (experiment-round-4 §4.1; template v1.1).
 //
 // CLEAN-ROOM / REFERENCE CAVEAT (packet): there is NO same-name GPL file - InvisibilityUpdate is
 // BFME2-specific. The BEHAVIORAL analog is generals-gpl GeneralsMD StealthUpdate.cpp/.h (GPL used

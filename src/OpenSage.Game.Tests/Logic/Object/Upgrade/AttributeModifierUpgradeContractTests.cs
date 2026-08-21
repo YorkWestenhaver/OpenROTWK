@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the AttributeModifierUpgrade port (R11 Track B): the
+﻿// Mocked-game contract tests for the AttributeModifierUpgrade port (R11 Track B): the
 // triggered ModifierList grant into the object's modifier registry (the sim-visible
 // output; effect application is the legacy client loop - see the module header), mux
 // idempotence, and the shadow-copy base test.

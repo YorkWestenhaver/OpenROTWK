@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the RailedTransportDockUpdate port (R12), one test per packet
+﻿// Mocked-game unit tests for the RailedTransportDockUpdate port (R12), one test per packet
 // testCase: gradual pull-in with tolerance-gated auto-containment, sequential unloadAll,
 // immediate containment when already within the close-enough distance, unloadSingleObject's
 // one-at-a-time counter, destroyed-object recovery on both the docking and unloading paths,
@@ -272,12 +272,12 @@ End
 
         // A second explicit call unloads exactly one more.
         dock.UnloadSingleObject(null);
-        Assert.Equal(1, contain.ContainedObjectIds.Count);
+        Assert.Single(contain.ContainedObjectIds);
         for (var i = 0; i < 20 && dock.IsLoadingOrUnloading; i++)
         {
             game.Step();
         }
-        Assert.Equal(1, contain.ContainedObjectIds.Count); // one remains, untouched
+        Assert.Single(contain.ContainedObjectIds); // one remains, untouched
     }
 
     // ---- testCase 5: destroyed object recovery --------------------------------------------

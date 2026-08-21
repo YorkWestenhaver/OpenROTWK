@@ -1,4 +1,4 @@
-// AnimationSteeringUpdate - R12 port. Behavioral reference (semantics only):
+﻿// AnimationSteeringUpdate - R12 port. Behavioral reference (semantics only):
 // generals-gpl GeneralsMD GameLogic/Module/AnimationSteeringUpdate.h/.cpp. Purely a
 // visual state machine: it polls the object's SimLocomotorUpdate physics turning
 // direction and drives the drawable's steering model-condition flags (the

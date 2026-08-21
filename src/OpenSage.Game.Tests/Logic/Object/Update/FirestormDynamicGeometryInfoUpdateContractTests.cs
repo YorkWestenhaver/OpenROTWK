@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the FirestormDynamicGeometryInfoUpdate port (R12): a
+﻿// Mocked-game contract tests for the FirestormDynamicGeometryInfoUpdate port (R12): a
 // permanently-parked module (see the module header) - it parses, instantiates as a live
 // runtime module, and round-trips its empty state. The [ParseOnly] hole is closed without
 // inventing sim behavior for particle-emitter radius sync / scorch placement / area damage,

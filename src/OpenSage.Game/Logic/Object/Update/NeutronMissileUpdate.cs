@@ -1,4 +1,4 @@
-// NeutronMissileUpdate - R12 port (task packet neutron-missile-update). Behavioral
+﻿// NeutronMissileUpdate - R12 port (task packet neutron-missile-update). Behavioral
 // reference (semantics only): generals-gpl GeneralsMD GameLogic/Module/NeutronMissileUpdate.h/
 // .cpp (class NeutronMissileUpdate / NeutronMissileUpdateModuleData). Legacy (pre-SimCore)
 // runtime module: it drives Drawable bone transforms (launch-bone attach, per-frame

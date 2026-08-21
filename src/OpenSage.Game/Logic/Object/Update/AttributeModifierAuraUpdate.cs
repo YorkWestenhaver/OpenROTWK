@@ -1,4 +1,4 @@
-// AttributeModifierAuraUpdate - R12 port. BFME-only (no generals-gpl sibling); no clean-room
+﻿// AttributeModifierAuraUpdate - R12 port. BFME-only (no generals-gpl sibling); no clean-room
 // spec exists for the plain grant/revoke behavior, so the periodic scan below is fresh code
 // against the frozen contract, matching the shape of the landed LargeGroupBonusUpdate (R11)
 // and AttributeModifierUpgrade (R11) ports: every RefreshDelay, walk nearby objects through

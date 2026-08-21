@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the BunkerBusterBehavior port (R12), one test per behavior
+﻿// Mocked-game contract tests for the BunkerBusterBehavior port (R12), one test per behavior
 // branch the task packet's testCases enumerate: [create -> tick/kill -> observable effect].
 //
 // This module is legacy (GameObject, IGameEngine), not [SimState] (see the file header on

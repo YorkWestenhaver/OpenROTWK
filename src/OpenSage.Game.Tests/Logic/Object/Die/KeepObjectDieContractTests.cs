@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the KeepObjectDie port (experiment-round-4 §4.1, DoD item 4):
+﻿// Mocked-game unit tests for the KeepObjectDie port (experiment-round-4 §4.1, DoD item 4):
 // one test per INI branch, each [create -> trigger death -> observable effect] through the
 // batch's shared death-trigger helper, plus the shadow-copy base test and the mid-behavior
 // save/load continuation.

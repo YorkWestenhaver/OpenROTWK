@@ -1,4 +1,4 @@
-// SimLocomotorSet - the surface-keyed locomotor collection of the S2 system. Fresh code;
+﻿// SimLocomotorSet - the surface-keyed locomotor collection of the S2 system. Fresh code;
 // behavioral reference (semantics only): generals-gpl GeneralsMD Locomotor.cpp
 // (class LocomotorSet) + LocomotorSet.h.
 //

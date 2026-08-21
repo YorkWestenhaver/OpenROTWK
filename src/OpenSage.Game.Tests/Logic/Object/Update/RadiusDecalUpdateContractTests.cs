@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the RadiusDecalUpdate port (R12): one test per behavior
+﻿// Mocked-game contract tests for the RadiusDecalUpdate port (R12): one test per behavior
 // branch, [create -> tick -> observable effect], plus the mid-behavior save/load round-trip
 // and the shadow-copy base test.
 //

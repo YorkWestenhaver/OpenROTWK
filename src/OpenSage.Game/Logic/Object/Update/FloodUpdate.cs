@@ -1,4 +1,4 @@
-// FloodUpdate - the S? swarm-spawn runtime, implemented FRESH: BFME2-only module (no
+﻿// FloodUpdate - the S? swarm-spawn runtime, implemented FRESH: BFME2-only module (no
 // generals-gpl sibling: GeneralsMD/Generals ship no FloodUpdate.cpp) and no clean-room
 // spec exists yet in bfme2-workbench/research/ (gplRef unset on the task packet). Ported
 // from the design summary only (rush-ability swarms - wolf packs, mounted charges): at

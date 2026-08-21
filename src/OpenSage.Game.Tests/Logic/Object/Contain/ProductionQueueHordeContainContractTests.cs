@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the Round-12 ProductionQueueHordeContain port (task packet
+﻿// Mocked-game contract tests for the Round-12 ProductionQueueHordeContain port (task packet
 // testCases): instantiation/empty state, member entry (slot assignment, EntryPosition +
 // EntryOffset steering, EnterSound cue, ObjectStatusOfContained bits), damage propagation
 // (DamagePercentToUnits, including the 0% block), faction-stance filtering (Allow*Inside),

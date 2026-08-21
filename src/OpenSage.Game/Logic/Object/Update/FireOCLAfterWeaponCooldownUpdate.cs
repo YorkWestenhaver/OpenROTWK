@@ -1,4 +1,4 @@
-// FireOCLAfterWeaponCooldownUpdate - R12 port, permanently-parked-for-now runtime module
+﻿// FireOCLAfterWeaponCooldownUpdate - R12 port, permanently-parked-for-now runtime module
 // (LargeGroupAudioUpdate pattern; see that module's header for the template this follows).
 //
 // Behavioral reference: generals-gpl Generals GameLogic/Include/Module/FireOCLAfterWeaponCooldownUpdate.h

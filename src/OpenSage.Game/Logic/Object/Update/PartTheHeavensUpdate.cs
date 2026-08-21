@@ -1,4 +1,4 @@
-// PartTheHeavensUpdate - R12 port. No generals-gpl sibling and no clean-room spec in
+﻿// PartTheHeavensUpdate - R12 port. No generals-gpl sibling and no clean-room spec in
 // bfme2-workbench/research/. The retail module's entire output is an animated ring/circle
 // visual effect (texture, RGBA tint, and time-based radius/opacity/angle FCurve animations)
 // rendered client-side - it carries no simulation-visible state (nothing in ISimContext

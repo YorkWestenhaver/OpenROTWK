@@ -1,4 +1,4 @@
-// SpectreGunshipUpdate - R12 port (Round-4 backlog; census: Update).
+﻿// SpectreGunshipUpdate - R12 port (Round-4 backlog; census: Update).
 //
 // Behavioral reference: generals-gpl GeneralsMD SpectreGunshipUpdate.cpp/.h (semantics only;
 // fresh code against the frozen contract). GPL's module is a SpecialPowerUpdateModule: a

@@ -1,4 +1,4 @@
-// FadeAndDieOrnamentUpdate - R12 port. BFME-only (no generals-gpl sibling: the module is
+﻿// FadeAndDieOrnamentUpdate - R12 port. BFME-only (no generals-gpl sibling: the module is
 // AddedIn(SageGame.Bfme)) and no clean-room spec exists in bfme2-workbench/research/. The
 // field grammar is the standard ADSR envelope shape already ported (client-side, float) for
 // W3dLaserDraw's alpha-over-lifetime Envelope block: InitialOpacity holds through

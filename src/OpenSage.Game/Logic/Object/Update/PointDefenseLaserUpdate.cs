@@ -1,4 +1,4 @@
-// PointDefenseLaserUpdate - R12 port (Round-4 backlog; census: Update).
+﻿// PointDefenseLaserUpdate - R12 port (Round-4 backlog; census: Update).
 //
 // Behavioral reference: generals-gpl GeneralsMD PointDefenseLaserUpdate.cpp/.h (semantics
 // only; fresh code against the frozen contract). GPL update philosophy: rather than scanning
@@ -61,12 +61,12 @@
 using System.Linq;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
+using OpenSage.Logic.Object.Locomotion;
 using OpenSage.Mathematics;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
-using OpenSage.Logic.Object.Locomotion;
 
 namespace OpenSage.Logic.Object;
 

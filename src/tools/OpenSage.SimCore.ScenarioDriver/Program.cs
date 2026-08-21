@@ -1,4 +1,4 @@
-// Harness scenario driver (api-freeze-v1 §6, build-order step 6 glue).
+﻿// Harness scenario driver (api-freeze-v1 §6, build-order step 6 glue).
 //
 // Drives one scripted scenario end-to-end through the REAL SimCore pipeline:
 // an injection schedule (bfme2-harness/injection-schedule/v1, produced by the harness's
@@ -224,24 +224,24 @@ internal static class Program
             case 4:
                 return SimOrderArg.FromUnsigned(a.GetProperty("value").GetUInt32());
             case 6:
-            {
-                var c = a.GetProperty("components");
-                return SimOrderArg.FromWirePosition(
-                    WireBits(c[0]), WireBits(c[1]), WireBits(c[2]));
-            }
+                {
+                    var c = a.GetProperty("components");
+                    return SimOrderArg.FromWirePosition(
+                        WireBits(c[0]), WireBits(c[1]), WireBits(c[2]));
+                }
             case 7:
-            {
-                var c = a.GetProperty("components");
-                return SimOrderArg.FromScreenPosition(c[0].GetProperty("value").GetInt32(),
-                                                      c[1].GetProperty("value").GetInt32());
-            }
+                {
+                    var c = a.GetProperty("components");
+                    return SimOrderArg.FromScreenPosition(c[0].GetProperty("value").GetInt32(),
+                                                          c[1].GetProperty("value").GetInt32());
+                }
             case 8:
-            {
-                var c = a.GetProperty("components");
-                return SimOrderArg.FromScreenRectangle(
-                    c[0].GetProperty("value").GetInt32(), c[1].GetProperty("value").GetInt32(),
-                    c[2].GetProperty("value").GetInt32(), c[3].GetProperty("value").GetInt32());
-            }
+                {
+                    var c = a.GetProperty("components");
+                    return SimOrderArg.FromScreenRectangle(
+                        c[0].GetProperty("value").GetInt32(), c[1].GetProperty("value").GetInt32(),
+                        c[2].GetProperty("value").GetInt32(), c[3].GetProperty("value").GetInt32());
+                }
             case 9:
             case 10:
                 return SimOrderArg.FromUnsigned(a.GetProperty("value").GetUInt32());
@@ -442,103 +442,103 @@ internal sealed class ScriptedScenario : IDriverScenario
         {
             case GameMessageType.MSG_CREATE_SELECTED_GROUP:
             case GameMessageType.MSG_CREATE_SELECT_ALL_GROUP:
-            {
-                ps.Selection.Clear();
-                foreach (var a in order.Arguments)
                 {
-                    if (a.Kind == SimOrderArgKind.ObjectId && a.ObjectId != 0)
+                    ps.Selection.Clear();
+                    foreach (var a in order.Arguments)
                     {
-                        ps.Selection.Add(a.ObjectId);
+                        if (a.Kind == SimOrderArgKind.ObjectId && a.ObjectId != 0)
+                        {
+                            ps.Selection.Add(a.ObjectId);
+                        }
                     }
+                    if (ps.Selection.Count == 0 && _objects.Objects.Count > 0)
+                    {
+                        // Deterministic fallback: the lowest live id.
+                        ps.Selection.Add(_objects.Objects[0].Id);
+                    }
+                    ps.Selection.Sort();
+                    break;
                 }
-                if (ps.Selection.Count == 0 && _objects.Objects.Count > 0)
-                {
-                    // Deterministic fallback: the lowest live id.
-                    ps.Selection.Add(_objects.Objects[0].Id);
-                }
-                ps.Selection.Sort();
-                break;
-            }
             case GameMessageType.MSG_AREA_SELECTION:
-            {
-                ps.Selection.Clear();
-                foreach (var obj in _objects.Objects)
                 {
-                    ps.Selection.Add(obj.Id);
+                    ps.Selection.Clear();
+                    foreach (var obj in _objects.Objects)
+                    {
+                        ps.Selection.Add(obj.Id);
+                    }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DESTROY_SELECTED_GROUP:
                 ps.Selection.Clear();
                 break;
             case GameMessageType.MSG_DO_MOVETO:
-            {
-                if (TryFirstPosition(order, out var target))
                 {
-                    foreach (var id in ps.Selection)
+                    if (TryFirstPosition(order, out var target))
                     {
-                        var obj = _objects.Find(id);
-                        if (obj is not null)
+                        foreach (var id in ps.Selection)
                         {
-                            obj.Target = target;
-                            obj.Moving = true;
+                            var obj = _objects.Find(id);
+                            if (obj is not null)
+                            {
+                                obj.Target = target;
+                                obj.Moving = true;
+                            }
                         }
                     }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DOZER_CONSTRUCT:
-            {
-                var id = _nextObjectId++;
-                if (!TryFirstPosition(order, out var pos))
                 {
-                    pos = new FixVector3(
-                        Fix64.FromRaw((long)(id * 8) << 32),
-                        Fix64.FromRaw((long)(id * 4) << 32),
-                        Fix64.Zero);
+                    var id = _nextObjectId++;
+                    if (!TryFirstPosition(order, out var pos))
+                    {
+                        pos = new FixVector3(
+                            Fix64.FromRaw((long)(id * 8) << 32),
+                            Fix64.FromRaw((long)(id * 4) << 32),
+                            Fix64.Zero);
+                    }
+                    _objects.Objects.Add(new ScriptedObject
+                    {
+                        Id = id,
+                        Position = pos,
+                        Target = pos,
+                        Moving = false,
+                        Health = InitialHealth,
+                        NextWake = new LogicFrame(scheduled.Frame.Value + 1),
+                    });
+                    break;
                 }
-                _objects.Objects.Add(new ScriptedObject
-                {
-                    Id = id,
-                    Position = pos,
-                    Target = pos,
-                    Moving = false,
-                    Health = InitialHealth,
-                    NextWake = new LogicFrame(scheduled.Frame.Value + 1),
-                });
-                break;
-            }
             case GameMessageType.MSG_ENABLE_RETALIATION_MODE:
-            {
-                var toggled = !ps.Retaliation;
-                foreach (var a in order.Arguments)
                 {
-                    if (a.Kind == SimOrderArgKind.Boolean)
+                    var toggled = !ps.Retaliation;
+                    foreach (var a in order.Arguments)
                     {
-                        toggled = a.Boolean;
-                        break;
+                        if (a.Kind == SimOrderArgKind.Boolean)
+                        {
+                            toggled = a.Boolean;
+                            break;
+                        }
                     }
+                    ps.Retaliation = toggled;
+                    break;
                 }
-                ps.Retaliation = toggled;
-                break;
-            }
             case GameMessageType.MSG_CHANGE_ORDERMODE:
-            {
-                foreach (var a in order.Arguments)
                 {
-                    if (a.Kind == SimOrderArgKind.Integer)
+                    foreach (var a in order.Arguments)
                     {
-                        ps.OrderMode = a.Integer;
-                        break;
+                        if (a.Kind == SimOrderArgKind.Integer)
+                        {
+                            ps.OrderMode = a.Integer;
+                            break;
+                        }
+                        if (a.Kind == SimOrderArgKind.Unsigned)
+                        {
+                            ps.OrderMode = (int)a.Unsigned;
+                            break;
+                        }
                     }
-                    if (a.Kind == SimOrderArgKind.Unsigned)
-                    {
-                        ps.OrderMode = (int)a.Unsigned;
-                        break;
-                    }
+                    break;
                 }
-                break;
-            }
         }
     }
 

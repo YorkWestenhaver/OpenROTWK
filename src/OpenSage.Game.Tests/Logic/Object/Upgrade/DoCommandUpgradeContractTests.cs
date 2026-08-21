@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the DoCommandUpgrade port (R12): one test per INI-configurable
+﻿// Mocked-game contract tests for the DoCommandUpgrade port (R12): one test per INI-configurable
 // branch (StartsActive/TriggeredBy/RequiresAllTriggers/ConflictsWith/ActiveDuringConstruction),
 // the Permanent-flag reaction to a (currently test-only, see the module's OnUpgradeRemoved doc)
 // upgrade removal, and the shadow-copy base test. Object definitions are parsed from INI text

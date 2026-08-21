@@ -1,4 +1,4 @@
-// delayeddeath-v1 - R8 targeted scenario: the ported DelayedDeathBody + its companion
+﻿// delayeddeath-v1 - R8 targeted scenario: the ported DelayedDeathBody + its companion
 // DelayedDeathTimer through the REAL harness pipeline (SimLoop's frozen six phases,
 // GameObjectsChannelSource walking REAL GameObjects on a HeadlessSimGame, deep CRC
 // checkpoints in the frozen channel order).

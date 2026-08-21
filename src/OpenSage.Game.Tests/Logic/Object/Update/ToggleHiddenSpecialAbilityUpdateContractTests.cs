@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ToggleHiddenSpecialAbilityUpdate port (api-freeze-v1 §6
+﻿// Mocked-game unit tests for the ToggleHiddenSpecialAbilityUpdate port (api-freeze-v1 §6
 // fitness item 4): one test per behavior branch, [create -> trigger/tick -> observable
 // effect], covering the R12 task packet's testCases.
 //

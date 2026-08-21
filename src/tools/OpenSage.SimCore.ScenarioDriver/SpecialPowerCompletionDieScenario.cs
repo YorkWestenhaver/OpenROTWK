@@ -1,4 +1,4 @@
-// spcd-v1 - the targeted scenario for the SpecialPowerCompletionDie port
+﻿// spcd-v1 - the targeted scenario for the SpecialPowerCompletionDie port
 // (experiment-round-4 §4.1, DoD item 5b).
 //
 // WHY THIS IS NOT AN EXTENSION OF die-batch-v1, which the checklist prefers: die-batch-v1's
@@ -169,45 +169,45 @@ End
         switch (order.Type)
         {
             case GameMessageType.MSG_DO_ATTACK_OBJECT:
-            {
-                if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                 {
-                    target.AttemptDamage(new DamageInfoInput(null)
+                    if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                     {
-                        DamageType = DamageType.Explosion,
-                        DeathType = DeathType.Normal,
-                        Amount = amount,
-                    });
+                        target.AttemptDamage(new DamageInfoInput(null)
+                        {
+                            DamageType = DamageType.Explosion,
+                            DeathType = DeathType.Normal,
+                            Amount = amount,
+                        });
+                    }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DO_SPECIAL_POWER:
-            {
-                if (TryTarget(order, out var target))
                 {
-                    var deathType = TryFirstInteger(order, out var ordinal)
-                        ? (DeathType)ordinal
-                        : DeathType.Normal;
-
-                    target.AttemptDamage(new DamageInfoInput(null)
+                    if (TryTarget(order, out var target))
                     {
-                        DamageType = DamageType.Unresistable,
-                        DeathType = deathType,
-                        Amount = 0f,
-                        Kill = true,
-                    });
+                        var deathType = TryFirstInteger(order, out var ordinal)
+                            ? (DeathType)ordinal
+                            : DeathType.Normal;
+
+                        target.AttemptDamage(new DamageInfoInput(null)
+                        {
+                            DamageType = DamageType.Unresistable,
+                            DeathType = deathType,
+                            Amount = 0f,
+                            Kill = true,
+                        });
+                    }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DO_SPECIAL_POWER_AT_OBJECT:
-            {
-                if (TryTarget(order, out var target))
                 {
-                    var die = target.FindBehavior<SpecialPowerCompletionDie>();
-                    die?.SetCreator(new ObjectId(TryFirstInteger(order, out var index) ? (uint)index : 0u));
+                    if (TryTarget(order, out var target))
+                    {
+                        var die = target.FindBehavior<SpecialPowerCompletionDie>();
+                        die?.SetCreator(new ObjectId(TryFirstInteger(order, out var index) ? (uint)index : 0u));
+                    }
+                    break;
                 }
-                break;
-            }
         }
     }
 

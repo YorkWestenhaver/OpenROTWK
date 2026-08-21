@@ -1,4 +1,4 @@
-// ProductionQueueHordeContain (damage half) - the ONE float-substrate crossing this module
+﻿// ProductionQueueHordeContain (damage half) - the ONE float-substrate crossing this module
 // needs (D-7, the SimTransformBridge/SimHordeMember precedent): DamageInfo/DamageInfoInput are
 // legacy float substrate (Amount is a plain float on both sides), the same seam SimHordeMember's
 // OnDamage already rides. This partial-class half carries NO [SimState] attribute anywhere in

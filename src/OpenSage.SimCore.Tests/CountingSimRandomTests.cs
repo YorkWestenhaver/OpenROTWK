@@ -1,4 +1,4 @@
-using OpenSage.SimCore.Numerics;
+﻿using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Rng;
 using Xunit;
 

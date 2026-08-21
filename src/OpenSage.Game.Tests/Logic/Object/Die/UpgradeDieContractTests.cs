@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the UpgradeDie port (api-freeze-v1 §6 fitness item 4,
+﻿// Mocked-game unit tests for the UpgradeDie port (api-freeze-v1 §6 fitness item 4,
 // experiment-round-4 §4.1 DoD item 4): one test per INI branch, each shaped
 // [create -> trigger death -> observable effect] through the batch's death-trigger helper,
 // plus the shadow-copy base test and a mid-behavior save/load continuation.

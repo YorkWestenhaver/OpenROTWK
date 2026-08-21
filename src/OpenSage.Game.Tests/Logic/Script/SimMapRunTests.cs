@@ -1,4 +1,4 @@
-// SimMapRun system tests: the map-v1 scenario's core path on the real scenariogen asset
+﻿// SimMapRun system tests: the map-v1 scenario's core path on the real scenariogen asset
 // (job005_spawn_fight.map) - map load, script compile, waypoint/team registration, real
 // spawns through GameLogic, run to the scripted MAP_EXIT - plus the OracleView channel
 // dumped through DeepCrcWriter, the record group the Target-B comparator consumes.

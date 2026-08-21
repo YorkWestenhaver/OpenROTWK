@@ -1,4 +1,4 @@
-// FreeLifeBody - Round-8 Body port to the frozen module contract (api-freeze-v1 as amended
+﻿// FreeLifeBody - Round-8 Body port to the frozen module contract (api-freeze-v1 as amended
 // v1.1, rulings A1-A6; template v1.1 = pilot-autoheal.md sections 3/6). Builds ON S1
 // (weapon/damage/armor, experiment-round-6): it consumes the landed ActiveBody /
 // BodyDamageCore Fix64 health-application surface and does NOT reimplement damage math.
@@ -228,8 +228,8 @@ public sealed class FreeLifeBodyModuleData : ActiveBodyModuleData
     {
         var result = parser.ParseBlock(FieldParseTable);
         result.ApplyHealthDefaults(parser);   // F-R7-2 / F-HB-1: the shadowing Parse must re-apply
-                                               // the BFME InitialHealth = MaxHealth default, else a
-                                               // block with only MaxHealth spawns at 0 HP.
+                                              // the BFME InitialHealth = MaxHealth default, else a
+                                              // block with only MaxHealth spawns at 0 HP.
         return result;
     }
 

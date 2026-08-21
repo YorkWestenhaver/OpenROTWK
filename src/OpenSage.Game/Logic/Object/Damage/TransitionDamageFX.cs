@@ -1,4 +1,4 @@
-// TransitionDamageFX - Round-7 Damage-batch port (full task packet, experiment-round-4 §4.1).
+﻿// TransitionDamageFX - Round-7 Damage-batch port (full task packet, experiment-round-4 §4.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD Damage/TransitionDamageFX.cpp/.h (GPL
 // semantics reference only; this is fresh code against the frozen contract). Behavior facts

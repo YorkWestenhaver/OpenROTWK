@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the BloodthirstyUpdate port (R11 Track B): the sacrifice
+﻿// Mocked-game contract tests for the BloodthirstyUpdate port (R11 Track B): the sacrifice
 // entry point (filter + mutual-BloodthirstyUpdate gate + experience banking), the
 // NumToSacrifice budget, and the shadow-copy base test.
 

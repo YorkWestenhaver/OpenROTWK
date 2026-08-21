@@ -1,4 +1,4 @@
-// The integer scanline circle the shroud system rasterizes with (GPL
+﻿// The integer scanline circle the shroud system rasterizes with (GPL
 // Common/DiscreteCircle.h/.cpp — semantics reimplemented fresh; the cell sets it emits
 // are conformance-relevant because every looker add/remove walks exactly these cells).
 //

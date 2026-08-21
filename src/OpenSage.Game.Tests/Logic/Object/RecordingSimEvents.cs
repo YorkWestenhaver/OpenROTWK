@@ -1,4 +1,4 @@
-// A recording ISimEvents sink for module ports whose observable effect IS an event.
+﻿// A recording ISimEvents sink for module ports whose observable effect IS an event.
 //
 // ISimEvents is fire-and-forget by design (S8: outputs, never sim inputs), which would make
 // "the module fired the right FX" untestable if the only sink were the real client one. This

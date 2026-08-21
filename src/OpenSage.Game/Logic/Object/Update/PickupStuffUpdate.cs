@@ -1,4 +1,4 @@
-// PickupStuffUpdate - R11 Track B port. BFME2-only (no generals-gpl sibling) and no
+﻿// PickupStuffUpdate - R11 Track B port. BFME2-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/, so this is the minimal behavior the INI
 // chain needs (AotR MordorFighterHorde ModuleTag_PickupStuffUpdate: SkirmishAIOnly = Yes,
 // StuffToPickUp = NONE +CRATE, ScanRange = 200, ScanIntervalSeconds = 0.5): a periodic

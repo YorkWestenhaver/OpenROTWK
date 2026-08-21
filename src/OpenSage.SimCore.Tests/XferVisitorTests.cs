@@ -1,4 +1,4 @@
-// Gate tests for scaffolding step 5, part 2: the four IXfer visitors over one shared walk.
+﻿// Gate tests for scaffolding step 5, part 2: the four IXfer visitors over one shared walk.
 // The load-bearing claims: (1) Save -> Load round-trips every primitive bit-exactly; (2) the
 // CRC of a restored copy equals the live CRC (the shadow-copy base test shape every module
 // port will reuse); (3) the CRC visitor folds each call's canonical buffer INDEPENDENTLY -

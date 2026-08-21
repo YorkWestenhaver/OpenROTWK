@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CitadelSlaughterHordeContain port (R12): one test per
+﻿// Mocked-game unit tests for the CitadelSlaughterHordeContain port (R12): one test per
 // task-packet test case, [create -> TryEnterHorde -> observable effect], plus the shadow-copy
 // base test and the mid-state save/load round-trip. Object definitions are parsed from INI
 // text through the real parser.

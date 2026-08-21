@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — the real-world host (deliberately NOT [SimState]).
+﻿// S8 script-engine runtime (subset) — the real-world host (deliberately NOT [SimState]).
 //
 // Implements ISimScriptHost over the actual engine: named-unit lookup through GameLogic's
 // name table, spawning through GameLogic.CreateObject (monotonic ObjectId — spawn order IS

@@ -1,4 +1,4 @@
-// S8 map-scenario core - the engine half of the Target-B conformance harness's map path.
+﻿// S8 map-scenario core - the engine half of the Target-B conformance harness's map path.
 //
 // Takes a parsed .map (scenariogen or WorldBuilder output), compiles its PlayerScriptsList
 // through SimScriptCompiler, and stands the result on a HeadlessSimGame: waypoints and teams

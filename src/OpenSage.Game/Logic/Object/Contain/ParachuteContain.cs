@@ -1,4 +1,4 @@
-// ParachuteContain - R12 port. GPL reference:
+﻿// ParachuteContain - R12 port. GPL reference:
 // Generals/Code/GameEngine/Source/GameLogic/Object/Contain/ParachuteContain.cpp and its header
 // (Steven Johnson, March 2002); GeneralsMD carries the same file with FreeFallDamagePercent /
 // KillWhenLandingInWaterSlop added. Manages the aerial descent and landing of a single contained
@@ -226,7 +226,10 @@ public sealed class ParachuteContain : UpdateModule, IContainModule, IDieModule,
 
         if (!_opened)
         {
-            if (MathF.Abs(_startZ.Value - parachute.Translation.Z) >= _data.ParachuteOpenDist)
+            // Signed test: only an actual descent of ParachuteOpenDist opens the chute. An
+            // absolute-delta test would also fire when the fudged start height sits above the
+            // spawn position, opening the chute on its first update.
+            if (_startZ.Value - parachute.Translation.Z >= _data.ParachuteOpenDist)
             {
                 Open(rider);
             }

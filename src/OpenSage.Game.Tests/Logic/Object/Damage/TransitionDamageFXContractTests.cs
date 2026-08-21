@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the TransitionDamageFX port (experiment-round-4 §4.1, DoD item
+﻿// Mocked-game unit tests for the TransitionDamageFX port (experiment-round-4 §4.1, DoD item
 // 4): one test per behavior branch, each [create -> apply real S1 damage -> observable
 // effect], plus the shadow-copy base test taken mid-behavior and a mid-state save/load
 // continuation. Object definitions are parsed from INI text through the real parser, so the

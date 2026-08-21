@@ -1,4 +1,4 @@
-// DelayedDeathBody R8 contract tests (template v1.1 §5): the creation-armed death timer and
+﻿// DelayedDeathBody R8 contract tests (template v1.1 §5): the creation-armed death timer and
 // the ImmortalUntilDeathTime floor, exercised on HeadlessSimGame with real parsed INI so the
 // S5 quantizing parse path (ms -> LogicFrameSpan) and the S1 Fix64 health/armor chain are on
 // the tested path. One test per behavioral branch, plus the Xfer contract walk on the

@@ -1,4 +1,4 @@
-// CountermeasuresBehavior - R12 port.
+﻿// CountermeasuresBehavior - R12 port.
 //
 // Behavioral reference: generals-gpl GeneralsMD Include/GameLogic/Module/CountermeasuresBehavior.h
 // and Source/GameLogic/Object/Behavior/CountermeasuresBehavior.cpp (semantics only; this is

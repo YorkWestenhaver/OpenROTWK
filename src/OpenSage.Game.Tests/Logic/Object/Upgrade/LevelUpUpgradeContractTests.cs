@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the LevelUpUpgrade port (R11 Track B): the triggered
+﻿// Mocked-game contract tests for the LevelUpUpgrade port (R11 Track B): the triggered
 // level grant, the LevelCap clamp, idempotence via the shared upgrade mux, and the
 // shadow-copy base test. Definitions parse from INI text through the real parser.
 

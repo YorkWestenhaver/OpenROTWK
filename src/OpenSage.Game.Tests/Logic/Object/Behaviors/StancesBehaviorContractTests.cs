@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the StancesBehavior port (R11 Track B): stance-set
+﻿// Mocked-game contract tests for the StancesBehavior port (R11 Track B): stance-set
 // resolution from the StanceTemplate asset, the deterministic stance switch, and the
 // shadow-copy base test. Definitions parse from INI text through the real parser.
 

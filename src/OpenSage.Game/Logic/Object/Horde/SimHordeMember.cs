@@ -1,4 +1,4 @@
-// SimHordeMember - the member-side horde tag (spec §2: HordeMemberCollide has NO INI
+﻿// SimHordeMember - the member-side horde tag (spec §2: HordeMemberCollide has NO INI
 // fields; it marks member-side handling). Our runtime role: hold the back-reference to
 // the owning horde and forward member damage to the horde's flank test (spec §6: "when a
 // member is damaged, the horde runs the flank test").

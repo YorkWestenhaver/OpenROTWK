@@ -1,4 +1,4 @@
-// ModelConditionAudioLoopClientBehavior - R12 port. Client-side audio behavior: plays a
+﻿// ModelConditionAudioLoopClientBehavior - R12 port. Client-side audio behavior: plays a
 // looping sound while the owning object's ModelConditionFlags satisfy a Required/Excluded
 // BitArray test. Audio selection and playback are deliberately absent from ISimContext (S8),
 // so there is nothing sim-visible for this module to compute; the runtime port is a

@@ -1,4 +1,4 @@
-// AttributeModifierPoolUpdate - R12 port. BFME-only (no generals-gpl sibling) and no
+﻿// AttributeModifierPoolUpdate - R12 port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/, so this is the minimal behavior the R12
 // spec packet describes: a per-object pool of time-limited, keyed float modifiers that
 // combine by screen-blend composition rather than plain addition.

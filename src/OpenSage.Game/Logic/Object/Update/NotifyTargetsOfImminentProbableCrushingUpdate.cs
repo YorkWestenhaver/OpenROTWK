@@ -1,4 +1,4 @@
-// NotifyTargetsOfImminentProbableCrushingUpdate - R12 port. BFME-only (no generals-gpl
+﻿// NotifyTargetsOfImminentProbableCrushingUpdate - R12 port. BFME-only (no generals-gpl
 // sibling); no clean-room behavioral spec of this exact class exists in bfme2-workbench/research/
 // (spec-hordes.md documents the sibling HordeNotifyTargetsOfImminentProbableCrushingUpdate,
 // which adds one field, ScanWidth, and is a SEPARATE registered module - ported alongside

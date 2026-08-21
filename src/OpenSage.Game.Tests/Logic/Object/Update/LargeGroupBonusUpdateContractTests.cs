@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the LargeGroupBonusUpdate port (R11 Track B): the
+﻿// Mocked-game contract tests for the LargeGroupBonusUpdate port (R11 Track B): the
 // periodic group census (template-name filter, AlliesOnly), the threshold edge in both
 // directions, and the shadow-copy base test.
 

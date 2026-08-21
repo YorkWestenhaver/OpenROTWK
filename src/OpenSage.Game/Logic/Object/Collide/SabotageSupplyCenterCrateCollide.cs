@@ -1,4 +1,4 @@
-// SabotageSupplyCenterCrateCollide - R12 port. GPL ref:
+﻿// SabotageSupplyCenterCrateCollide - R12 port. GPL ref:
 // GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Collide/CrateCollide/SabotageSupplyCenterCrateCollide.cpp
 //
 // A crate (in practice, a saboteur unit) that steals cash from an enemy supply center on

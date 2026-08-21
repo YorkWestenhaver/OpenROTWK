@@ -1,4 +1,4 @@
-// PorcupineFormationBody R8 contract tests (template v1.1 §5): the reflect-damage pike-wall
+﻿// PorcupineFormationBody R8 contract tests (template v1.1 §5): the reflect-damage pike-wall
 // body, exercised on HeadlessSimGame with real parsed INI so the quantizing parse path and
 // the landed S1 Fix64 damage/armor/health chain are on the tested path. One test per
 // behavioral branch (module creation, the F-R7-2 InitialHealth default, thorn reflection at

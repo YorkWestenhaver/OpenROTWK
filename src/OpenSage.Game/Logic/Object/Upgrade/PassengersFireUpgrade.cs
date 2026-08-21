@@ -1,4 +1,4 @@
-// PassengersFireUpgrade - R12 module port. Behavioral reference: generals-gpl / BFME-RotWK
+﻿// PassengersFireUpgrade - R12 module port. Behavioral reference: generals-gpl / BFME-RotWK
 // GameEngine Module/PassengersFireUpgrade.cpp/.h (GPL semantics only; this is fresh code
 // against the frozen contract).
 //

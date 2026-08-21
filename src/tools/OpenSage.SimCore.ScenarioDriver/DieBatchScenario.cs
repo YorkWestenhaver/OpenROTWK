@@ -1,4 +1,4 @@
-// die-batch-v1 - THE shared targeted scenario for the eleven-class Die batch
+﻿// die-batch-v1 - THE shared targeted scenario for the eleven-class Die batch
 // (experiment-round-4 §4.1, DoD item 5b: "extend rather than clone: one scenario with
 // damage->death orders can host several of these classes").
 //
@@ -554,60 +554,60 @@ End
         switch (order.Type)
         {
             case GameMessageType.MSG_DO_ATTACK_OBJECT:
-            {
-                if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                 {
-                    target.AttemptDamage(new DamageInfoInput(null)
+                    if (TryTarget(order, out var target) && TryFirstInteger(order, out var amount))
                     {
-                        DamageType = DamageType.Explosion,
-                        DeathType = DeathType.Normal,
-                        Amount = amount,
-                    });
+                        target.AttemptDamage(new DamageInfoInput(null)
+                        {
+                            DamageType = DamageType.Explosion,
+                            DeathType = DeathType.Normal,
+                            Amount = amount,
+                        });
+                    }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DO_FORCE_ATTACK_OBJECT:
-            {
-                // The CRUSH death: lethal DamageType.Crush carrying DeathType.Crushed and a
-                // real damage SOURCE, which is what PhysicsBehavior's collide path delivers
-                // when one object drives over another. CrushDie is the only Die class that
-                // reads both the damage type and the source object, so it needs a verb the
-                // others do not have; every other Die class keeps using MSG_DO_SPECIAL_POWER.
-                // Args are two ObjectIds and their ORDER is the meaning: [victim, crusher].
-                if (TryObjectIdAt(order, 0, out var victim) &&
-                    TryObjectIdAt(order, 1, out var crusher))
                 {
-                    victim.AttemptDamage(new DamageInfoInput(crusher)
+                    // The CRUSH death: lethal DamageType.Crush carrying DeathType.Crushed and a
+                    // real damage SOURCE, which is what PhysicsBehavior's collide path delivers
+                    // when one object drives over another. CrushDie is the only Die class that
+                    // reads both the damage type and the source object, so it needs a verb the
+                    // others do not have; every other Die class keeps using MSG_DO_SPECIAL_POWER.
+                    // Args are two ObjectIds and their ORDER is the meaning: [victim, crusher].
+                    if (TryObjectIdAt(order, 0, out var victim) &&
+                        TryObjectIdAt(order, 1, out var crusher))
                     {
-                        DamageType = DamageType.Crush,
-                        DeathType = DeathType.Crushed,
-                        Amount = 0f,
-                        Kill = true,
-                    });
+                        victim.AttemptDamage(new DamageInfoInput(crusher)
+                        {
+                            DamageType = DamageType.Crush,
+                            DeathType = DeathType.Crushed,
+                            Amount = 0f,
+                            Kill = true,
+                        });
+                    }
+                    break;
                 }
-                break;
-            }
             case GameMessageType.MSG_DO_SPECIAL_POWER:
-            {
-                if (TryTarget(order, out var target))
                 {
-                    var deathType = TryFirstInteger(order, out var ordinal)
-                        ? (DeathType)ordinal
-                        : DeathType.Normal;
-
-                    // The death trigger: Kill makes ActiveBody spend exactly the remaining
-                    // health, so the >0 -> <=0 crossing runs the object's Die modules with
-                    // this DeathType, whatever its armor would have said.
-                    target.AttemptDamage(new DamageInfoInput(null)
+                    if (TryTarget(order, out var target))
                     {
-                        DamageType = DamageType.Unresistable,
-                        DeathType = deathType,
-                        Amount = 0f,
-                        Kill = true,
-                    });
+                        var deathType = TryFirstInteger(order, out var ordinal)
+                            ? (DeathType)ordinal
+                            : DeathType.Normal;
+
+                        // The death trigger: Kill makes ActiveBody spend exactly the remaining
+                        // health, so the >0 -> <=0 crossing runs the object's Die modules with
+                        // this DeathType, whatever its armor would have said.
+                        target.AttemptDamage(new DamageInfoInput(null)
+                        {
+                            DamageType = DamageType.Unresistable,
+                            DeathType = deathType,
+                            Amount = 0f,
+                            Kill = true,
+                        });
+                    }
+                    break;
                 }
-                break;
-            }
         }
     }
 

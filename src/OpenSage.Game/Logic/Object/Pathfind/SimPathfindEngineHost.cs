@@ -1,4 +1,4 @@
-// S5 pathfinding - the engine-side owner of the pathfind grid + pathfinder
+﻿// S5 pathfinding - the engine-side owner of the pathfind grid + pathfinder
 // (the SimPartitionEngineHost pattern; a float-boundary file, NOT [SimState]).
 //
 // Responsibilities:

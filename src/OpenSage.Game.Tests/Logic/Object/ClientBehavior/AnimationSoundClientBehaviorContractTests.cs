@@ -1,4 +1,4 @@
-// Contract tests for the AnimationSoundClientBehavior port (R12): the audio-only module
+﻿// Contract tests for the AnimationSoundClientBehavior port (R12): the audio-only module
 // parses fully and its runtime module (a permanently-parked, empty-state leaf, matching
 // LargeGroupAudioUpdate's pattern) constructs and round-trips - the [ParseOnly] hole is
 // closed without inventing sim behavior for a client-audio feature (see the module header).

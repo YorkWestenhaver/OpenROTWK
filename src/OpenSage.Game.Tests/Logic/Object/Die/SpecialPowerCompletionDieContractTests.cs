@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SpecialPowerCompletionDie port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the SpecialPowerCompletionDie port (api-freeze-v1 §6 fitness
 // item 4): one test per INI-configurable branch, each of the shape
 // [create -> trigger death -> observable effect], plus the shadow-copy base test taken
 // mid-behavior and a mid-behavior save/load continuation test.

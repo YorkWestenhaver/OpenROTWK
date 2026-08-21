@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CreateCrateDie port (api-freeze-v1 §6 fitness item 4;
+﻿// Mocked-game unit tests for the CreateCrateDie port (api-freeze-v1 §6 fitness item 4;
 // experiment-round-4 §4.1 DoD item 4): one test per INI-configurable branch, each in the
 // [create -> trigger death -> observable effect] shape the Die batch's death-trigger helper
 // exists to make possible, plus the mid-behavior save/load continuation and the shadow-copy

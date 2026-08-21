@@ -1,4 +1,4 @@
-// SIMCORE-EXEMPT: legacy float conveniences carried over from the OpenSage.Game float sim
+﻿// SIMCORE-EXEMPT: legacy float conveniences carried over from the OpenSage.Game float sim
 // during the F11 subsystem-granular migration; scheduled for deletion, never for new sim code.
 //
 // These members existed on the type before it moved into SimCore (scaffolding step 4) and are
@@ -11,29 +11,28 @@
 
 using System;
 
-namespace OpenSage.SimCore.Ticking
+namespace OpenSage.SimCore.Ticking;
+
+public readonly partial struct LogicFrameSpan
 {
-    public readonly partial struct LogicFrameSpan
+    public static LogicFrameSpan OneSecond(float logicFramesPerSecond) => new((uint)logicFramesPerSecond);
+
+    public static LogicFrameSpan FromMilliseconds(float milliseconds, float msPerLogicFrame) => new((uint)MathF.Ceiling(milliseconds / msPerLogicFrame));
+
+    public static LogicFrameSpan FromSeconds(float seconds, float logicFramesPerSecond) => new((uint)MathF.Ceiling(seconds * logicFramesPerSecond));
+
+    public static LogicFrameSpan operator *(LogicFrameSpan left, float right)
     {
-        public static LogicFrameSpan OneSecond(float logicFramesPerSecond) => new((uint)logicFramesPerSecond);
+        return new LogicFrameSpan((uint)MathF.Ceiling(left.Value * right));
+    }
 
-        public static LogicFrameSpan FromMilliseconds(float milliseconds, float msPerLogicFrame) => new((uint)MathF.Ceiling(milliseconds / msPerLogicFrame));
+    public static LogicFrameSpan operator /(LogicFrameSpan left, float right)
+    {
+        return new LogicFrameSpan((uint)MathF.Ceiling(left.Value / right));
+    }
 
-        public static LogicFrameSpan FromSeconds(float seconds, float logicFramesPerSecond) => new((uint)MathF.Ceiling(seconds * logicFramesPerSecond));
-
-        public static LogicFrameSpan operator *(LogicFrameSpan left, float right)
-        {
-            return new LogicFrameSpan((uint)MathF.Ceiling(left.Value * right));
-        }
-
-        public static LogicFrameSpan operator /(LogicFrameSpan left, float right)
-        {
-            return new LogicFrameSpan((uint)MathF.Ceiling(left.Value / right));
-        }
-
-        public static float operator /(LogicFrameSpan left, LogicFrameSpan right)
-        {
-            return left.Value / (float)right.Value;
-        }
+    public static float operator /(LogicFrameSpan left, LogicFrameSpan right)
+    {
+        return left.Value / (float)right.Value;
     }
 }

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the EmotionTrackerUpdate partial port (R11 Track B):
+﻿// Mocked-game contract tests for the EmotionTrackerUpdate partial port (R11 Track B):
 // the fear scan edge (AfraidOf match inside FearScanDistance sets EMOTION_AFRAID, absence
 // clears it), enemy-relationship gating, and the shadow-copy base test.
 

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the LargeGroupAudioUpdate port (R11 Track B): the
+﻿// Mocked-game contract tests for the LargeGroupAudioUpdate port (R11 Track B): the
 // audio-only module parses, instantiates as a live (permanently parked) runtime module,
 // and round-trips its empty state - the [ParseOnly] hole is closed without inventing
 // sim behavior for a client-audio feature (see the module header).

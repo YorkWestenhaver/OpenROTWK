@@ -1,4 +1,4 @@
-// BridgeScaffoldBehavior - R12 port, translated from generals-gpl
+﻿// BridgeScaffoldBehavior - R12 port, translated from generals-gpl
 // GameLogic/Module/BridgeScaffoldBehavior.h/.cpp (GPL semantics reference).
 //
 // Behavioral facts translated from the GPL source:

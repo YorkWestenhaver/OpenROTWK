@@ -1,4 +1,4 @@
-// HeightDieUpdate - R12 port, translated from generals-gpl HeightDieUpdate.cpp/.h (GPL
+﻿// HeightDieUpdate - R12 port, translated from generals-gpl HeightDieUpdate.cpp/.h (GPL
 // semantics reference, identical byte-for-byte between Generals and GeneralsMD save the
 // header banner; api-freeze-v1 §6 / template v1.1).
 //

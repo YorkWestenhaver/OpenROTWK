@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotagePowerPlantCrateCollide port (R12): the crate's
+﻿// Mocked-game contract tests for the SabotagePowerPlantCrateCollide port (R12): the crate's
 // real OnCollide dispatch, driven directly (the way PartitionCellManager would call it),
 // covering every branch the task packet's testCases enumerate.
 //

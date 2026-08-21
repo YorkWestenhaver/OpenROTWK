@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the FloatUpdate port (R12): the module parses,
+﻿// Mocked-game contract tests for the FloatUpdate port (R12): the module parses,
 // instantiates as a live (permanently parked) runtime module, and round-trips its empty
 // state - the [ParseOnly] hole is closed without inventing sim behavior for the water-table
 // Z-snap and the client-side bob, neither of which is reachable under the current sim seam

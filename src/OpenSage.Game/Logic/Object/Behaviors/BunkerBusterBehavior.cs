@@ -1,4 +1,4 @@
-// BunkerBusterBehavior - R12 port (behavioral reference: generals-gpl GeneralsMD GameLogic/
+﻿// BunkerBusterBehavior - R12 port (behavioral reference: generals-gpl GeneralsMD GameLogic/
 // Module/BunkerBusterBehavior.cpp/.h; GPL semantics reference only, fresh code against the
 // landed OpenSage module contract).
 //

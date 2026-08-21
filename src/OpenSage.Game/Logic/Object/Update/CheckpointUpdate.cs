@@ -1,4 +1,4 @@
-// CheckpointUpdate - R12 port, translated from generals-gpl CheckpointUpdate.cpp/.h (GPL
+﻿// CheckpointUpdate - R12 port, translated from generals-gpl CheckpointUpdate.cpp/.h (GPL
 // semantics reference; api-freeze-v1 §6 / template v1.1, direct analog of the R9
 // EnemyNearUpdate port - same scan-and-flag shape, extended with a second (ally) scan and a
 // collision-radius animation).

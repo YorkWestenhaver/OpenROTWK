@@ -1,4 +1,4 @@
-// Mocked-game contract tests for ReplenishUnitsBehavior (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game contract tests for ReplenishUnitsBehavior (api-freeze-v1 §6 fitness item 4):
 // the replenish cadence (StartsActive gate + LogicRandom startup stagger + steady ReplenishDelay),
 // the enemy-within-radius suppression, ReplenishStatii stamping, the nearby-horde reach, plus the
 // shadow-copy base test, a mid-state save/load continuation, and a run-twice determinism check.

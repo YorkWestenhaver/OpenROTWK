@@ -1,4 +1,4 @@
-// The deterministic experience/veterancy core - GPL ExperienceTracker rebuilt on int
+﻿// The deterministic experience/veterancy core - GPL ExperienceTracker rebuilt on int
 // experience + Fix64 scalar (generals-gpl GeneralsMD GameLogic/Object/
 // ExperienceTracker.cpp: ctor / getExperienceValue / isAcceptingExperiencePoints /
 // setMinVeterancyLevel / setVeterancyLevel / gainExpForLevel / canGainExpForLevel /

@@ -1,4 +1,4 @@
-// S8 script-runtime system tests: core evaluator semantics against a recording fake host
+﻿// S8 script-runtime system tests: core evaluator semantics against a recording fake host
 // (timers, counters, flags, one-shot/false-action branches, enable/disable/subroutine,
 // evaluation order), Xfer round-trip + mid-run save/load continuation, a HeadlessSimGame
 // end-to-end (real spawn through GameLogic, real weapon-target order), and the compile-and-

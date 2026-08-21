@@ -1,4 +1,4 @@
-// TensileFormationUpdate - R10 port through the full task packet (api-freeze-v1 §6 / template v1.1).
+﻿// TensileFormationUpdate - R10 port through the full task packet (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD TensileFormationUpdate.cpp/.h (GPL semantics
 // reference only; this is fresh code against the frozen contract). The GPL module is a springy

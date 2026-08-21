@@ -1,4 +1,4 @@
-// S5 pathfinding - the pathfind grid (GPL Pathfinder's m_map of PathfindCell).
+﻿// S5 pathfinding - the pathfind grid (GPL Pathfinder's m_map of PathfindCell).
 //
 // Behavioral reference (clean-room, semantics only): AIPathfind.cpp/h -
 // PathfindCell::CellType, classifyMap/classifyMapCell (pinched expansion around cliffs),

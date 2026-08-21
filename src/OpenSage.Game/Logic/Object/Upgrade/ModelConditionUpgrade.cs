@@ -1,4 +1,4 @@
-// ModelConditionUpgrade - R12 port, translated from generals-gpl GeneralsMD
+﻿// ModelConditionUpgrade - R12 port, translated from generals-gpl GeneralsMD
 // ModelConditionUpgrade.cpp/.h (GPL semantics reference for the base ConditionFlag behavior;
 // api-freeze-v1 §6 / template v1.1) plus the BFME2 batch-flag extension already parsed by
 // this module's [ParseOnly] data (AddConditionFlags / RemoveConditionFlags /

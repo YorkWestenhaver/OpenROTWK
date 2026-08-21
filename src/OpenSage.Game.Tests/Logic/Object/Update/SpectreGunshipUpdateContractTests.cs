@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SpectreGunshipUpdate port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the SpectreGunshipUpdate port (api-freeze-v1 §6 fitness item 4):
 // one test per task-packet behavior (orbit insertion, gattling target acquisition - both the
 // player-override reticle and the non-human attack-area fallback, howitzer volley cadence,
 // departure/self-destruct, player aim-override constraint, early termination), plus the

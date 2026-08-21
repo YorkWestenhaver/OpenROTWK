@@ -1,4 +1,4 @@
-// Castle/build-plot order handlers (R9 castles task): the sim-side handlers for
+﻿// Castle/build-plot order handlers (R9 castles task): the sim-side handlers for
 // MSG_FOUNDATION_CONSTRUCT (1049), FOUNDATION_CONSTRUCT_CANCEL (~1050),
 // MSG_CASTLE_UNPACK (1085), MSG_CASTLE_PACK (1086) and
 // MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (1087) - spec-castles.md §2.3/§5.6/§5.9.

@@ -1,4 +1,4 @@
-// R10 independent conformance + determinism verification of the S5 pathfinding system
+﻿// R10 independent conformance + determinism verification of the S5 pathfinding system
 // (second-set-of-eyes pass; findings in research/pathfinding-conformance-r10.md).
 //
 // Layers:

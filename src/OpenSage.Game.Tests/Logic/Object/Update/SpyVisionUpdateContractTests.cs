@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SpyVisionUpdate Round-9 port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the SpyVisionUpdate Round-9 port (api-freeze-v1 §6 fitness
 // item 4): one test per activation branch of the state machine [create -> tick -> observable
 // activation state], plus the mid-behavior save/load round-trip and the shadow-copy base test.
 //

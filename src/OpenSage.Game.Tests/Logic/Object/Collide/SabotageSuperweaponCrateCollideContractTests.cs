@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageSuperweaponCrateCollide port (R12): the real
+﻿// Mocked-game contract tests for the SabotageSuperweaponCrateCollide port (R12): the real
 // 'SabotageSuperweaponCrateCollide' INI name must produce a live runtime that gates on
 // KindOf (FS_SUPERWEAPON / FS_STRATEGY_CENTER), IsEffectivelyDead, and the ENEMIES
 // relationship, then resets every SpecialPowerModule on the victim through the landed

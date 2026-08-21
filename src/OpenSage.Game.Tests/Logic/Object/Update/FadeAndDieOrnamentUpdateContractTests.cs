@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the FadeAndDieOrnamentUpdate port (R12): the ADSR opacity
+﻿// Mocked-game contract tests for the FadeAndDieOrnamentUpdate port (R12): the ADSR opacity
 // envelope timeline (InitialOpacity -> attack -> decay -> sustain -> release -> destroy),
 // per-instance independence, and the shadow-copy base test. CurrentOpacity/OpacityAtFrame is
 // a pure function of the stored spawn frame + the parsed envelope (S8: rendering is absent

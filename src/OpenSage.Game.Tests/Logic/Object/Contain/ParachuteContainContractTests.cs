@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ParachuteContain port (R12), one test group per packet
+﻿// Mocked-game unit tests for the ParachuteContain port (R12), one test group per packet
 // testCase against a HeadlessSimGame host - the same [create -> tick -> observable effect]
 // shape as EjectPilotDieContractTests / RailedTransportDockUpdateContractTests.
 //
@@ -99,6 +99,16 @@ End
         return game;
     }
 
+    // A freshly spawned sleepy update module's very first Update() lands on the tick *after*
+    // the one it was created on: GameLogic.CreateObject arms it at max(CurrentFrame, 1), while
+    // GameLogic.Update() processes the modules due at the pre-increment frame counter and only
+    // then increments it (GameLogic.cs). So an object created before the first Step() is armed
+    // for frame 1 and skipped by the frame-0 pass. This mirrors GPL exactly (GameLogic.cpp
+    // registerObject's `if (now == 0) now = 1;` against an m_frame that increments at the end of
+    // GameLogic::update), and RailedTransportDockUpdateContractTests documents the same latency.
+    // Every test below therefore burns one arming Step() before the module's first real tick.
+    private static void ArmingStep(HeadlessSimGame game) => game.Step();
+
     private static ParachuteContain ContainOf(GameObject obj) =>
         obj.BehaviorModules.OfType<ParachuteContain>().Single();
 
@@ -120,7 +130,8 @@ End
         var game = NewGame();
         var (chute, rider, contain) = SpawnWithRider(game, new Vector3(0, 0, 200));
 
-        game.Step(); // establishes _startZ = 200 (well above 2 * ParachuteOpenDist over ground)
+        ArmingStep(game);
+        game.Step(); // establishes _startZ ~= 200 (well above 2 * ParachuteOpenDist over ground)
 
         Assert.False(contain.IsOpened);
         Assert.True(rider.ModelConditionFlags.Get(ModelConditionFlag.FreeFall));
@@ -145,6 +156,7 @@ End
         // chute room to actually open instead of slamming into the ground unopened.
         var (chute, _, contain) = SpawnWithRider(game, new Vector3(0, 0, 60));
 
+        ArmingStep(game);
         game.Step();
         Assert.False(contain.IsOpened);
 
@@ -182,6 +194,7 @@ End
         var pitchRate0 = contain.PitchRate;
         var rollRate0 = contain.RollRate;
 
+        ArmingStep(game);
         game.Step(); // unopened: no spring-damper yet
         Assert.Equal(pitchRate0, contain.PitchRate);
         Assert.Equal(0f, contain.Pitch);
@@ -205,7 +218,8 @@ End
         var game = NewGame();
         var (chute, rider, contain) = SpawnWithRider(game, new Vector3(0, 0, 200));
 
-        game.Step(); // establishes _startZ = 200
+        ArmingStep(game);
+        game.Step(); // establishes _startZ ~= 200
 
         // Move both the chute and the rider down into the low-altitude damping band (<= 20)
         // AND past ParachuteOpenDist in the same move.
@@ -214,6 +228,10 @@ End
 
         var pitchRate0 = contain.PitchRate;
         game.Step();
+
+        // Guard against this going vacuous: the spring-damper only runs once opened.
+        Assert.True(contain.IsOpened);
+        Assert.True(rider.HeightAboveTerrain <= 20f);
 
         // LowAltitudeDamping (0.3) adds to ChuteOpenLoco's PitchDamping (0.5).
         var expectedPitchRate = pitchRate0 + (-0.2f * 0f) + (-(0.5f + 0.3f) * pitchRate0);
@@ -228,10 +246,10 @@ End
         var game = NewGame();
         var (chute, rider, contain) = SpawnWithRider(game, new Vector3(10, 20, 200));
 
-        // onContaining positions the rider immediately, at the parachute's PARA_ATTACH offset
-        // (zero in this bone-less headless host, so rider == parachute position).
+        // onContaining positions the rider immediately, at the parachute's PARA_ATTACH offset.
         Assert.Equal(chute.Translation + contain.RiderAttachOffset, rider.Translation);
 
+        ArmingStep(game);
         game.Step();
         Assert.Equal(chute.Translation + contain.RiderAttachOffset, rider.Translation);
 
@@ -239,7 +257,11 @@ End
         chute.UpdateTransform(new Vector3(50, 60, 200));
         game.Step();
 
-        Assert.Equal(new Vector3(50, 60, 200), rider.Translation);
+        // The horizontal move is tracked exactly. Z is deliberately not asserted absolutely:
+        // PhysicsBehavior (Order1) integrates gravity into the parachute before ParachuteContain
+        // (Order2) repositions the rider, so both have already drifted a fraction of a unit down.
+        Assert.Equal(50f, rider.Translation.X);
+        Assert.Equal(60f, rider.Translation.Y);
         Assert.Equal(chute.Translation + contain.RiderAttachOffset, rider.Translation);
     }
 
@@ -251,6 +273,7 @@ End
         var game = NewGame();
         var (chute, rider, contain) = SpawnWithRider(game, new Vector3(0, 0, 200));
 
+        ArmingStep(game);
         game.Step();
         Assert.True(chute.TestStatus(ObjectStatus.NoCollisions));
         Assert.True(rider.TestStatus(ObjectStatus.NoCollisions));
@@ -281,6 +304,7 @@ End
 
         contain.SetOverrideDestination(new Vector3(500, 500, 0));
 
+        ArmingStep(game);
         game.Step();
         chute.UpdateTransform(new Vector3(0, 0, 140));
         game.Step(); // opens; targets the override instead of searching for a clear spot
@@ -296,6 +320,7 @@ End
         var game = NewGame();
         var (chute, _, contain) = SpawnWithRider(game, new Vector3(0, 0, 200));
 
+        ArmingStep(game);
         game.Step();
         chute.UpdateTransform(new Vector3(0, 0, 140));
         game.Step();
@@ -333,7 +358,10 @@ End
     public void ParachuteDestroyedNearGround_DoesNotApplyFreeFallDamage()
     {
         var game = NewGame();
-        var (chute, rider, contain) = SpawnWithRider(game, new Vector3(0, 0, 1));
+        // Spawn on the ground, not at z=1: GameData Gravity=-1.0 parses as per-frame-squared at
+        // 5 Hz, which puts IsSignificantlyAboveTerrain's threshold at 0.36 (GameObject.cs), so
+        // even z=1 already counts as airborne here.
+        var (chute, rider, contain) = SpawnWithRider(game, Vector3.Zero);
 
         Assert.False(chute.IsSignificantlyAboveTerrain);
 

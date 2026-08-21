@@ -1,4 +1,4 @@
-// The deterministic damage descriptor - the Fix64 core of GPL's DamageInfo
+﻿// The deterministic damage descriptor - the Fix64 core of GPL's DamageInfo
 // (generals-gpl GeneralsMD GameLogic/Damage.h: DamageInfoInput / DamageInfoOutput,
 // semantics only; fresh code).
 //

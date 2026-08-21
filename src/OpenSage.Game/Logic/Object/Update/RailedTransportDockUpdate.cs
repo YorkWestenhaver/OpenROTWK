@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Numerics;
 using ImGuiNET;
 using OpenSage.Data.Ini;

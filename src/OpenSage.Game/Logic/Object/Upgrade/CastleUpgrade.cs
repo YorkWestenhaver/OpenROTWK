@@ -1,4 +1,4 @@
-// CastleUpgrade - fortress module distributing an upgrade to every castle member
+﻿// CastleUpgrade - fortress module distributing an upgrade to every castle member
 // (R9 castles task).
 //
 // Behavioral reference: spec-castles.md §3.3: when the trigger upgrade (TriggeredBy)

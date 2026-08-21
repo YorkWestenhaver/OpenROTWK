@@ -1,4 +1,4 @@
-// SabotageInternetCenterCrateCollide - R12 port off the [ParseOnly] backlog (census: Collide).
+﻿// SabotageInternetCenterCrateCollide - R12 port off the [ParseOnly] backlog (census: Collide).
 //
 // The retail module is a saboteur crate whose collision trigger (executeCrateBehavior)
 // validates that the target is alive, an enemy-controlled KindOf=FS_INTERNET_CENTER structure,

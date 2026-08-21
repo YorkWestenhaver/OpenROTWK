@@ -1,4 +1,4 @@
-// EmpUpdate - R12 port, translated from generals-gpl Generals/GeneralsMD EMPUpdate.cpp/.h
+﻿// EmpUpdate - R12 port, translated from generals-gpl Generals/GeneralsMD EMPUpdate.cpp/.h
 // (GPL semantics reference; api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral facts translated from the GPL source (base Generals EMPUpdate.cpp/.h plus the

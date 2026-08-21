@@ -1,4 +1,4 @@
-// SabotagePowerPlantCrateCollide - R12 port from [ParseOnly].
+﻿// SabotagePowerPlantCrateCollide - R12 port from [ParseOnly].
 //
 // Behavioral reference: generals-gpl GeneralsMD SabotagePowerPlantCrateCollide.cpp, plus the
 // shared CrateCollide::onCollide / CrateCollide::isValidToExecute base (CrateCollide.cpp) -

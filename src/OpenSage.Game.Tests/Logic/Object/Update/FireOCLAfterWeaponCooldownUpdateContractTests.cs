@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the FireOCLAfterWeaponCooldownUpdate port (R12): the
+﻿// Mocked-game contract tests for the FireOCLAfterWeaponCooldownUpdate port (R12): the
 // module parses every INI-configurable field and instantiates as a live (parked-for-now)
 // runtime module, and round-trips its empty state - the [ParseOnly] hole is closed without
 // inventing a firing signal the frozen ISimContext does not yet expose (see the module

@@ -1,4 +1,4 @@
-// DemoTrapUpdate - R12 port (behavioral reference: generals-gpl GameLogic/Module/
+﻿// DemoTrapUpdate - R12 port (behavioral reference: generals-gpl GameLogic/Module/
 // DemoTrapUpdate.cpp/.h; GPL semantics reference only, fresh code against the landed OpenSage
 // module contract).
 //

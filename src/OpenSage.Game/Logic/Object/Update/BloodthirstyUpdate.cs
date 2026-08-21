@@ -1,4 +1,4 @@
-// BloodthirstyUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
+﻿// BloodthirstyUpdate - R11 Track B port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/, so this is the minimal behavior the INI
 // chain needs (AotR MordorFighterHorde ModuleTag_Bloodthirsty: SacrificeFilter = ALL,
 // ExperienceModifier = 1.00; driven in retail by the BloodThirstyFerocity special power,

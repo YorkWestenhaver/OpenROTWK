@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore.Numerics;
 

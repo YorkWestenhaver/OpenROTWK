@@ -1,4 +1,4 @@
-// Contract tests for the GrantUpgradeCreate port (experiment-round-4 §4.1 DoD item 4: one test
+﻿// Contract tests for the GrantUpgradeCreate port (experiment-round-4 §4.1 DoD item 4: one test
 // per INI branch, minimum [create -> observable effect], plus the persisted-gate continuation
 // that stands in for the mid-state save/load half - see GrantUpgradeCreate.md for why the raw
 // byte-level round trip is a harness N/A for this class).

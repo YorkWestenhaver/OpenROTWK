@@ -1,4 +1,4 @@
-// CostModifierUpgrade - R9 port (experiment-round-4 4.1, template v1.1). Pure economy.
+﻿// CostModifierUpgrade - R9 port (experiment-round-4 4.1, template v1.1). Pure economy.
 //
 // Behavioral reference: generals-gpl GeneralsMD CostModifierUpgrade.cpp/.h +
 // Common/RTS/Player.cpp add/remove/getKindOfProductionCostChange (GPL semantics only; this

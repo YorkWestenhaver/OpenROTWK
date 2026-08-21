@@ -1,4 +1,4 @@
-// Compiles BFME2 ExperienceLevel INI chains (AotR experiencelevels.ini shape:
+﻿// Compiles BFME2 ExperienceLevel INI chains (AotR experiencelevels.ini shape:
 // per-template TargetNames + ascending RequiredExperience blocks carrying Rank,
 // ExperienceAward, AttributeModifiers, Upgrades) into the immutable
 // VeterancyLevelTable + per-level grant lists the veterancy core and its owning

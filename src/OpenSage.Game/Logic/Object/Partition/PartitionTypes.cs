@@ -1,4 +1,4 @@
-// Partition / Vision / LOS / Shroud — shared vocabulary (build-roadmap pillar
+﻿// Partition / Vision / LOS / Shroud — shared vocabulary (build-roadmap pillar
 // partition-vision, S3).
 //
 // Behavioral reference (clean-room, semantics only, fresh code): generals-gpl GeneralsMD

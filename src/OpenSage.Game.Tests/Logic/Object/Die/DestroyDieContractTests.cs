@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the DestroyDie port (experiment-round-4 §4.1, DoD item 4):
+﻿// Mocked-game unit tests for the DestroyDie port (experiment-round-4 §4.1, DoD item 4):
 // one test per INI branch, each of the shape [create -> trigger death -> observable effect]
 // using the batch's death-trigger helper, plus the shadow-copy base test taken mid-behavior
 // and a mid-behavior save/load continuation.

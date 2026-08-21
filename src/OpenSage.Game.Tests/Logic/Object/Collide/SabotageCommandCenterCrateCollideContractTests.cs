@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SabotageCommandCenterCrateCollide port (R12): the two
+﻿// Mocked-game contract tests for the SabotageCommandCenterCrateCollide port (R12): the two
 // real decision points the class exposes - IsValidToExecute and ExecuteCrateBehavior (see the
 // module's own header for why OnCollide dispatch itself is out of scope) - covering every
 // testCase in the R12 task packet.

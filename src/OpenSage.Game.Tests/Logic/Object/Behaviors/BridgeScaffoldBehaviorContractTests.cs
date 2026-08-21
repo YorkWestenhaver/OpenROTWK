@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the BridgeScaffoldBehavior port (api-freeze-v1 §6 fitness
+﻿// Mocked-game contract tests for the BridgeScaffoldBehavior port (api-freeze-v1 §6 fitness
 // item 4 shape): one test per behavior branch from the R12 task packet - Rise/BuildAcross/
 // TearDownAcross/Sink transitions, the reverseMotion() state machine, lateral/vertical speed
 // independence - plus the shadow-copy base test and a run-twice bit-determinism check.

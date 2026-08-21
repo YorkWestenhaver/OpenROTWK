@@ -1,4 +1,4 @@
-// GrantStealthBehavior - R12 port. GPL ref: GeneralsMD/Code/GameEngine/{Include,Source}/
+﻿// GrantStealthBehavior - R12 port. GPL ref: GeneralsMD/Code/GameEngine/{Include,Source}/
 // GameLogic/{Module,Object/Behavior}/GrantStealthBehavior.{h,cpp} (GPL semantics reference
 // only; this is fresh code against the frozen contract). Behavior facts used:
 //   - ctor: the scan radius starts at StartRadius; an optional RadiusParticleSystemName is

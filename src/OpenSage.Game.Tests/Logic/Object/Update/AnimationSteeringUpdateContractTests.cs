@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the AnimationSteeringUpdate port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the AnimationSteeringUpdate port (api-freeze-v1 §6 fitness
 // item 4): one test per state-machine branch from the task packet, [create -> tick ->
 // observable effect], plus the shadow-copy base test and a mid-state save/load round-trip.
 // Object definitions are parsed from INI text through the real parser, so the S5

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the RebuildHoleExposeDie port (experiment-round-4 §4.1 DoD
+﻿// Mocked-game unit tests for the RebuildHoleExposeDie port (experiment-round-4 §4.1 DoD
 // item 4): one test per INI-configurable branch, minimum [create -> trigger death ->
 // observable effect] via the batch's PortedModuleTestKit death trigger, plus the shadow-copy
 // base test mid-behavior and a mid-behavior save/load continuation.

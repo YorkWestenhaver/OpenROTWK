@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the AudioLoopUpgrade port (R12): a permanently-parked
+﻿// Mocked-game contract tests for the AudioLoopUpgrade port (R12): a permanently-parked
 // audio-only upgrade module (see the module header for why). The shared UpgradeLogic mux -
 // trigger, prerequisites, conflicts, StartsActive - is real and is exercised here exactly
 // like every other UpgradeLogic-driven module in this codebase. The audio side effect itself

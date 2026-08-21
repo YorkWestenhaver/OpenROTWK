@@ -1,4 +1,4 @@
-// The deterministic partition / vision / LOS / shroud system (build-roadmap pillar
+﻿// The deterministic partition / vision / LOS / shroud system (build-roadmap pillar
 // partition-vision, S3). Fresh code from GPL semantics only: generals-gpl GeneralsMD
 // GameLogic/Object/PartitionManager.cpp (+ PartitionManager.h, Object.cpp look/unlook/
 // shroud, BaseHeightMap.cpp isClearLineOfSight shape). This file is [SimState]: all sim
@@ -348,19 +348,19 @@ public sealed class SimPartitionGrid
             case PartitionDistanceType.Center3D:
                 return DistanceSquaredWideRaw(pos, other.Position, use3D: true);
             default:
-            {
-                var use3D = dc == PartitionDistanceType.BoundingSphere3D;
-                var wideSq = DistanceSquaredWideRaw(pos, other.Position, use3D);
-                // sqrt of Q62.64 lands in Q31.32 raw (the FixMath.Distance shape).
-                var distRaw = (Int128)(long)Fix64Distance(wideSq).RawValue;
-                var shrunkRaw = distRaw - posRadius.RawValue - other.Info.BoundingRadius.RawValue;
-                if (shrunkRaw < 0)
                 {
-                    shrunkRaw = 0;
+                    var use3D = dc == PartitionDistanceType.BoundingSphere3D;
+                    var wideSq = DistanceSquaredWideRaw(pos, other.Position, use3D);
+                    // sqrt of Q62.64 lands in Q31.32 raw (the FixMath.Distance shape).
+                    var distRaw = (Int128)(long)Fix64Distance(wideSq).RawValue;
+                    var shrunkRaw = distRaw - posRadius.RawValue - other.Info.BoundingRadius.RawValue;
+                    if (shrunkRaw < 0)
+                    {
+                        shrunkRaw = 0;
+                    }
+                    var mag = (UInt128)shrunkRaw;
+                    return mag * mag;
                 }
-                var mag = (UInt128)shrunkRaw;
-                return mag * mag;
-            }
         }
     }
 

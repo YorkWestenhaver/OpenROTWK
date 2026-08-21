@@ -1,4 +1,4 @@
-// SupplyWarehouseCripplingBehavior - Round-10 structure/economy port (full task packet,
+﻿// SupplyWarehouseCripplingBehavior - Round-10 structure/economy port (full task packet,
 // template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD SupplyWarehouseCripplingBehavior.cpp/.h (GPL

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Xunit;
 
 namespace OpenSage.SimCore.Analyzers.Tests;

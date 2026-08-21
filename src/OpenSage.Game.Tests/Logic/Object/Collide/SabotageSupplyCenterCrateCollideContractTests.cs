@@ -1,4 +1,4 @@
-// Contract tests for the SabotageSupplyCenterCrateCollide port (R12): a saboteur crate that
+﻿// Contract tests for the SabotageSupplyCenterCrateCollide port (R12): a saboteur crate that
 // steals cash from an enemy supply center on collision. The GPL executeCrateBehavior gate is
 // [not dead -> is a supply center -> is an enemy -> is still the saboteur's AI goal object]
 // before the cash transfer runs, so each rejection branch gets its own test alongside the

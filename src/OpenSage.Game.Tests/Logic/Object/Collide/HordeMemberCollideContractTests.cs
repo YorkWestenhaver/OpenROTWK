@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the HordeMemberCollide port (R11 Track B): the REAL INI
+﻿// Mocked-game contract tests for the HordeMemberCollide port (R11 Track B): the REAL INI
 // name (the empty member-side block authored data ships, e.g. AotR MordorFighter) must
 // produce the live SimHordeMember runtime - horde back-reference, damage forwarding into
 // the horde flank path - plus the shadow-copy base test.

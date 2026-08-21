@@ -1,4 +1,4 @@
-// The shared base-test kit every Round-4 module port clones (api-freeze-v1 §5): the
+﻿// The shared base-test kit every Round-4 module port clones (api-freeze-v1 §5): the
 // shadow-copy check (Save -> Load -> CRC == live CRC) is what turns Xfer completeness into
 // a failing test instead of a review hope. Mirrors SimCore's XferVisitorTests shapes, but
 // over REAL BehaviorModules on a real (headless) game.

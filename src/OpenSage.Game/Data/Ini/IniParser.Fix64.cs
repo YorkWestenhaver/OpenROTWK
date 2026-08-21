@@ -1,4 +1,4 @@
-// The quantizing INI parse functions (api-freeze-v1 seam S5, design-module-api §2.2).
+﻿// The quantizing INI parse functions (api-freeze-v1 seam S5, design-module-api §2.2).
 //
 // Sim-relevant numerics leave the INI text layer as Fix64 / LogicFrameSpan, quantized ONCE
 // at parse time through the single blessed text boundary Fix64.FromDecimalLiteral (F4):

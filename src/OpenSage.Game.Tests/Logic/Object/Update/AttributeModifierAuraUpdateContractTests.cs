@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the AttributeModifierAuraUpdate port (R12): the periodic
+﻿// Mocked-game contract tests for the AttributeModifierAuraUpdate port (R12): the periodic
 // scan (StartsActive/TargetEnemy/ObjectFilter/RequiredConditions/AllowSelf), ConflictsWith,
 // refresh-loop consistency, the Permanent-flag reaction to a (currently test-only, see the
 // module's OnTriggerRemoved doc) upgrade removal, the AotR weighted-blend composition identity,

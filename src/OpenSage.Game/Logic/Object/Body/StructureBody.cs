@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;

@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — the COMPILED, IMMUTABLE program.
+﻿// S8 script-engine runtime (subset) — the COMPILED, IMMUTABLE program.
 //
 // Behavioral reference (clean-room, semantics only): generals-gpl GeneralsMD
 // ScriptEngine.cpp / ScriptActions.cpp / ScriptConditions.cpp. The original evaluates the

@@ -1,4 +1,4 @@
-// HordeNotifyTargetsOfImminentProbableCrushingUpdate - R12 port. Cavalry-horde variant of the
+﻿// HordeNotifyTargetsOfImminentProbableCrushingUpdate - R12 port. Cavalry-horde variant of the
 // landed base NotifyTargetsOfImminentProbableCrushingUpdate (R12, see that file's header for
 // the shared behavior model and its TODO-spec notes, which apply here unchanged). This sibling
 // is authored with a single field - ScanWidth - letting cavalry hordes override the generic

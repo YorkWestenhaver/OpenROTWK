@@ -1,4 +1,4 @@
-using OpenSage.Logic.Object;
+﻿using OpenSage.Logic.Object;
 using Xunit;
 
 namespace OpenSage.Tests.Data.Ini;

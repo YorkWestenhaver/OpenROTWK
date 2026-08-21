@@ -1,4 +1,4 @@
-// SimTransformBridge - the ONE float-substrate crossing of the S2 locomotor system
+﻿// SimTransformBridge - the ONE float-substrate crossing of the S2 locomotor system
 // (the D-7 boundary pattern: crossings live in a non-[SimState] file; [SimState] code
 // only ever passes/receives Fix64 values through these methods).
 //

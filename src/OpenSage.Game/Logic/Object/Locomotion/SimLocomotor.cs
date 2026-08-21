@@ -1,4 +1,4 @@
-// SimLocomotor - the deterministic per-frame steering/acceleration half of the S2
+﻿// SimLocomotor - the deterministic per-frame steering/acceleration half of the S2
 // locomotor system. Fresh code; behavioral reference (semantics only): generals-gpl
 // GeneralsMD GameLogic/Object/Locomotor.cpp (class Locomotor). All math is Fix64 with
 // LUT trig (F2: FixTrig.Sin/Cos/Atan2, never System.Math).
@@ -1097,30 +1097,30 @@ public sealed class SimLocomotor
             case LocomotorBehaviorZ.AbsoluteHeight:
             case LocomotorBehaviorZ.RelativeToGroundAndBuildings:      // degraded: no partition seam yet
             case LocomotorBehaviorZ.RelativeToHighestLayer:            // degraded: no layer seam yet
-            {
-                if (_preferredHeight == Fix64.Zero && !GetFlag(LocoFlag.PreciseZPos))
                 {
+                    if (_preferredHeight == Fix64.Zero && !GetFlag(LocoFlag.PreciseZPos))
+                    {
+                        return true;
+                    }
+                    var surfaceRel = _template.BehaviorZ != LocomotorBehaviorZ.AbsoluteHeight;
+                    var preferredHeight = _preferredHeight + (surfaceRel ? surfaceZ : Fix64.Zero);
+                    if (GetFlag(LocoFlag.PreciseZPos))
+                    {
+                        preferredHeight = goalPos.Z;
+                    }
+
+                    var delta = (preferredHeight - phys.Position.Z) * _preferredHeightDamping;
+                    preferredHeight = phys.Position.Z + delta;
+
+                    var liftToUse = CalcLiftToUse(
+                        phys, condition, phys.Position.Z, preferredHeight);
+                    if (liftToUse != Fix64.Zero)
+                    {
+                        phys.ApplyMotiveForce(
+                            new FixVector3(Fix64.Zero, Fix64.Zero, liftToUse * phys.Mass), now);
+                    }
                     return true;
                 }
-                var surfaceRel = _template.BehaviorZ != LocomotorBehaviorZ.AbsoluteHeight;
-                var preferredHeight = _preferredHeight + (surfaceRel ? surfaceZ : Fix64.Zero);
-                if (GetFlag(LocoFlag.PreciseZPos))
-                {
-                    preferredHeight = goalPos.Z;
-                }
-
-                var delta = (preferredHeight - phys.Position.Z) * _preferredHeightDamping;
-                preferredHeight = phys.Position.Z + delta;
-
-                var liftToUse = CalcLiftToUse(
-                    phys, condition, phys.Position.Z, preferredHeight);
-                if (liftToUse != Fix64.Zero)
-                {
-                    phys.ApplyMotiveForce(
-                        new FixVector3(Fix64.Zero, Fix64.Zero, liftToUse * phys.Mass), now);
-                }
-                return true;
-            }
 
             default:
                 return false;

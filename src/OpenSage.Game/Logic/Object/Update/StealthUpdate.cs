@@ -1,4 +1,4 @@
-// StealthUpdate - Round-9 port (experiment-round-4 §4.1, template v1.1).
+﻿// StealthUpdate - Round-9 port (experiment-round-4 §4.1, template v1.1).
 //
 // Behavioral reference: generals-gpl GeneralsMD StealthUpdate.cpp/.h (GPL semantics only;
 // this is fresh code against the frozen contract). The mapped state machine:

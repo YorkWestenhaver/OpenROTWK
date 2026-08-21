@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using OpenSage.Data.Ini;
 
 namespace OpenSage.Logic.Object;

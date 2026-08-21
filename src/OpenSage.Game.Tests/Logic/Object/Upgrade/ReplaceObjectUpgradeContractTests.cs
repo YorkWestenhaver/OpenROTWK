@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the ReplaceObjectUpgrade port (R12 task packet's
+﻿// Mocked-game contract tests for the ReplaceObjectUpgrade port (R12 task packet's
 // testCases): the triggered in-place replacement, position/orientation preservation, team
 // ownership, pathfind-map consistency around the swap, the onBuildComplete pass on the
 // replacement's create modules, and the missing-template no-op guard.
@@ -76,11 +76,11 @@ End
     private static ReplaceObjectUpgrade ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<ReplaceObjectUpgrade>().Single();
 
-    private static uint _nextTestTeamId = 800;
+    private static uint NextTestTeamId = 800;
 
     private static Team AssignSingletonTeam(HeadlessSimGame game, GameObject obj, Player owner)
     {
-        var id = _nextTestTeamId++;
+        var id = NextTestTeamId++;
         var template = new TeamTemplate(game.TeamFactory, id, $"ReplaceUpgradeTestTeam{id}", owner, isSingleton: true);
         var team = new Team(template, id);
         obj.Team = team;

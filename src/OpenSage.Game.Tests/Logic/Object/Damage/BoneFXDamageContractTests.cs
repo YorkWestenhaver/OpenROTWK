@@ -1,4 +1,4 @@
-// BoneFXDamage R7 contract tests (template v1.1 §5): the create-time pairing requirement and
+﻿// BoneFXDamage R7 contract tests (template v1.1 §5): the create-time pairing requirement and
 // the body-damage-state relay into the paired BoneFXUpdate, exercised on HeadlessSimGame with
 // real parsed INI so the S1 Fix64 damage/armor/health chain and the ActiveBody →
 // IDamageModule.OnBodyDamageStateChange dispatch are on the tested path. One test per behavioral

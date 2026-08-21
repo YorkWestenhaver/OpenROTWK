@@ -1,4 +1,4 @@
-// MobMemberSlavedUpdate - R10 port through the full task packet (api-freeze-v1 §6 /
+﻿// MobMemberSlavedUpdate - R10 port through the full task packet (api-freeze-v1 §6 /
 // template v1.1). "Will obey spawner... or die trying": a swarm/mob member that keeps itself
 // caught up to its mob leader (the "nexus"), snapping to PANIC and heading for the leader when
 // it strays too far, and self-destructing if it stays critically far for too long (the

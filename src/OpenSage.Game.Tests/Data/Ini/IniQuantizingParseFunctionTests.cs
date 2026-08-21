@@ -1,4 +1,4 @@
-// Tests for the S5 quantizing parse functions (api-freeze-v1 seam S5): INI text lands as
+﻿// Tests for the S5 quantizing parse functions (api-freeze-v1 seam S5): INI text lands as
 // Fix64 / LogicFrameSpan through the blessed integer-only boundary, with the rounding rules
 // pinned per formula. Expected raw values are hand-computed (Q31.32: value * 2^32).
 

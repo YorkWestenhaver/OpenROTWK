@@ -1,4 +1,4 @@
-// The Fix64 health ledger - GPL ActiveBody's health/damage-state arithmetic, extracted
+﻿// The Fix64 health ledger - GPL ActiveBody's health/damage-state arithmetic, extracted
 // as a pure deterministic core (generals-gpl GeneralsMD GameLogic/Object/Body/
 // ActiveBody.cpp: internalChangeHealth / attemptDamage (arithmetic half) /
 // attemptHealing (arithmetic half) / setMaxHealth / setInitialHealth /

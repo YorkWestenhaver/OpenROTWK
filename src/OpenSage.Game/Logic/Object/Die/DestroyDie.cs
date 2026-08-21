@@ -1,4 +1,4 @@
-// DestroyDie - the Die batch's second port (experiment-round-4 §4, "near-stateless").
+﻿// DestroyDie - the Die batch's second port (experiment-round-4 §4, "near-stateless").
 //
 // Behavioral reference: generals-gpl GeneralsMD DestroyDie.cpp/.h (GPL semantics reference
 // only; this is fresh code against the frozen contract). The whole class, as facts:

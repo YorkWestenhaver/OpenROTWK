@@ -1,4 +1,4 @@
-// InactiveBody - Body-batch port to the frozen module contract (api-freeze-v1 §3/§5,
+﻿// InactiveBody - Body-batch port to the frozen module contract (api-freeze-v1 §3/§5,
 // template v1.1 = pilot-autoheal §3/§6). This class deliberately does NOT touch the S1
 // BodyDamageCore: an inactive body has no health ledger to apply damage to.
 //

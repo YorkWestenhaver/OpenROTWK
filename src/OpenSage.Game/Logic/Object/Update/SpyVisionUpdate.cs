@@ -1,4 +1,4 @@
-// SpyVisionUpdate - Round-9 full-packet port (api-freeze-v1 §6 fitness function).
+﻿// SpyVisionUpdate - Round-9 full-packet port (api-freeze-v1 §6 fitness function).
 //
 // Behavioral reference: generals-gpl GeneralsMD GameLogic/Object/Update/SpyVisionUpdate.cpp/.h
 // (GPL semantics reference only; this is FRESH code against the frozen contract). The original

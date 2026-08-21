@@ -1,4 +1,4 @@
-// Contract tests for the InactiveBody port (experiment-round-4 §4.1 DoD item 4: one test per
+﻿// Contract tests for the InactiveBody port (experiment-round-4 §4.1 DoD item 4: one test per
 // behavioral branch, plus the shadow-copy base test and a mid-behavior save/load
 // continuation). Shape cloned from AutoHealContractTests / EjectPilotDieContractTests.
 //

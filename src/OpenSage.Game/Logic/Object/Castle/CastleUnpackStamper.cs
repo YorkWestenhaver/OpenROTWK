@@ -1,4 +1,4 @@
-// Float-substrate half of the castle system (deliberately NOT [SimState], the D-7 boundary
+﻿// Float-substrate half of the castle system (deliberately NOT [SimState], the D-7 boundary
 // shape): .bse template resolution, member stamping at rotated offsets, foundation-health
 // transfer, and build-plot construction placement. Positions/angles are unmigrated float
 // transform substrate, so every crossing lives here and never in the [SimState] castle files.

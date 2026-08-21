@@ -1,4 +1,4 @@
-// Round-8 FreeLifeBody contract tests (Body/Damage category), on HeadlessSimGame with real
+﻿// Round-8 FreeLifeBody contract tests (Body/Damage category), on HeadlessSimGame with real
 // parsed INI so the quantizing parse path is exercised (FreeLifeHealthPercent ->
 // ParseFix64Percentage, FreeLifeTime -> ParseDurationLogicFrames). FreeLifeBody is
 // BFME2/RotWK-only with NO GPL reference (see FreeLifeBody.cs header); these tests pin the

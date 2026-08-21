@@ -1,4 +1,4 @@
-// The engine-side owner of the S3 partition grid (R9 partition wiring, closes F-PV-1).
+﻿// The engine-side owner of the S3 partition grid (R9 partition wiring, closes F-PV-1).
 //
 // This file is a float-boundary file, NOT [SimState]: it stands between the float engine
 // (GameObject transforms, the map's float extents, GameData's float PartitionCellSize) and

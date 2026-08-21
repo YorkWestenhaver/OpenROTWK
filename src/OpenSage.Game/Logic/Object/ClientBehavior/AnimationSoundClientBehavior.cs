@@ -1,4 +1,4 @@
-// AnimationSoundClientBehavior - R12 port. BFME-only (no generals-gpl sibling) and no
+﻿// AnimationSoundClientBehavior - R12 port. BFME-only (no generals-gpl sibling) and no
 // clean-room spec in bfme2-workbench/research/. The retail module's entire job is
 // audio presentation: it walks the AnimationSound entries below and, as an animation
 // plays, fires the matching sound at the matching frame - audio is deliberately absent

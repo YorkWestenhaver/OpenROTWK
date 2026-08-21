@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the PickupStuffUpdate port (R11 Track B): the periodic
+﻿// Mocked-game contract tests for the PickupStuffUpdate port (R11 Track B): the periodic
 // crate scan (filter + range), one pickup per cadence tick in ascending-ObjectId order,
 // and the shadow-copy base test. The headless players are AI-side (IsHuman false), so
 // SkirmishAIOnly = Yes exercises the enabled path.

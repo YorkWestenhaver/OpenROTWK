@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the ReplaceSelfUpgrade port (R12): the task packet's
+﻿// Mocked-game contract tests for the ReplaceSelfUpgrade port (R12): the task packet's
 // testCases, one test per case, plus the shared shadow-copy base test. Definitions parse
 // from INI text through the real parser.
 

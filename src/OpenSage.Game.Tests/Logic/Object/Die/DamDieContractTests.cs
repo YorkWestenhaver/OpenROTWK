@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the DamDie port (experiment-round-4 §4.1, DoD item 4):
+﻿// Mocked-game contract tests for the DamDie port (experiment-round-4 §4.1, DoD item 4):
 // one test per INI-configurable branch, each shaped [create -> trigger death -> observable
 // effect] through the batch death-trigger helper, plus the shadow-copy base test and a
 // mid-behavior save/load continuation.

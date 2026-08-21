@@ -1,4 +1,4 @@
-// ToolTipUpgrade - R12 port. BFME-only client-UI module (census: no generals-gpl sibling
+﻿// ToolTipUpgrade - R12 port. BFME-only client-UI module (census: no generals-gpl sibling
 // under this name) that stores a localized DisplayName string key and swaps it in as the
 // object's active tooltip name once its upgrade trigger fires (e.g. garrison unlock,
 // weapon-platform addition). No update tick and no mutable sim field of its own beyond the

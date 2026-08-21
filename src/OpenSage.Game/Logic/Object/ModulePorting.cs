@@ -1,4 +1,4 @@
-// Round-4 module-porting migration markers (api-freeze-v1 §3 item 3, seam S5;
+﻿// Round-4 module-porting migration markers (api-freeze-v1 §3 item 3, seam S5;
 // design-module-api §1.4 / §2.2).
 //
 // [ParseOnly]      - the class parses INI but has no runtime module yet. The grep for this

@@ -1,4 +1,4 @@
-// S8 script-engine runtime (subset) — the compile boundary (deliberately NOT [SimState]).
+﻿// S8 script-engine runtime (subset) — the compile boundary (deliberately NOT [SimState]).
 //
 // Turns the parsed map script assets (OpenSage.Scripting.Script / ScriptList /
 // PlayerScriptsList, produced by the round-3 map parser) into the immutable, float-free
@@ -194,17 +194,17 @@ public static class SimScriptCompiler
                 case SimScriptConditionKind.NamedCreated:
                 case SimScriptConditionKind.NamedDestroyed:
                 case SimScriptConditionKind.NamedNotDestroyed:
-                {
-                    var unit = StringArg(args, 0);
-                    return new SimScriptCondition
                     {
-                        Kind = kind,
-                        Inverted = condition.IsInverted,
-                        NameSlotIndex = Allocate(_unitNames, unit),
-                        SubjectName = unit,
-                        RawContentType = raw,
-                    };
-                }
+                        var unit = StringArg(args, 0);
+                        return new SimScriptCondition
+                        {
+                            Kind = kind,
+                            Inverted = condition.IsInverted,
+                            NameSlotIndex = Allocate(_unitNames, unit),
+                            SubjectName = unit,
+                            RawContentType = raw,
+                        };
+                    }
 
                 case SimScriptConditionKind.TeamDestroyed:
                 case SimScriptConditionKind.PlayerAllDestroyed:
@@ -344,31 +344,31 @@ public static class SimScriptCompiler
                 case SimScriptActionKind.EnableScript:
                 case SimScriptActionKind.DisableScript:
                 case SimScriptActionKind.CallSubroutine:
-                {
-                    var compiled = new SimScriptAction
                     {
-                        Kind = kind,
-                        Name0 = StringArg(args, 0),
-                        RawContentType = raw,
-                    };
-                    _pendingTargets.Add((compiled, compiled.Name0, owningList.Count, false, -1, -1));
-                    return compiled;
-                }
+                        var compiled = new SimScriptAction
+                        {
+                            Kind = kind,
+                            Name0 = StringArg(args, 0),
+                            RawContentType = raw,
+                        };
+                        _pendingTargets.Add((compiled, compiled.Name0, owningList.Count, false, -1, -1));
+                        return compiled;
+                    }
 
                 case SimScriptActionKind.CreateNamedOnTeamAtWaypoint:
-                {
-                    var unit = StringArg(args, 0);
-                    return new SimScriptAction
                     {
-                        Kind = kind,
-                        NameSlotIndex = Allocate(_unitNames, unit),
-                        Name0 = unit,
-                        Name1 = StringArg(args, 1),   // object type
-                        Name2 = StringArg(args, 2),   // team
-                        Name3 = StringArg(args, 3),   // waypoint
-                        RawContentType = raw,
-                    };
-                }
+                        var unit = StringArg(args, 0);
+                        return new SimScriptAction
+                        {
+                            Kind = kind,
+                            NameSlotIndex = Allocate(_unitNames, unit),
+                            Name0 = unit,
+                            Name1 = StringArg(args, 1),   // object type
+                            Name2 = StringArg(args, 2),   // team
+                            Name3 = StringArg(args, 3),   // waypoint
+                            RawContentType = raw,
+                        };
+                    }
 
                 case SimScriptActionKind.CreateUnnamedOnTeamAtWaypoint:
                     return new SimScriptAction

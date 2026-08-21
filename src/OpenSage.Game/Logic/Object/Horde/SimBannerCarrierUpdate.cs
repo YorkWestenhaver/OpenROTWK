@@ -1,4 +1,4 @@
-// SimBannerCarrierUpdate - the member-side banner-carrier module (spec §4.3 parse table,
+﻿// SimBannerCarrierUpdate - the member-side banner-carrier module (spec §4.3 parse table,
 // §7 behavior), implemented FRESH from the clean-room spec. While the horde has
 // been melee-free for MeleeFreeUnitSpawnTime, the banner replenishes one missing member
 // every IdleSpawnRate (FX UnitSpawnFX) - the horde owns seating and creation

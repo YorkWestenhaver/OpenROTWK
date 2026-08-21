@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the TerrainResourceClientBehavior port (R12): a
+﻿// Mocked-game contract tests for the TerrainResourceClientBehavior port (R12): a
 // permanently-parked client marker module (see the module header) that parses, instantiates
 // as a live runtime module, and round-trips its empty state - the [ParseOnly] hole is closed
 // without inventing sim behavior for the retail client<->server pairing role.
@@ -94,7 +94,7 @@ End
 
         // The module is a plain BehaviorModule: it is neither an UpdateModule (sim tick)
         // nor a ClientUpdateModule/DrawModule (client update or draw callbacks).
-        Assert.IsNotType<UpdateModule>(module);
+        Assert.IsNotType<UpdateModule>(module, exactMatch: false);
         Assert.IsNotAssignableFrom<ClientUpdateModule>(module);
 
         module.Dispose();

@@ -1,4 +1,4 @@
-// UnitCrateCollide - crate collision module that spawns UnitCount units of UnitName, for the
+﻿// UnitCrateCollide - crate collision module that spawns UnitCount units of UnitName, for the
 // collecting player's team, scattered around the crate (R12 port; task packet
 // unit-crate-collide).
 //

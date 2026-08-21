@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the SlaughterHordeContain port (R12): the upgrade-gated
+﻿// Mocked-game contract tests for the SlaughterHordeContain port (R12): the upgrade-gated
 // entry gate (PassengerFilter + capacity + the Allow*Inside faction barrier), status-flag
 // application on entry/release, the ExitOffset move order issued before removal, and the
 // death-triggered CashBackPercent refund - covering every testCase in the R12 task packet.

@@ -1,4 +1,4 @@
-// RespawnBody R8 contract tests (Body-batch), on HeadlessSimGame with real parsed INI so the
+﻿// RespawnBody R8 contract tests (Body-batch), on HeadlessSimGame with real parsed INI so the
 // audited parse path (ObjectFilter.Parse for PermanentlyKilledByFilter, the F-R7-2 InitialHealth
 // default) and the S1 Fix64 kill-resolution chain are on the tested path.
 //

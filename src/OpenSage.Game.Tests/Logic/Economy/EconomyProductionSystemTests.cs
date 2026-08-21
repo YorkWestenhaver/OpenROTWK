@@ -1,4 +1,4 @@
-// S4 system tests (build-roadmap pillar economy-production): resource accounting,
+﻿// S4 system tests (build-roadmap pillar economy-production): resource accounting,
 // production queue/build timers, cost/time formulas, and experience->veterancy
 // progression - one test per core formula/branch, plus Xfer round-trips through the
 // SimCore visitors (save -> load -> CRC == live CRC) and mid-state save/load

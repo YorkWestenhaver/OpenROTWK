@@ -1,4 +1,4 @@
-// LeafletDropBehavior - R12 port.
+﻿// LeafletDropBehavior - R12 port.
 //
 // No GPL source exists for this module: GeneralsMD/Code/GameEngine/Source/Common/Thing/
 // ModuleFactory.cpp registers "LeafletDropBehavior" (addModule(LeafletDropBehavior)) but the

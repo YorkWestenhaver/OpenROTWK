@@ -1,4 +1,4 @@
-// SimHordeContain - the S6 horde/formation runtime, implemented FRESH from the clean-room
+﻿// SimHordeContain - the S6 horde/formation runtime, implemented FRESH from the clean-room
 // behavioral spec bfme2-workbench/research/spec-hordes.md (BFME-only system; no GPL
 // reference exists - spec facts and addresses only, no decompiled logic transplanted).
 //

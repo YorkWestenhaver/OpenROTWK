@@ -1,4 +1,4 @@
-// DoCommandUpgrade - R12 port. BFME2-only (no generals-gpl sibling, and no clean-room
+﻿// DoCommandUpgrade - R12 port. BFME2-only (no generals-gpl sibling, and no clean-room
 // behavioral spec in bfme2-workbench/research/), so this is the minimal behavior the module's
 // own INI schema and the shared upgrade-mux contract (design-module-api §6) already commit to:
 // a pure upgrade-mux module with no update tick and no client-side effect of its own. Its only

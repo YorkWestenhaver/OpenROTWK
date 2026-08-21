@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the HordeNotifyTargetsOfImminentProbableCrushingUpdate port
+﻿// Mocked-game contract tests for the HordeNotifyTargetsOfImminentProbableCrushingUpdate port
 // (R12): the ScanWidth field parse, the periodic scan within the authored ScanWidth radius, the
 // enemy/non-structure/CrusherLevel vs CrushableLevel eligibility gate, simultaneous multi-target
 // warning, the falling edge on a target leaving range or dying, the same-owner (friendly) gate,

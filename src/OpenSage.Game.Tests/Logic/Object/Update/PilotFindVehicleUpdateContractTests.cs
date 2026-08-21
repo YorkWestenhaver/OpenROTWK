@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the PilotFindVehicleUpdate port (api-freeze-v1 §6 fitness item
+﻿// Mocked-game unit tests for the PilotFindVehicleUpdate port (api-freeze-v1 §6 fitness item
 // 4): one test per landed-reachable behavior branch from the R12 task packet, [create -> tick
 // -> observable effect], plus the mid-behavior save/load round-trip and the shadow-copy base
 // test - the same shape as MobMemberSlavedUpdateContractTests, its direct analog for the

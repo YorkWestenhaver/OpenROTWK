@@ -1,4 +1,4 @@
-// Contract tests for the S5 pathfinding system (api-freeze-v1 §6 fitness item 4 shape).
+﻿// Contract tests for the S5 pathfinding system (api-freeze-v1 §6 fitness item 4 shape).
 //
 // Two layers:
 //   - pure engine tests against SimPathfindGrid/SimPathfinder (heuristic form, the

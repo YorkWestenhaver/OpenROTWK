@@ -1,4 +1,4 @@
-// The deterministic production queue - GPL ProductionUpdate's queue/timer/refund
+﻿// The deterministic production queue - GPL ProductionUpdate's queue/timer/refund
 // machine, extracted as a pure core (generals-gpl GeneralsMD
 // GameLogic/Object/Update/ProductionUpdate.cpp: queueCreateUnit / queueUpgrade /
 // cancelUnitCreate / cancelUpgrade / cancelAndRefundAllProduction / update (the

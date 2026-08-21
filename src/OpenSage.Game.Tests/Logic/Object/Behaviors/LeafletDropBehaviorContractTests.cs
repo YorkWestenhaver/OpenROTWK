@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the LeafletDropBehavior port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the LeafletDropBehavior port (api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch from the R12 task packet, [create -> tick -> observable
 // effect], plus the shadow-copy base test and a mid-behavior save/load round-trip.
 //

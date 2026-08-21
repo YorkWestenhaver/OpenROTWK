@@ -1,4 +1,4 @@
-// R9 partition wiring tests (sys/partition-wiring, closes F-PV-1): ISimContext.Partition
+﻿// R9 partition wiring tests (sys/partition-wiring, closes F-PV-1): ISimContext.Partition
 // is now served by the deterministic Fix64 SimPartitionGrid instead of the float
 // quadtree. These tests drive the seam end-to-end on the headless host: real parsed
 // GameObjects, real GameLogic lifecycle hooks, real SimContext adapter.

@@ -1,4 +1,4 @@
-// SimPhysics - the deterministic per-object movement integrator of the S2 locomotor
+﻿// SimPhysics - the deterministic per-object movement integrator of the S2 locomotor
 // system. Fresh code; behavioral reference (semantics only): generals-gpl GeneralsMD
 // GameLogic/Object/Update/PhysicsUpdate.cpp (PhysicsBehavior). Everything here is Fix64;
 // the position and heading held by this object are SIM-AUTHORITATIVE for a moving object

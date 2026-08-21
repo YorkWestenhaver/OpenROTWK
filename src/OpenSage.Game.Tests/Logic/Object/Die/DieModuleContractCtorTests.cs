@@ -1,4 +1,4 @@
-// Guard tests for the SHARED DieModule contract ctor (experiment-round-4 §4.1 batch
+﻿// Guard tests for the SHARED DieModule contract ctor (experiment-round-4 §4.1 batch
 // economies). Nine of the eleven Die-batch branches independently added a byte-identical
 // `DieModule(GameObject, ISimContext, DieModuleData)` overload to the category base, which is
 // the definition of something that belongs on the base branch instead. Promoting it removes

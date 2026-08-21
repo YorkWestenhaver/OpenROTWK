@@ -1,4 +1,4 @@
-// R12 port contract tests for NeutronMissileUpdate (legacy/IGameEngine surface; see the
+﻿// R12 port contract tests for NeutronMissileUpdate (legacy/IGameEngine surface; see the
 // module header for why - Update/AIUpdate is not yet in the SimCore Fix64 quarantine).
 // Drives the module directly against a real GameObject hosted by HeadlessSimGame (so
 // GameClient/Drawable exist and GetWeaponLaunchBoneTransform/InstanceMatrix work), with

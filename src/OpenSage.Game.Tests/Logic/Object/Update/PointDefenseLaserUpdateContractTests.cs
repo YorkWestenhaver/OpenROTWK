@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the PointDefenseLaserUpdate port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the PointDefenseLaserUpdate port (api-freeze-v1 §6 fitness
 // item 4): one test per task-packet behavior (target acquisition, weapon firing cadence/ammo
 // cycling, primary/secondary priority, velocity-prediction target selection, stealth gating,
 // target-loss re-scan), plus the shadow-copy base test and a mid-state save/load round-trip.

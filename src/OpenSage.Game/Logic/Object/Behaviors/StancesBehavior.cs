@@ -1,4 +1,4 @@
-// StancesBehavior - R11 Track B port. BFME2-only (no generals-gpl sibling) and no clean-room
+﻿// StancesBehavior - R11 Track B port. BFME2-only (no generals-gpl sibling) and no clean-room
 // spec in bfme2-workbench/research/ (searched: spec-hordes.md mentions stances only as horde
 // UI), so this is the minimal runtime the job-009 INI chain needs: the module owns which of
 // the StanceTemplate's stances is current, switchable through a deterministic sim entry point

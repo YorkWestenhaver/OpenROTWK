@@ -1,4 +1,4 @@
-// The module-facing sim context (api-freeze-v1 §3 / seam S8; design-module-api §1.2).
+﻿// The module-facing sim context (api-freeze-v1 §3 / seam S8; design-module-api §1.2).
 //
 // ISimContext is the ONLY door from a ported behavior module to the rest of the simulation.
 // Its member list is frozen; the member interfaces below start minimal and grow one member at

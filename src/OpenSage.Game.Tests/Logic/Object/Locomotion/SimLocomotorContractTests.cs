@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the S2 locomotor/physics system (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the S2 locomotor/physics system (api-freeze-v1 §6 fitness
 // item 4 shape, adapted from the Die-batch clones): core formulas and branches -
 // acceleration to the speed limit, turn-rate clamping, braking/arrival, backwards
 // movement, locomotor-set selection by surface and by set type, z-behavior lift - plus

@@ -1,4 +1,4 @@
-// ReplenishUnitsBehavior - R10 port through the full task packet (api-freeze-v1 §6 / template v1.1).
+﻿// ReplenishUnitsBehavior - R10 port through the full task packet (api-freeze-v1 §6 / template v1.1).
 //
 // Behavioral reference: NONE in generals-gpl (AddedIn Bfme; a BFME horde-identity behavior with
 // no GeneralsMD sibling). The cadence is read off a CLEAN-ROOM behavioral spec of the retail

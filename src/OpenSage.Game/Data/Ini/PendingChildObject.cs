@@ -1,4 +1,4 @@
-namespace OpenSage.Data.Ini;
+﻿namespace OpenSage.Data.Ini;
 
 /// <summary>
 /// A ChildObject/ObjectReskin block whose parent object was not yet defined

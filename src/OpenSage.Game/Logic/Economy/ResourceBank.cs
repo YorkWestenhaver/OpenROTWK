@@ -1,4 +1,4 @@
-// The deterministic player resource ledger - GPL Money's deposit/withdraw semantics
+﻿// The deterministic player resource ledger - GPL Money's deposit/withdraw semantics
 // (generals-gpl GeneralsMD Common/RTS/Money.cpp: Money::withdraw / Money::deposit /
 // Money::xfer; semantics only, fresh code) plus the BFME2 command-point pool (no GPL
 // reference - INI-facts only, see the spec-gap finding in

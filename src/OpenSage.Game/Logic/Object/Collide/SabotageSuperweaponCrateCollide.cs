@@ -1,4 +1,4 @@
-// SabotageSuperweaponCrateCollide - R12 port. GPL ref: GeneralsMD/Code/GameEngine/{Include,Source}/
+﻿// SabotageSuperweaponCrateCollide - R12 port. GPL ref: GeneralsMD/Code/GameEngine/{Include,Source}/
 // GameLogic/{Module,Object/Collide/CrateCollide}/SabotageSuperweaponCrateCollide.{h,cpp}. The
 // runtime is a mobile saboteur "crate" whose OnCollide resets every SpecialPowerModule on an
 // enemy superweapon/strategy-center structure it touches, then retires itself - GPL's

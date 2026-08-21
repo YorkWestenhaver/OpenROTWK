@@ -1,4 +1,4 @@
-// Contract tests for the HordeSiegeEngineContain port (R12): the fade-effect wrapper's own
+﻿// Contract tests for the HordeSiegeEngineContain port (R12): the fade-effect wrapper's own
 // testable surface - EnterSound/ExitSound (via the RecordingSimEvents sink), the
 // enter/exit fade timeline (FadePassengerOnEnter/Exit, EnterFadeTime/ExitFadeTime, FadeReverse,
 // FadeFilter), and UpgradeCreationTrigger activation. The base SiegeEngineContainModuleData

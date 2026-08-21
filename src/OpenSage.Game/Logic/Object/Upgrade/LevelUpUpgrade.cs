@@ -1,4 +1,4 @@
-// LevelUpUpgrade - R11 Track B port. BFME-only (no generals-gpl sibling) and no clean-room
+﻿// LevelUpUpgrade - R11 Track B port. BFME-only (no generals-gpl sibling) and no clean-room
 // spec in bfme2-workbench/research/, so this is the minimal behavior the job-009 INI chain
 // needs (e.g. AotR MordorFighterHorde ModuleTag_BasicTraining: TriggeredBy training upgrade,
 // LevelsToGain = 1, LevelCap = 2): when the upgrade mux fires, grant LevelsToGain experience
