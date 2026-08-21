@@ -25,11 +25,13 @@ using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
 using OpenSage.Logic.Map;
+using OpenSage.Logic.Orders;
 using OpenSage.Logic.Sim;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
+using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 using OpenSage.Utilities;
 using Veldrid;
@@ -391,8 +393,26 @@ public sealed class Game : DisposableBase, IGame
         {
             _networkMessageBuffer?.Dispose();
             _networkMessageBuffer = value;
+
+            // R15 packet BR-P4B: the submitter is defined over (loop, buffer), so it is
+            // rebuilt with the buffer - created at StartGame, dropped at EndGame. There is
+            // never a moment where a game has a buffer but no way to submit into it.
+            _orderSubmitter = value == null
+                ? null
+                : new HeadedOrderSubmitter(_simLoop, value, OrderProcessor);
         }
     }
+
+    private HeadedOrderSubmitter _orderSubmitter;
+
+    /// <summary>See <see cref="IGame.OrderSubmitter"/>.</summary>
+    public IOrderSubmitter OrderSubmitter => _orderSubmitter;
+
+    /// <summary>See <see cref="IGame.Orders"/>: the loop's own scheduled-order pipe.</summary>
+    public OrderIngest Orders => _simLoop.Orders;
+
+    /// <summary>See <see cref="IGame.OrderProcessor"/>.</summary>
+    public IOrderProcessor OrderProcessor { get; }
 
     public Texture LauncherImage { get; }
 
@@ -584,6 +604,11 @@ public sealed class Game : DisposableBase, IGame
             {
                 CrcCheckpointIntervalInFrames = 0,
             };
+
+            // R15 packet BR-P4B: one dispatcher for the whole game, shared by the
+            // DispatchOrders phase and by HeadedOrderSubmitter's unmapped-order fallback.
+            // Stateless apart from its game reference, so it outlives individual matches.
+            OrderProcessor = new OpenSage.Logic.Orders.OrderProcessor(this);
         }
     }
 
@@ -894,18 +919,22 @@ public sealed class Game : DisposableBase, IGame
     /// </summary>
     /// <remarks>
     /// Phase bodies live in <see cref="HeadedSimSystems"/>: IngestOrders drains
-    /// <c>NetworkMessageBuffer</c>, ModuleUpdate runs <c>GameLogic.Update()</c> (which now
-    /// carries the player tick in GPL's AI::update slot), PartitionUpdate runs
-    /// <c>Scene3D.SimObjectTick()</c>, then <c>PartitionCellManager.Update()</c>, then
-    /// <c>Scene3D.ReapDestroyed()</c>. DispatchOrders and CrcCheckpoint are inert for now
-    /// (packets 4 and 5).
+    /// <c>NetworkMessageBuffer</c> into <see cref="Orders"/>, DispatchOrders executes each
+    /// scheduled order through <see cref="OrderProcessor"/>, ModuleUpdate runs
+    /// <c>GameLogic.Update()</c> (which now carries the player tick in GPL's AI::update slot),
+    /// PartitionUpdate runs <c>Scene3D.SimObjectTick()</c>, then
+    /// <c>PartitionCellManager.Update()</c>, then <c>Scene3D.ReapDestroyed()</c>. CrcCheckpoint
+    /// is still inert (packet 5).
     /// <para>
-    /// Two intentional exceptions to the legacy call order, one per packet:
+    /// Three intentional exceptions to the legacy call order, one per packet:
     /// <c>NetworkMessageBuffer.Tick()</c> runs BEFORE <c>GameLogic.Update()</c> instead of
     /// after it, because IngestOrders precedes ModuleUpdate and draining the connection after
-    /// running the frame is backwards for lockstep (R14 packet 1); and the destroy-list reap
+    /// running the frame is backwards for lockstep (R14 packet 1); the destroy-list reap
     /// runs AFTER <c>PartitionCellManager.Update()</c> instead of before it, matching GPL,
-    /// which reaps once ThePartitionManager has already run for the frame (R15 packet 2).
+    /// which reaps once ThePartitionManager has already run for the frame (R15 packet 2); and
+    /// orders no longer execute inside the drain that carried them - they execute one phase
+    /// later, at their scheduled frame, which for a local order means two frames after the
+    /// click (R15 packet 4, see <c>NetworkMessageBuffer</c>'s header).
     /// </para>
     /// </remarks>
     private void LogicTick() => _simLoop.Advance();

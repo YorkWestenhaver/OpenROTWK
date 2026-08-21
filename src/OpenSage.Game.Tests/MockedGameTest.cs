@@ -13,8 +13,10 @@ using OpenSage.Input;
 using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
+using OpenSage.Logic.Orders;
 using OpenSage.Network;
 using OpenSage.Scripting;
+using OpenSage.SimCore.Orders;
 using OpenSage.Terrain;
 using Veldrid;
 
@@ -63,6 +65,14 @@ public abstract class MockedGameTest : IDisposable
         public Scene2D Scene2D { get; }
         public IScene3D Scene3D { get; set; }
         public NetworkMessageBuffer NetworkMessageBuffer { get; set; }
+
+        // R15 packet BR-P4B's three IGame members. Settable and null by default: a mocked game
+        // has no SimLoop and no transport, so nothing here submits or dispatches an order. A
+        // test that wants the real pipe uses HeadlessSimGame (see HeadedOrderPipeTests), which
+        // wires all three for real.
+        public OrderIngest Orders { get; set; }
+        public IOrderProcessor OrderProcessor { get; set; }
+        public IOrderSubmitter OrderSubmitter { get; set; }
         public Texture LauncherImage { get; }
         public GameLogic GameLogic { get; }
         public GameClient GameClient { get; }

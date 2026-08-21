@@ -41,12 +41,15 @@ using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Orders;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
 using OpenSage.Settings;
 using OpenSage.SimCore.Numerics;
+using OpenSage.SimCore.Orders;
+using OpenSage.SimCore.Ticking;
 using OpenSage.Terrain;
 using OpenSage.Terrain.Roads;
 using OpenSage.Utilities;
@@ -119,6 +122,19 @@ internal sealed class HeadlessSimGame : IGame
 
         GameLogic = new GameLogic(this);
         GameLogic.Random.Initialize(matchSeed);
+
+        // R15 packet BR-P4B: the same dispatcher the headed game builds in its constructor.
+        OrderProcessor = new OpenSage.Logic.Orders.OrderProcessor(this);
+
+        // ...and a loop of its own, so this host is never half-wired: IGame.Orders and
+        // IGame.OrderSubmitter are live from construction, exactly as they are on Game. A test
+        // that drives its own loop (to observe phases, or to advance frames) assigns SimLoop
+        // and replaces this one; a test that only cares that an order was submitted does not
+        // have to know the pipe exists.
+        SimLoop = new SimLoop(new HeadedSimSystems(this))
+        {
+            CrcCheckpointIntervalInFrames = 0,
+        };
 
         Scene3D = GameEngine.Scene3D;
     }
@@ -252,7 +268,48 @@ internal sealed class HeadlessSimGame : IGame
     public Action Restart { get; set; }
     public Scene2D Scene2D { get; }
     public IScene3D Scene3D { get; set; }
-    public NetworkMessageBuffer NetworkMessageBuffer { get; set; }
+    private NetworkMessageBuffer _networkMessageBuffer;
+
+    /// <summary>
+    /// Mirrors <c>Game.NetworkMessageBuffer</c>, including its side effect: setting the buffer
+    /// builds the <see cref="OrderSubmitter"/> over it (R15 packet BR-P4B), so a headless host
+    /// exercises the same wiring the headed game has. Attach <see cref="SimLoop"/> first - the
+    /// submitter is defined over (loop, buffer).
+    /// </summary>
+    public NetworkMessageBuffer NetworkMessageBuffer
+    {
+        get => _networkMessageBuffer;
+        set
+        {
+            _networkMessageBuffer = value;
+            OrderSubmitter = value == null || SimLoop == null
+                ? null
+                : new HeadedOrderSubmitter(SimLoop, value, OrderProcessor);
+        }
+    }
+
+    /// <summary>
+    /// The loop this host's order pipe belongs to. Constructed with the host; a test that
+    /// builds its own <see cref="SimLoop"/> (to observe phases, or to advance frames) assigns
+    /// it here BEFORE setting <see cref="NetworkMessageBuffer"/>, so that <see cref="Orders"/>
+    /// - which the transport pump reaches through <see cref="IGame"/> - is the very pipe that
+    /// loop drains.
+    /// </summary>
+    internal SimLoop SimLoop { get; set; }
+
+    /// <summary>See <see cref="IGame.Orders"/>.</summary>
+    public OrderIngest Orders => SimLoop?.Orders;
+
+    /// <summary>
+    /// See <see cref="IGame.OrderProcessor"/>. Settable so a test can watch what the pipe
+    /// dispatches without standing up a Scene3D full of players; a real
+    /// <see cref="OpenSage.Logic.Orders.OrderProcessor"/> by default.
+    /// </summary>
+    public IOrderProcessor OrderProcessor { get; set; }
+
+    /// <summary>See <see cref="IGame.OrderSubmitter"/>. Rebuilt with the buffer, as on Game.</summary>
+    public IOrderSubmitter OrderSubmitter { get; private set; }
+
     public Texture LauncherImage { get; }
     public GameLogic GameLogic { get; }
     public GameClient GameClient { get; }  // set in the constructor above

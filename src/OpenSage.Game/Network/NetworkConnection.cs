@@ -175,14 +175,25 @@ public abstract class NetworkConnection : EchoConnection
         _receivedPacketsPerFrame.Remove(frame);
     }
 
+    /// <summary>
+    /// Broadcasts the frame's orders. <paramref name="frame"/> is the frame the orders are
+    /// scheduled FOR, not the frame they were issued on.
+    /// </summary>
+    /// <remarks>
+    /// R15 packet BR-P4B moved the +2 stamp up into <c>NetworkMessageBuffer</c>, which is now
+    /// the single place the contract offset is applied (it has to be: the buffer is what tells
+    /// OrderIngest which frame an order belongs to). Adding it again here would schedule
+    /// remote orders four frames out while the local schedule said two.
+    /// <see cref="OrderSchedulingOffsetInFrames"/> is still used, by <see cref="Receive"/>'s
+    /// "no barrier before the first schedulable frame" guard.
+    /// </remarks>
     public override void Send(uint frame, List<Order> orders)
     {
-        var scheduledFrame = frame + OrderSchedulingOffsetInFrames;
-        Logger.Trace($"Frame {frame}: Sending {orders.Count} for frame {scheduledFrame}");
+        Logger.Trace($"Sending {orders.Count} orders for frame {frame}");
 
         var packet = new SkirmishOrderPacket()
         {
-            Frame = scheduledFrame,
+            Frame = frame,
             Orders = orders
         };
 

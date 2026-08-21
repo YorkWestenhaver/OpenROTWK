@@ -6,6 +6,7 @@ using OpenSage.Graphics.Rendering;
 using OpenSage.Input;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.OrderGenerators;
+using OpenSage.Logic.Orders;
 
 namespace OpenSage.Logic;
 
@@ -73,7 +74,11 @@ public class OrderGeneratorSystem : GameSystem
                 {
                     foreach (var order in success.Orders)
                     {
-                        Game.NetworkMessageBuffer.AddLocalOrder(order);
+                        // R15 packet BR-P4B: human input enters the one order pipe here.
+                        // The submitter schedules it for frame + 2 (or, for an order type
+                        // with no verified SimCore translation, dispatches it locally);
+                        // either way nothing executes inside this call any more.
+                        Game.OrderSubmitter.Submit(order, OrderOrigin.Local);
                     }
 
                     if (success.Exit)

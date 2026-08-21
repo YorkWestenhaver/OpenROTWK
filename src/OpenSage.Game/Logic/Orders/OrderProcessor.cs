@@ -9,7 +9,7 @@ using OpenSage.Logic.Orders.SpecialPower;
 
 namespace OpenSage.Logic.Orders;
 
-public sealed class OrderProcessor
+public sealed class OrderProcessor : IOrderProcessor
 {
     private readonly IGame _game;
 
@@ -19,6 +19,15 @@ public sealed class OrderProcessor
     }
 
     private static NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>
+    /// Executes exactly one order (R15 packet BR-P4B: the pipe dispatches one order at a time,
+    /// in OrderIngest's deterministic sequence). Expressed in terms of the batch overload
+    /// rather than the other way round, deliberately: hoisting the ~900-line switch out of its
+    /// <c>foreach</c> would have been a whole-file rewrite for no behavioral gain, and orders
+    /// arrive a handful per frame at most.
+    /// </summary>
+    public void Process(Order order) => Process(new[] { order });
 
     public void Process(IEnumerable<Order> orders)
     {

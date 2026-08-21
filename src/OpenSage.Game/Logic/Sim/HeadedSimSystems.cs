@@ -19,13 +19,21 @@
 // slot. That reap move is packet 2's ONE claimed behavior change: GPL reaps its pending-delete
 // list after ThePartitionManager->update, not before it.
 //
+// R15 packet 4 (br-p4b) then filled in the two order phases. IngestOrders no longer executes
+// what it drains: NetworkMessageBuffer schedules received orders into SimLoop.Orders, and
+// DispatchOrder - a no-op until now - executes them one at a time, at their scheduled frame,
+// in the deterministic (playerIndex, submissionIndex) sequence. Packet 4's claimed behaviour
+// changes are stated in full in NetworkMessageBuffer's header; the one to expect in a playtest
+// is that local input now takes effect two logic frames (400ms) after the click, which is what
+// every peer in a lockstep match sees and is not a regression.
+//
 // Non-goals, deliberately left for later packets: folding the second scripting accumulator
-// into a phase and unifying the two frame counters (packet 3), routing real orders through
-// SimLoop.Orders/ScheduledOrder so DispatchOrder stops being a no-op (packet 4), and
-// attaching SyncChecker to the CrcCheckpoint phase (packet 5).
+// into a phase and unifying the two frame counters (packet 3), and attaching SyncChecker to
+// the CrcCheckpoint phase (packet 5).
 
 using System;
 using OpenSage.Diagnostics;
+using OpenSage.Logic.Orders;
 using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 
@@ -67,22 +75,44 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     }
 
     /// <summary>
-    /// Drain the connection for this frame. Today that is the legacy
-    /// <c>NetworkMessageBuffer</c> pump, which both sends local orders and applies received
-    /// ones immediately; nothing is submitted to <c>SimLoop.Orders</c> yet, so
-    /// <see cref="DispatchOrder"/> stays empty until packet 4 swaps the pipe.
+    /// Drain the connection for this frame: <c>NetworkMessageBuffer</c> broadcasts the local
+    /// orders stamped for frame + 2 and schedules everything the connection delivers into
+    /// <c>SimLoop.Orders</c>. Nothing executes here any more - that is
+    /// <see cref="DispatchOrder"/>, one phase later (R15 packet 4).
     /// </summary>
+    /// <remarks>
+    /// Null-tolerant: a headed game sitting in the main menu has no buffer, and the loop still
+    /// ticks (Game.Update runs LogicTick whenever IsLogicRunning, which is true from the
+    /// constructor).
+    /// </remarks>
     public void IngestOrders(LogicFrame frame)
     {
-        _game.NetworkMessageBuffer?.Tick();
+        _game.NetworkMessageBuffer?.Tick(frame);
     }
 
     /// <summary>
-    /// No-op: nothing submits to <c>SimLoop.Orders</c> in a headed game yet, so the loop
-    /// never has an order to hand back. Packet 4 makes this real.
+    /// Execute one scheduled order. The loop hands them over in the deterministic
+    /// (playerIndex, submissionIndex) sequence; each is converted back out of SimCore and run
+    /// by the legacy dispatcher, which is still the thing that actually moves units
+    /// (A2-uiflow #2).
     /// </summary>
+    /// <remarks>
+    /// A <c>GameMessageType</c> with no <see cref="OrderIdentityMap"/> counterpart is logged
+    /// and skipped, never guessed at: the two enum numberings collide at identical integers
+    /// with different meanings (L2-plan #2), so casting one to the other would silently
+    /// execute the wrong order.
+    /// </remarks>
     public void DispatchOrder(in ScheduledOrder order)
     {
+        if (!SimOrderConverter.TryConvertBack(order.Order, out var legacyOrder))
+        {
+            Logger.Warn(
+                $"No legacy OrderType for {order.Order.Type} (player {order.PlayerIndex}, " +
+                $"frame {order.Frame.Value}, submission {order.SubmissionIndex}); skipping it.");
+            return;
+        }
+
+        _game.OrderProcessor.Process(legacyOrder);
     }
 
     public void ModuleUpdate(LogicFrame frame)
