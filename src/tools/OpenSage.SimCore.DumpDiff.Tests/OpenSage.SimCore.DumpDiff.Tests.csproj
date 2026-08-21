@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenSage.SimCore.DumpDiff\OpenSage.SimCore.DumpDiff.csproj" />
+  </ItemGroup>
+
+  <!-- Not registered in OpenSage.sln: n14a-dump-comparator's sole shared-file reservation is
+       one project entry in the sln (the dumpdiff tool itself). This test project is built and
+       run directly (`dotnet test src/tools/OpenSage.SimCore.DumpDiff.Tests`), which needs no
+       sln registration; wiring it into the solution/CI matrix is s11-n14a-ci-gate's job. -->
+
+</Project>

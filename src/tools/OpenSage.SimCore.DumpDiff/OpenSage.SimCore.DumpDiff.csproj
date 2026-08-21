@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OpenSage.SimCore.DumpDiff</RootNamespace>
+    <AssemblyName>dumpdiff</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Deliberately zero ProjectReferences: this tool consumes the "opensage-deepdump"
+       TEXT format only (see Program.cs header), never engine types. Mirrors the
+       workbench's ddiff.py, which has zero dependencies; keeping this project the
+       same way is what lets it live standalone in the engine repo's CI checkout,
+       independent of anything SimCore ships or renames. -->
+
+</Project>
