@@ -21,8 +21,12 @@ namespace OpenSage.Tests.Logic.Object.Behaviors;
 
 public class FlightDeckBehaviorContractTests
 {
-    // Bfme2 runs at 5 Hz; every delay field below is a raw frame count (this module's INI
-    // fields were never converted to the ms-duration parser - see FlightDeckBehaviorModuleData).
+    // Bfme2 runs at 5 Hz (200ms/logic-frame, SimLoop.MsPerLogicFrame). Every Duration/Period
+    // field below is parsed with IniParser.ParseTimeMillisecondsToLogicFrames() (GPL's
+    // INI::parseDurationUnsignedInt -> ConvertDurationFromMsecsToFrames), which ceil-converts
+    // the INI's millisecond value to a logic-frame count. The values below are deliberately
+    // NOT round multiples of 200 so the tests also exercise the ceiling: e.g.
+    // LaunchRampDelay = 350ms -> 350/200 = 1.75 -> ceil -> 2 frames.
     private const string Definitions = @"
 Object TestJet
   KindOf = VEHICLE
@@ -46,15 +50,15 @@ Object TestCarrier
     Runway1Landing = R1LSTART R1LEND
     Runway2Landing = R2LSTART R2LEND
     HealAmountPerSecond = 50
-    ApproachHeight = 40
+    ApproachHeight = 40.5
     LandingDeckHeightOffset = 5
     PayloadTemplate = TestJet
-    ReplacementDelay = 4
-    DockAnimationDelay = 3
-    LaunchWaveDelay = 4
-    LaunchRampDelay = 2
-    LowerRampDelay = 2
-    CatapultFireDelay = 1
+    ReplacementDelay = 750
+    DockAnimationDelay = 500
+    LaunchWaveDelay = 750
+    LaunchRampDelay = 350
+    LowerRampDelay = 350
+    CatapultFireDelay = 150
   End
 End
 ";
@@ -168,8 +172,9 @@ End
         game.Step();
         Assert.True(carrier.ModelConditionFlags.Get(ModelConditionFlag.Door2Opening));
 
-        // LaunchRampDelay(2) frames until launch; CatapultFireDelay(1) more until the
-        // particle-fire attempt; LowerRampDelay(2) more until the ramp comes back down.
+        // LaunchRampDelay=350ms -> ceil(350/200)=2 frames until launch; CatapultFireDelay=150ms
+        // -> ceil(150/200)=1 more frame until the particle-fire attempt; LowerRampDelay=350ms
+        // -> ceil(350/200)=2 more frames until the ramp comes back down.
         for (var i = 0; i < 8; i++)
         {
             game.Step();
@@ -214,9 +219,10 @@ End
 
         var info = deck.CalcPPInfoFor(jetId);
         Assert.NotNull(info);
-        // ApproachHeight=40 + LandingDeckHeightOffset=5, on top of the (headless-fallback)
-        // landing-start bone's own Z of 0.
-        Assert.Equal(45f, info.Value.RunwayApproach.Z, 3);
+        // ApproachHeight=40.5 (GPL's m_approachHeight is Real, not Int - a fractional INI
+        // value here exercises that) + LandingDeckHeightOffset=5, on top of the
+        // (headless-fallback) landing-start bone's own Z of 0.
+        Assert.Equal(45.5f, info.Value.RunwayApproach.Z, 3);
 
         deck.ReleaseRunway(jetId);
         Assert.Equal(ObjectId.Invalid, deck.GetRunwayReservation(0, forLanding: true));
@@ -276,8 +282,8 @@ End
         jet.Kill();
 
         // Destroyed-but-not-yet-reaped this frame, then purged and noticed empty the next -
-        // that second frame is the one that arms the ReplacementDelay+DockAnimationDelay
-        // (4 + 3 = 7 frame) timer.
+        // that second frame is the one that arms the ReplacementDelay+DockAnimationDelay timer:
+        // ceil(750/200) + ceil(500/200) = 4 + 3 = 7 frames.
         game.Step();
         game.Step();
         Assert.True(deck.Spaces[0].ObjectInSpace.IsInvalid);
