@@ -466,13 +466,19 @@ public class HeadedOrderPipeTests
     [Fact]
     public void AMessageTypeWithNoOrderTypeIsSkippedNotGuessed()
     {
-        // MSG_FOUNDATION_CONSTRUCT is a real recovered message type with no OrderType entry
-        // (S9-05 has not added one yet). The two enum numberings collide at identical integers
-        // with different meanings, so a cast would execute the wrong order; the pipe logs and
-        // skips instead.
-        Assert.False(OrderIdentityMap.TryGetOrderType(GameMessageType.MSG_FOUNDATION_CONSTRUCT, out _));
+        // A real message type with no OrderType entry. The two enum numberings collide at
+        // identical integers with different meanings, so a cast would execute the wrong order;
+        // the pipe logs and skips instead.
+        //
+        // INT-R1B: this used to be MSG_FOUNDATION_CONSTRUCT, chosen when S9-05 had not yet
+        // added it - S9-05 landed in the same wave and mapped it, so the specimen went stale
+        // inside one merge window. MSG_CASTLE_UNPACK_EXPLICIT_OBJECT cannot go stale the same
+        // way: it selects its camp by NAME, OrderArgumentType has no string member, and
+        // OrderIdentityMap records it as PERMANENTLY not representable pending an L3 -> L2
+        // escalation (see OrderIdentityMapTests.CastleOrderTypes_ExplicitObjectFormIsNotRepresentable).
+        Assert.False(OrderIdentityMap.TryGetOrderType(GameMessageType.MSG_CASTLE_UNPACK_EXPLICIT_OBJECT, out _));
 
-        var simOrder = new SimOrder(GameMessageType.MSG_FOUNDATION_CONSTRUCT, playerIndex: 1);
+        var simOrder = new SimOrder(GameMessageType.MSG_CASTLE_UNPACK_EXPLICIT_OBJECT, playerIndex: 1);
         simOrder.AddArgument(SimOrderArg.FromObjectId(7));
 
         Assert.False(SimOrderConverter.TryConvertBack(simOrder, out var restored));
@@ -497,7 +503,8 @@ public class HeadedOrderPipeTests
         // DispatchOrders and the frame - and the orders around it - carry on.
         var pipe = CreatePipe(new RecordingEchoConnection());
 
-        var unmapped = new SimOrder(GameMessageType.MSG_FOUNDATION_CONSTRUCT, playerIndex: 0);
+        // Same durable specimen as AMessageTypeWithNoOrderTypeIsSkippedNotGuessed (INT-R1B).
+        var unmapped = new SimOrder(GameMessageType.MSG_CASTLE_UNPACK_EXPLICIT_OBJECT, playerIndex: 0);
         pipe.Loop.Orders.SubmitScheduled(unmapped, new LogicFrame(1), submissionIndex: 0);
 
         var mapped = new SimOrder(GameMessageType.MSG_CREATE_SELECTED_GROUP, playerIndex: 0);
