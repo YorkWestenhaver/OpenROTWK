@@ -8,6 +8,15 @@ on:
     - v*
   pull_request:
 
+# Superseded pushes (e.g. rapid follow-up commits to main, or force-pushes to a PR branch)
+# stop consuming runners once a newer run for the same ref exists. Scoped per-workflow via
+# github.workflow so this never cancels a Format run (see format.yml, separate group).
+# Accepted tradeoff: on main this can cancel a run whose verdict was wanted for an
+# already-superseded commit - fine here since main iteration is latest-wins.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Scaffolding step-5 gate (api-freeze-v1 §6): the same scripted scenario run twice must
   # produce a byte-identical per-channel CRC stream and deep dump. The matrix varies the GC
@@ -41,6 +50,18 @@ jobs:
       with:
         dotnet-version: '8.x'
 
+    # No packages.lock.json files in the repo (checked before writing this), so we can't use
+    # setup-dotnet's built-in cache-dependency-path lockfile caching; key on *.csproj hashes
+    # instead. Generating lock files repo-wide would change restore semantics - noted as a
+    # follow-up, not done here.
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
     - name: Run-twice determinism suite
       run: dotnet test src/OpenSage.SimCore.Tests --configuration Release --filter Category=Determinism
 
@@ -66,6 +87,27 @@ jobs:
       with:
         dotnet-version: '8.x'
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
+    # Fast-path: build ONLY the ScenarioDriver project graph (its ProjectReferences chain
+    # pulls in OpenSage.SimCore and OpenSage.Game transitively - see
+    # src/tools/OpenSage.SimCore.ScenarioDriver/OpenSage.SimCore.ScenarioDriver.csproj), never
+    # src/OpenSage.sln. This is what actually cuts crossarch's wall-clock: the `build` job
+    # compiles + tests the full solution from a blank VM (~19min on macOS); this job only ever
+    # needed the one project graph. Restore/build are split from run so the NuGet cache above
+    # can short-circuit restore, and so `dotnet run --no-build` below doesn't redo the build.
+    - name: Restore ScenarioDriver
+      run: dotnet restore src/tools/OpenSage.SimCore.ScenarioDriver
+
+    - name: Build ScenarioDriver
+      run: dotnet build src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release --no-restore
+
     # Deliberately no `dotnet publish`/`--runtime` here: the `build` job's macOS leg publishes
     # a self-contained osx-arm64 binary by RID selection, which says nothing about what
     # actually EXECUTES this step. `dotnet run` is framework-dependent and always executes as
@@ -78,7 +120,7 @@ jobs:
     - name: Run map-v1 (job-009 corpus)
       shell: bash
       run: >
-        dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release --
+        dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release --no-build --
         --scenario map-v1
         --map src/OpenSage.Game.Tests/Logic/Script/Assets/job009_creep_fight.map
         --ini src/OpenSage.Game.Tests/Logic/Script/Assets/job009_creep_fight_subset.ini
@@ -128,6 +170,14 @@ jobs:
       with:
         name: crossarch-stream-windows-latest
         path: streams
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
 
     - name: Build DumpDiff
       run: dotnet build src/tools/OpenSage.SimCore.DumpDiff --configuration Release
@@ -183,6 +233,14 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.x'
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
 
     - name: Test
       run: dotnet test src --configuration Release --filter Category!=Interactive --collect:"XPlat Code Coverage"
