@@ -25,10 +25,12 @@ using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
 using OpenSage.Logic.Map;
+using OpenSage.Logic.Sim;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
+using OpenSage.SimCore.Ticking;
 using OpenSage.Utilities;
 using Veldrid;
 using Veldrid.ImageSharp;
@@ -295,6 +297,18 @@ public sealed class Game : DisposableBase, IGame
     // When is the next scripting update?
     private TimeSpan _nextScriptingUpdate;
 
+    // The deterministic frame driver (R14 packet 1). The wall-clock accumulator above decides
+    // WHEN a logic frame is due; the loop decides what happens inside one.
+    private readonly SimLoop _simLoop;
+
+    /// <summary>
+    /// The deterministic loop's frame counter. Advances once per logic frame, in the EndFrame
+    /// phase. Not the same object as <c>GameLogic.CurrentFrame</c>, which advances earlier in
+    /// the frame (in ModuleUpdate) - see <see cref="HeadedSimSystems.OnPhase"/>. Unifying the
+    /// two is packet 3.
+    /// </summary>
+    internal LogicFrame SimLoopFrame => _simLoop.CurrentFrame;
+
     // TODO: Move this to somewhere else, or remove it.
     public TimeSpan CumulativeLogicUpdateError { get; private set; }
 
@@ -554,6 +568,16 @@ public sealed class Game : DisposableBase, IGame
             TeamFactory = new TeamFactory(this);
 
             PartitionCellManager = new PartitionCellManager(this);
+
+            // R14 packet 1: the headed logic frame runs through SimCore's frozen phase
+            // sequence. See LogicTick(). CrcCheckpointIntervalInFrames = 0 keeps the
+            // CrcCheckpoint phase body from ever running in a headed game (SimLoop guards
+            // on != 0); packet 5 attaches SyncChecker behind a launcher flag.
+            var headedSimSystems = new HeadedSimSystems(this, RunUnphasedLogicResidue);
+            _simLoop = new SimLoop(headedSimSystems, headedSimSystems)
+            {
+                CrcCheckpointIntervalInFrames = 0,
+            };
         }
     }
 
@@ -857,18 +881,36 @@ public sealed class Game : DisposableBase, IGame
         Updating?.Invoke(this, new GameUpdatingEventArgs(RenderTime));
     }
 
-    private void LogicTick()
+    /// <summary>
+    /// One 5 Hz logic frame, driven by SimCore's frozen phase sequence (R14 packet 1).
+    /// </summary>
+    /// <remarks>
+    /// Phase bodies live in <see cref="HeadedSimSystems"/>: IngestOrders drains
+    /// <c>NetworkMessageBuffer</c>, ModuleUpdate runs <c>GameLogic.Update()</c>,
+    /// PartitionUpdate runs <see cref="RunUnphasedLogicResidue"/> and then
+    /// <c>PartitionCellManager.Update()</c>. DispatchOrders and CrcCheckpoint are inert
+    /// for now (packets 4 and 5).
+    /// <para>
+    /// The per-frame call order is what it always was, with one intentional exception:
+    /// <c>NetworkMessageBuffer.Tick()</c> now runs BEFORE <c>GameLogic.Update()</c> instead of
+    /// after it, because IngestOrders precedes ModuleUpdate. Draining the connection after
+    /// running the frame is backwards for lockstep.
+    /// </para>
+    /// </remarks>
+    private void LogicTick() => _simLoop.Advance();
+
+    /// <summary>
+    /// The part of the legacy logic tick that has no phase of its own yet:
+    /// <c>Scene3D.LogicTick(timeInterval)</c>, which still mixes sim (PlayerManager, the per-object
+    /// GameObject.LogicTick loop, DeleteDestroyed) with presentation. Left exactly where it
+    /// ran - after the module update, before the partition tick - and invoked from the head of
+    /// the PartitionUpdate phase so that stays true. Packet 2 splits it into real phases.
+    /// </summary>
+    private void RunUnphasedLogicResidue()
     {
-        GameLogic.Update();
-
-        NetworkMessageBuffer?.Tick();
-
-        // TODO: What is the order?
         // TODO: Calculate time correctly.
         var timeInterval = GetTimeInterval();
         Scene3D?.LogicTick(timeInterval);
-
-        PartitionCellManager.Update();
     }
 
     private TimeInterval GetTimeInterval() => new(MapTime.TotalTime, TimeSpan.FromMilliseconds(GameEngine.MsPerLogicFrame));
