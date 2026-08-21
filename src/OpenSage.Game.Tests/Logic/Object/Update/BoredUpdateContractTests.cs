@@ -31,14 +31,14 @@ Object BoredTroll
   Behavior = BoredUpdate BoredModuleTagOne
     ScanDelayTime = 1000
     ScanDistance = 50
-    BoredFilter = NONE +TrollishStew
+    BoredFilter = NONE +CRATE
     SpecialPowerTemplate = SpecialAbilityWildTrollCooking
     CanScanWhileAttackingOrMoving = No
   End
 End
 
 Object TrollishStew
-  KindOf = TrollishStew NO_COLLIDE
+  KindOf = CRATE NO_COLLIDE
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 1
   End
