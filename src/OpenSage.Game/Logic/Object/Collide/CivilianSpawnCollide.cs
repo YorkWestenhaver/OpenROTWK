@@ -76,8 +76,21 @@ public sealed class CivilianSpawnCollide : CollideModule
     // No own mutable state: the module holds only a readonly reference to its ModuleData
     // (nothing changes across ticks, no counter, no gate to persist) - the version-1-and-
     // base-only Load shape below matches every no-own-field sibling's shape exactly
-    // (SquishCollide.cs:12-19, UnitCrateCollide.cs:219-224). HasSimXfer stays at
-    // BehaviorModule's false default (BehaviorModule.cs:78).
+    // (SquishCollide.cs:12-19, UnitCrateCollide.cs:219-224).
+    //
+    // The module is nevertheless a ported module, so it carries the contract Xfer walk
+    // (BehaviorModule.cs:70-78: the base throws ModuleNotPortedException) with a bare
+    // version stamp and HasSimXfer => true - the same zero-mutable-state shape the landed
+    // sibling UpgradeSoundSelectorClientBehavior uses. No [SimState] marker here: per
+    // F-UCC-1 in UnitCrateCollide.cs, Collide/ still carries the float Vector3 OnCollide
+    // signature and is out of SimState scope until that seam migrates to Fix64.
+    internal override bool HasSimXfer => true;
+
+    public override void Xfer(SimCore.Sync.IXfer xfer)
+    {
+        xfer.XferVersion(1);
+    }
+
     internal override void Load(StatePersister reader)
     {
         reader.PersistVersion(1);

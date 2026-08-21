@@ -74,9 +74,7 @@ Object TestVehicle
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 200
   End
-  Behaviors
-    AIUpdate ModuleTag_AI
-    End
+  Behavior = AIUpdateInterface ModuleTag_AI
   End
 End
 
@@ -127,8 +125,12 @@ End
         var enemyOwner = game.PlayerManager.GetPlayerByIndex(3);
         var alliedOwner = game.PlayerManager.GetPlayerByIndex(4);
 
-        // GetRelationship resolves through the CANDIDATE's own player, pointed at the blast
-        // core's player (same direction LeafletDropBehaviorContractTests uses).
+        // The module asks self.GetRelationship(candidate) (NeutronBlastBehavior.cs:103), which
+        // resolves self.Team -> candidate.Team -> blastOwner.GetRelationship(candidateOwner)
+        // (GameObject.cs:1856, Team.cs:47) - i.e. from the BLAST CORE's player outward. Both
+        // directions are set so the fixture reads the same whichever end asks.
+        blastOwner.SetRelationship(enemyOwner, RelationshipType.Enemies);
+        blastOwner.SetRelationship(alliedOwner, RelationshipType.Allies);
         enemyOwner.SetRelationship(blastOwner, RelationshipType.Enemies);
         alliedOwner.SetRelationship(blastOwner, RelationshipType.Allies);
 
@@ -298,7 +300,13 @@ End
         var exception = Record.Exception(() => neutronCore.Kill());
 
         Assert.Null(exception);
-        Assert.True(neutronCore.IsDestroyed);
+
+        // The core dies from the Kill() itself, but its own blast must not act on it. It stays
+        // un-Destroy()ed because GameObject.OnDie (GameObject.cs:1609) only auto-Destroy()s
+        // objects with NO die modules, and this object has one - the blast itself. So
+        // self-exclusion reads as "effectively dead, but never destroyed by its own blast".
+        Assert.True(neutronCore.IsEffectivelyDead);
+        Assert.False(neutronCore.IsDestroyed);
     }
 
     // ---- 13/14: shadow-copy + save/load round-trip ----

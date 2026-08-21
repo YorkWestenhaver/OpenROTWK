@@ -29,7 +29,7 @@ Object Deleter
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
-  Collide = CivilianSpawnCollide ModuleTag_Collide
+  Behavior = CivilianSpawnCollide ModuleTag_Collide
     DeleteObjectFilter = NONE +INFANTRY
   End
 End
@@ -39,7 +39,7 @@ Object DeleterUnsetFilter
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
-  Collide = CivilianSpawnCollide ModuleTag_Collide
+  Behavior = CivilianSpawnCollide ModuleTag_Collide
   End
 End
 
@@ -48,10 +48,10 @@ Object DeleterTwoMatchingModules
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
-  Collide = CivilianSpawnCollide ModuleTag_CollideFirst
+  Behavior = CivilianSpawnCollide ModuleTag_CollideFirst
     DeleteObjectFilter = NONE +INFANTRY
   End
-  Collide = CivilianSpawnCollide ModuleTag_CollideSecond
+  Behavior = CivilianSpawnCollide ModuleTag_CollideSecond
     DeleteObjectFilter = NONE +INFANTRY
   End
 End
