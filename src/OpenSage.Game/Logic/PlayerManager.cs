@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using OpenSage.Content;
+using OpenSage.Logic.AI.Skirmish;
 using OpenSage.Utilities.Extensions;
 
 namespace OpenSage.Logic;
@@ -43,6 +44,14 @@ public sealed class PlayerManager : IPersistableObject
         }
 
         // TODO: Setup player relationships.
+
+        // S9-01: give every skirmish-AI player a strategic brain. No-op for a single-player
+        // match (Player.FromMapData only creates SkirmishAIPlayer shells when the game type is
+        // not SinglePlayer) and for a match with no AI slots.
+        //
+        // Difficulty is the default until the launcher plumbs --ai-difficulty through (L1-04);
+        // pass it here when it exists rather than reading a flag from inside the AI.
+        SkirmishAIBrains.AttachTo(_game, _players);
     }
 
     // This needs to operate on the entire player list, because players have references to each other
@@ -102,9 +111,24 @@ public sealed class PlayerManager : IPersistableObject
 
     internal void LogicTick()
     {
-        foreach (var player in _players)
+        // Two passes, both strictly ascending player index (S9-01).
+        //
+        // Pass 1 is the existing per-player tick. Pass 2 runs the skirmish AI brains, and it is
+        // separate on purpose: a brain reads the world through IAiWorldView, so every brain in
+        // a frame must see a world where all players have already ticked. Interleaving the two
+        // would make player 0's AI observe a pre-tick player 3 while player 3's AI observed a
+        // post-tick player 0 - a difference that survives into the orders they emit.
+        //
+        // Ascending index is written out as an indexed loop rather than left to array order:
+        // it is the AI's turn order, so it is stated, not inherited.
+        for (var i = 0; i < _players.Length; i++)
         {
-            player.LogicTick();
+            _players[i].LogicTick();
+        }
+
+        for (var i = 0; i < _players.Length; i++)
+        {
+            _players[i].SkirmishAIBrain?.Update();
         }
     }
 

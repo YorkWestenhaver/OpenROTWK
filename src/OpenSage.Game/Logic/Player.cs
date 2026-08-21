@@ -87,6 +87,20 @@ public partial class Player : IPersistableObject
 
     public AIPlayer? AIPlayer { get; private set; }
 
+    /// <summary>
+    /// This player's strategic skirmish AI, or null for a human (and for every player in a
+    /// match where the AI is not attached).
+    /// </summary>
+    /// <remarks>
+    /// S9-01: deliberately separate from <see cref="AIPlayer"/>. AIPlayer/SkirmishAIPlayer are
+    /// savegame-shaped shells whose field layout is pinned by the retail .sav format and must
+    /// not grow members; the brain is runtime-only state that is rebuilt at match start and
+    /// never persisted, so it hangs here instead. Attached by
+    /// <see cref="AI.Skirmish.SkirmishAIBrains.AttachTo"/>, ticked by
+    /// <see cref="PlayerManager.LogicTick"/>.
+    /// </remarks>
+    public AI.Skirmish.SkirmishAIBrain? SkirmishAIBrain { get; internal set; }
+
     public AcademyStats AcademyStats { get; }
 
     // TODO(Port): Implement this.
