@@ -2,14 +2,15 @@
 // audio-only module parses, and its runtime module (once instantiated) round-trips its empty
 // state, mirroring LargeGroupAudioUpdateContractTests (R11 Track B).
 //
-// Unlike LargeGroupAudioUpdate, this module lives under ObjectDefinition.ClientBehaviors,
-// which GameObject's module-instantiation walk does not yet iterate (see the module header
-// in ClientBehavior/ModelConditionAudioLoopClientBehavior.cs, F-R11-9). So the ClientBehavior
-// entry is asserted purely at the data level (parsed fields on ObjectDefinition.ClientBehaviors),
-// and the runtime module is exercised by constructing it directly against a real spawned
-// GameObject and its real ISimContext - the same construction CreateModule performs, just
-// invoked by hand until the seam wires it up automatically.
+// This module lives under ObjectDefinition.ClientBehaviors, which GameObject's
+// module-instantiation walk iterates alongside Behaviors (GameObject.cs, R12) - so
+// game.SpawnObject already attaches a live instance to unit.BehaviorModules. The runtime
+// tests below retrieve that real, live-attached instance (the MissileLauncherBuildingUpdate
+// ModuleOf pattern) rather than hand-constructing a second orphan instance, so a
+// double-instantiation, wrong-tag, or silent attach failure on the real object would be
+// caught.
 
+using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
@@ -42,6 +43,9 @@ End
         return (ModelConditionAudioLoopClientBehaviorData)game.AssetStore.ObjectDefinitions
             .GetByName("AudioLoopUnit").ClientBehaviors["ModuleTag_AudioLoop"].Data;
     }
+
+    private static ModelConditionAudioLoopClientBehavior ModuleOf(GameObject obj) =>
+        obj.BehaviorModules.OfType<ModelConditionAudioLoopClientBehavior>().Single();
 
     [Fact]
     public void ParsesRequired_UppercaseAndMixedCaseKeyword()
@@ -106,12 +110,16 @@ End
     }
 
     [Fact]
-    public void RuntimeModule_ConstructsAgainstRealGameObject_AndStaysHarmless()
+    public void RuntimeModule_IsAttachedExactlyOnceToTheRealGameObject_AndStaysHarmless()
     {
         var (game, unit) = Spawn("ModelCondition = REQUIRED:MOVING Sound:UnitMoveLoop EXCLUDED:DYING");
-        var data = GetData(game);
 
-        var module = new ModelConditionAudioLoopClientBehavior(unit, game.GameEngine.SimContext, data);
+        // GameObject's module-instantiation walk iterates ObjectDefinition.ClientBehaviors
+        // alongside Behaviors (GameObject.cs, R12), so SpawnObject must already have attached
+        // exactly one live instance - not zero (silent attach failure) and not two
+        // (double-instantiation). OfType<T>().Single() throws if that count is ever wrong.
+        Assert.Single(unit.BehaviorModules.OfType<ModelConditionAudioLoopClientBehavior>());
+        var module = ModuleOf(unit);
 
         for (var i = 0; i < 10; i++)
         {
@@ -127,7 +135,9 @@ End
         var (game, unit) = Spawn("ModelCondition = REQUIRED:MOVING Sound:UnitMoveLoop EXCLUDED:DYING");
         var data = GetData(game);
 
-        var live = new ModelConditionAudioLoopClientBehavior(unit, game.GameEngine.SimContext, data);
+        // Compare the CRC of the real, live-attached instance against a freshly constructed
+        // shadow copy - not two hand-built orphans that were never attached to unit.BehaviorModules.
+        var live = ModuleOf(unit);
         var shadow = new ModelConditionAudioLoopClientBehavior(unit, game.GameEngine.SimContext, data);
 
         PortedModuleTestKit.AssertShadowCopyCrcEqualsLiveCrc(live, shadow);

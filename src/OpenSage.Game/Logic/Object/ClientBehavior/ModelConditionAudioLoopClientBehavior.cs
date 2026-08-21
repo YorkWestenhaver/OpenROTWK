@@ -5,13 +5,13 @@
 // permanently-parked module with an empty state inventory, matching the pattern established
 // by Update/LargeGroupAudioUpdate.cs (R11 Track B).
 //
-// Unlike LargeGroupAudioUpdate, this module cannot yet be reached at all: ClientBehavior
-// entries are parsed into ObjectDefinition.ClientBehaviors (see ClientBehavior.cs), but
-// GameObject's module-instantiation walk (GameObject.cs, the `objectDefinition.Behaviors`
-// loop) only ever iterates the separate `Behaviors` dictionary - ClientBehaviors is parsed
-// and inheritance-merged (ObjectDefinition.cs) but never instantiated into live modules.
-// CreateModule is still implemented here, forward-looking, so the module is ready the moment
-// that seam lands; until then it is unreachable dead code, not a functional gap in this port.
+// This module IS live and reachable: GameObject's module-instantiation walk (GameObject.cs,
+// same R12 round) does `objectDefinition.Behaviors.Values.Concat(objectDefinition.ClientBehaviors.Values)`,
+// so every object with `ClientBehavior = ModelConditionAudioLoopClientBehavior` gets a real
+// instance attached to BehaviorModules at spawn. It is deliberately parked, not dead: it does
+// nothing audible for any asset that references it (ambient loops - torches, waterfalls, idle
+// machinery) until an audio host exists on ISimContext, and there is currently no runtime
+// indication of that gap.
 //
 // TODO-spec (unverified, the whole audio behavior): the retail model-condition-driven sound
 // loop selection lives client-side; model it when an audio host exists.
@@ -55,9 +55,9 @@ public sealed class ModelConditionAudioLoopClientBehaviorData : ClientBehaviorMo
 
     public ModelCondition ModelCondition { get; private set; }
 
-    // Forward-looking (see header): not yet reachable via GameObject's module-instantiation
-    // walk, which does not iterate ObjectDefinition.ClientBehaviors. Implemented now so the
-    // module activates automatically once that seam is wired.
+    // Reachable (see header): GameObject's module-instantiation walk iterates
+    // ObjectDefinition.ClientBehaviors alongside Behaviors, so this fires at spawn for any
+    // object referencing this ClientBehavior.
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
         return new ModelConditionAudioLoopClientBehavior(gameObject, gameEngine.SimContext, this);
