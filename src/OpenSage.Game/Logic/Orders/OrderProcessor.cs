@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Object.Castle;
 using OpenSage.Logic.Orders.SpecialPower;
 
 namespace OpenSage.Logic.Orders;
@@ -524,6 +525,70 @@ public sealed class OrderProcessor : IOrderProcessor
                     }
 
                     break;
+                // ------------------------------------------------------------------
+                // BFME2/AotR castle + build-plot orders (R15 S9-05).
+                //
+                // This is the SHARED human+AI base-building path: the command bar and the S9
+                // skirmish AI both submit these Orders, and both land here. Before this,
+                // CastleOrderHandler had no OrderType and no dispatch at all - its only
+                // callers were tests - so nobody, human or AI, could build on a plot.
+                //
+                // Every one of these returns a CastleOrderResult naming WHICH guard rejected
+                // it (the handler's header: "the original silently drops, ours drops
+                // loudly"), so every non-Ok result is logged with the order's own payload.
+                // A rejected build order that vanished silently is exactly the failure mode
+                // that makes an AI look like it is doing nothing.
+                // ------------------------------------------------------------------
+                case OrderType.FoundationConstruct:
+                    {
+                        var plotId = order.Arguments[0].Value.ObjectId;
+                        var objectDefinitionId = order.Arguments[1].Value.Integer;
+                        var objectDefinition = TryGetObjectDefinition(objectDefinitionId);
+
+                        if (objectDefinition == null)
+                        {
+                            // Malformed/stale payload is legal wire data, never a crash.
+                            Logger.Info(
+                                $"{order.OrderType} rejected for player {order.PlayerIndex}: no object definition with internal id {objectDefinitionId}");
+                            break;
+                        }
+
+                        LogCastleResult(order,
+                            _game.GameLogic.CastleOrders.HandleFoundationConstruct(player, plotId, objectDefinition.Name),
+                            $"plot {plotId}, template {objectDefinition.Name}");
+                    }
+                    break;
+
+                case OrderType.FoundationConstructCancel:
+                    {
+                        var plotId = order.Arguments[0].Value.ObjectId;
+
+                        LogCastleResult(order,
+                            _game.GameLogic.CastleOrders.HandleFoundationConstructCancel(player, plotId),
+                            $"plot {plotId}");
+                    }
+                    break;
+
+                case OrderType.CastleUnpack:
+                    {
+                        var foundationId = order.Arguments[0].Value.ObjectId;
+
+                        LogCastleResult(order,
+                            _game.GameLogic.CastleOrders.HandleCastleUnpack(player, foundationId),
+                            $"foundation {foundationId}");
+                    }
+                    break;
+
+                case OrderType.CastlePack:
+                    {
+                        var foundationId = order.Arguments[0].Value.ObjectId;
+
+                        LogCastleResult(order,
+                            _game.GameLogic.CastleOrders.HandleCastlePack(player, foundationId),
+                            $"foundation {foundationId}");
+                    }
+                    break;
+
                 case OrderType.Checksum:
                     break;
 
@@ -533,6 +598,43 @@ public sealed class OrderProcessor : IOrderProcessor
                     Logger.Info($"Unimplemented order type: {order.OrderType} ({args})");
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Logs every castle-order rejection, naming the guard that rejected it and the payload it
+    /// rejected. <see cref="CastleOrderResult.Ok"/> is not logged (it would be one line per
+    /// build, per frame, per player); everything else is, at Info, because a silently dropped
+    /// build order is indistinguishable from an AI that has stopped thinking.
+    /// </summary>
+    private static void LogCastleResult(Order order, CastleOrderResult result, string payload)
+    {
+        if (result == CastleOrderResult.Ok)
+        {
+            return;
+        }
+
+        Logger.Info($"{order.OrderType} rejected for player {order.PlayerIndex}: {result} ({payload})");
+    }
+
+    /// <summary>
+    /// Resolves an <c>ObjectDefinition.InternalId</c> carried by an order, returning null
+    /// instead of throwing for an id that was never allocated.
+    /// <c>ScopedAssetCollection.GetByInternalId</c> indexes its dictionary directly and throws
+    /// <see cref="KeyNotFoundException"/> on a miss, but an order's payload is untrusted input
+    /// (a stale replay, a peer on a different mod, a malformed packet) and must never take the
+    /// sim down. The collection exposes no try-pattern to call instead, so the miss is caught
+    /// here rather than by widening shared content code.
+    /// </summary>
+    private ObjectDefinition? TryGetObjectDefinition(int internalId)
+    {
+        try
+        {
+            return _game.AssetStore.ObjectDefinitions.GetByInternalId(internalId);
+        }
+        catch (KeyNotFoundException)
+        {
+            return null;
         }
     }
 }

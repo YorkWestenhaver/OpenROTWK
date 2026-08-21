@@ -20,22 +20,39 @@
 // are deliberately left OUT of the table rather than guessed - see "Deliberately unmapped"
 // below.
 //
-// CASTLE-ORDER AMENDMENT (R15 synthesis): S9-05 (R1-W2) adds four castle OrderTypes -
-// FoundationConstruct, CastleUnpack, CastlePack, CastleUnpackExplicitObject - that do not exist
-// on OrderType as of this packet (BR-P4A, R1-W1), so they cannot be entered into the table below
-// yet. Their target GameMessageType values are already known from gamemessage-enum-map.md and
-// are recorded here so the W2 integrate lane (or S9-05 itself) can add the four entries as a
-// same-shape follow-up once the OrderType members land:
-//   FoundationConstruct -> GameMessageType.MSG_FOUNDATION_CONSTRUCT (1049)
-//   CastleUnpack         -> GameMessageType.MSG_CASTLE_UNPACK (1085)
-//   CastlePack            -> GameMessageType.MSG_CASTLE_PACK (1086)
-//   CastleUnpackExplicitObject -> GameMessageType.MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (1087)
-// Until that follow-up lands, these (and every other absent OrderType) are UNMAPPED, which is a
-// documented, load-bearing state, not an oversight: IOrderSubmitter's contract requires a
-// Local-origin order that misses this map to still execute on the legacy local path
-// (IOrderSubmitter.cs header) - CastleOrderHandler already dispatches castle orders correctly
-// on that path today (Logic/Object/Castle/CastleOrderHandler.cs), so an unmapped castle order
-// is inert here but not dropped end-to-end.
+// CASTLE-ORDER AMENDMENT (R15 synthesis) - RESOLVED BY S9-05 (R1-W2). BR-P4A (R1-W1) recorded
+// four castle OrderTypes that did not exist yet and the GameMessageType values they must map
+// to. S9-05 landed the OrderType members and closes that follow-up here. Three of the four are
+// now real entries in the table below; the fourth is resolved as "never representable", not as
+// a pending TODO:
+//   FoundationConstruct        -> MSG_FOUNDATION_CONSTRUCT (1049)   ENTERED below
+//   CastleUnpack               -> MSG_CASTLE_UNPACK (1085)          ENTERED below
+//   CastlePack                 -> MSG_CASTLE_PACK (1086)            ENTERED below
+//   CastleUnpackExplicitObject -> MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (1087)
+//        NOT ENTERED, and no OrderType member exists for it: that message selects the camp by
+//        NAME, and OrderArgumentType (Logic/Orders/OrderArgumentType.cs) has no string member,
+//        so an Order cannot carry the payload at all. This is an L3 -> L2 escalation (Order
+//        needs a string argument type before the explicit form can ride the order pipe), not
+//        an omission. The handler entry point (CastleOrderHandler.HandleCastleUnpackExplicit-
+//        Object) remains a direct-call path for map scripts meanwhile.
+//   FoundationConstructCancel  -> deliberately unmapped, permanently until a value is
+//        recovered: the recovered vocabulary has no confirmed foundation-construct-cancel
+//        message (1050 is MSG_DOZER_CONSTRUCT), so there is nothing to pair with. Same rule
+//        that left Revive without a CancelRevive - a number would be a fabricated retail fact.
+//
+// NOTE ON THE THREE ENTERED PAIRINGS' OrderType VALUES: FoundationConstruct/CastleUnpack/
+// CastlePack are 2001/2003/2004, engine-local values outside the 1000-1999 network range, NOT
+// their GameMessageType numbers - 1049/1085/1086 were already occupied in the ZH-derived
+// OrderType enum (BuildObject/Unknown1085/DirectParticleCannon) and that enum may not be
+// renumbered (see OrderType.cs's own note). This is precisely the case that proves the
+// no-cast rule: (GameMessageType)(int)OrderType.CastleUnpack is 2003, which is not a message
+// at all. Only the literal pairings below carry the identity.
+//
+// Every other absent OrderType remains UNMAPPED, which is a documented, load-bearing state,
+// not an oversight: IOrderSubmitter's contract requires a Local-origin order that misses this
+// map to still execute on the legacy local path (IOrderSubmitter.cs header) - which for castle
+// orders is now a live OrderProcessor dispatch into GameLogic.CastleOrders (S9-05), not just
+// the handler sitting unreferenced.
 
 using System.Collections.Generic;
 using OpenSage.SimCore.Orders;
@@ -241,6 +258,26 @@ public static class OrderIdentityMap
         // OrderType.cs's own doc comment on Revive). Recorded here as a same-value identity
         // entry so callers get one uniform lookup path instead of special-casing Revive.
         new(OrderType.Revive, GameMessageType.MSG_REVIVE),
+
+        // ---- castle / build-plot orders (S9-05; see the header's amendment section) ----
+        // These three are the only pairings in this table whose OrderType value is NOT a
+        // recovered or ZH number - they are engine-local 2xxx values, precisely because their
+        // recovered numbers were already taken in OrderType. The pairing is by MEANING, which
+        // is all this table has ever asserted.
+        //
+        // 1049: map §1 "MSG_FOUNDATION_CONSTRUCT" - build a structure on a base foundation.
+        // OrderType.FoundationConstruct carries (plot ObjectId, object-definition internal id)
+        // and executes CastleOrderHandler.HandleFoundationConstruct, whose guard sequence is
+        // the BASE_FOUNDATION / NEED_BASE_FOUNDATION pair plus the socket-occupancy rule -
+        // the foundation-construct semantics, distinct from BuildObject/MSG_DOZER_CONSTRUCT
+        // (1050) above, which places a free-standing structure at a world position.
+        new(OrderType.FoundationConstruct, GameMessageType.MSG_FOUNDATION_CONSTRUCT),
+
+        // 1085/1086: map §1 "MSG_CASTLE_UNPACK" / "MSG_CASTLE_PACK". Both carry the castle
+        // foundation's ObjectId and nothing else, matching the handler's single-object guard
+        // sequence (owner -> CastleBehavior -> canUnpack -> allowed-to-pack/unpack -> cost).
+        new(OrderType.CastleUnpack, GameMessageType.MSG_CASTLE_UNPACK),
+        new(OrderType.CastlePack, GameMessageType.MSG_CASTLE_PACK),
     };
 
     // Deliberately unmapped (NOT an omission - each has a documented reason):

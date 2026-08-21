@@ -154,5 +154,73 @@ public enum OrderType
     /// </remarks>
     Revive = 1114,
 
+    // ================================================================================
+    // BFME2/AotR castle + build-plot orders (R15 S9-05).
+    //
+    // WHY THESE ARE 2xxx AND NOT THEIR RECOVERED VALUES. Revive above could carry its real
+    // BFME2 number (1114) because nothing in this ZH-derived enum already occupied 1114.
+    // The castle messages have no such luck: their recovered BFME2 values are
+    // MSG_FOUNDATION_CONSTRUCT 1049, MSG_CASTLE_UNPACK 1085 and MSG_CASTLE_PACK 1086, and
+    // every one of those integers is ALREADY TAKEN here by an unrelated ZH member -
+    // BuildObject = 1049, Unknown1085 = 1085, DirectParticleCannon = 1086. Reusing them
+    // would either alias two names onto one value (so `case OrderType.CastleUnpack:` and
+    // `case OrderType.Unknown1085:` become the same duplicate switch label and the file
+    // stops compiling) or force a renumber of the ZH members, which this enum's replay
+    // parser forbids.
+    //
+    // So these four take engine-local values in a band the recovered vocabulary provably
+    // does not use: gamemessage-enum-map.md scopes the BFME2 network message range at
+    // 1000-1999, so 2000+ cannot be mistaken for a retail number by a later reader. These
+    // are NOT wire values and must never be written to a replay or a network packet as-is.
+    // Their retail identity lives in exactly one place - OrderIdentityMap's explicit,
+    // literal table - which is also what any SimCore/netcode path must go through. Never a
+    // cast: (GameMessageType)(int)OrderType.CastleUnpack would be 2003, which is nothing.
+    //
+    // These are additive: no existing member's value changes.
+    // ================================================================================
+
+    /// <summary>
+    /// Build a structure on a build-plot / castle foundation.
+    /// Arguments: <c>ObjectId</c> plot, <c>Integer</c> object-definition internal id (the same
+    /// id form <see cref="BuildObject"/> carries, resolved through
+    /// <c>AssetStore.ObjectDefinitions.GetByInternalId</c>).
+    /// Retail identity: <c>GameMessageType.MSG_FOUNDATION_CONSTRUCT</c> - see the band note above.
+    /// </summary>
+    FoundationConstruct = 2001,
+
+    /// <summary>
+    /// Cancel an in-flight foundation construction and refund it.
+    /// Arguments: <c>ObjectId</c> plot.
+    /// Deliberately has NO recorded retail identity: the recovered vocabulary has no
+    /// confirmed foundation-construct-cancel value (1050 is MSG_DOZER_CONSTRUCT, so the
+    /// "~1050" guess in CastleOrderHandler's header is not a fact), and inventing one would
+    /// fabricate a retail number - the same rule that left Revive without a CancelRevive.
+    /// It is therefore permanently unmapped in OrderIdentityMap until a value is recovered.
+    /// </summary>
+    FoundationConstructCancel = 2002,
+
+    /// <summary>
+    /// Unpack a castle/camp foundation into its castle. Charges the matched
+    /// <c>CastleToUnpackForFaction</c> entry's UnpackCost.
+    /// Arguments: <c>ObjectId</c> foundation.
+    /// Retail identity: <c>GameMessageType.MSG_CASTLE_UNPACK</c>.
+    /// </summary>
+    CastleUnpack = 2003,
+
+    /// <summary>
+    /// Pack an unpacked castle back down to its foundation.
+    /// Arguments: <c>ObjectId</c> foundation.
+    /// Retail identity: <c>GameMessageType.MSG_CASTLE_PACK</c>.
+    /// </summary>
+    CastlePack = 2004,
+
+    // There is deliberately no CastleUnpackExplicitObject member. Its retail counterpart
+    // (MSG_CASTLE_UNPACK_EXPLICIT_OBJECT) selects the camp by NAME, and OrderArgumentType has
+    // no string member - an Order literally cannot carry a camp name today. Adding the value
+    // without a representable payload would be a member no factory can build and no case can
+    // dispatch. CastleOrderHandler.HandleCastleUnpackExplicitObject stays a direct-call path
+    // (map scripts / triggers) until Order grows a string argument; that is an L3 -> L2
+    // escalation, recorded in OrderIdentityMap's "deliberately unmapped" section.
+
     Zero = 0
 }

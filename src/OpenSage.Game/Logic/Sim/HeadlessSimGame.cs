@@ -408,7 +408,14 @@ internal sealed class HeadlessSimGame : IGame
         public WorldLighting Lighting => null;
         public ShadowSettings Shadows => null;
         public WaterSettings Waters => null;
-        public IReadOnlyList<Player> Players => null;
+        // R15 S9-05: was `=> null`, a harness gap of the same family as the TeamFactory and
+        // Configuration ones fixed above. The real Scene3D does not own a roster either - it
+        // forwards (Scene3D.cs: `public IReadOnlyList<Player> Players => Game.PlayerManager
+        // .Players;`) - so forwarding here is the faithful null-object, not a test-only
+        // shortcut. Without it, anything that resolves a player through IScene3D (e.g.
+        // OrderProcessor's `_game.Scene3D.Players[order.PlayerIndex]`) NREs under this host,
+        // which made the order pipe untestable headlessly.
+        public IReadOnlyList<Player> Players => _game.PlayerManager.Players;
         public Player LocalPlayer { get; set; }
         public Navigation.Navigation Navigation => null;
         public AudioSystem Audio => null;

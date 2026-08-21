@@ -5,6 +5,7 @@ using ImGuiNET;
 using OpenSage.Content;
 using OpenSage.Logic.Map;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Object.Castle;
 using OpenSage.Mathematics;
 
 namespace OpenSage.Logic;
@@ -62,6 +63,29 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
 
     /// <summary>The host if one was created; null until the first object/queue use.</summary>
     internal OpenSage.Logic.Object.Pathfind.SimPathfindEngineHost SimPathfindIfCreated => _simPathfind;
+    // ------------------------------------------------------------------------------------
+
+    // ---- R15 S9-05: castle / build-plot order handler ----------------------------------
+    // The shared human+AI base-building executor. GameLogic owns it (not Scene3D, not the
+    // order generator) because its state is SIM state - the in-flight foundation-construction
+    // table it Xfers - and because both the human command bar and the S9 skirmish AI reach it
+    // through the same OrderProcessor dispatch, on every peer, in frame order.
+    //
+    // Lazy, like _simPartition/_simPathfind above: _game.GameEngine is not yet assigned while
+    // GameLogic's own constructor runs.
+    //
+    // The resolver is the LEDGER DECISION (Economy/IPlayerFunds.cs): PlayerFunds.ForPlayer
+    // binds every charge and refund to Player.BankAccount - the ledger the rest of the engine
+    // funds, spends and persists. Binding it to a per-player Economy.ResourceBank instead
+    // would have charged a ledger nothing funds, i.e. the AI (and the human) would build for
+    // free.
+    private CastleOrderHandler _castleOrders;
+
+    internal CastleOrderHandler CastleOrders =>
+        _castleOrders ??= new CastleOrderHandler(_game.GameEngine, Economy.PlayerFunds.ForPlayer);
+
+    /// <summary>The handler if one was created; null until the first castle order.</summary>
+    internal CastleOrderHandler CastleOrdersIfCreated => _castleOrders;
     // ------------------------------------------------------------------------------------
 
     private readonly List<GameObject> _objectsToIterate = new();
@@ -362,6 +386,15 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // tick GameLogic directly (position re-anchor + due shroud-undo pops). Runs on
         // the pre-increment frame counter, i.e. the frame that just executed.
         _simPartition?.Update(now);
+
+        // R15 S9-05: the castle handler's end-of-frame sweep. Its in-flight construction table
+        // holds a row per plot until the structure finishes building or dies; this drops the
+        // rows whose structure is no longer cancellable, which is what makes a finished plot
+        // buildable again and stops a completed structure from being "cancelled" for a refund.
+        // GPL's frame runs its reaping/bookkeeping after the subsystem updates and before the
+        // frame counter advances (GameLogic.cpp), which is exactly here. Null until the first
+        // castle order, so a match that never builds on a plot pays nothing.
+        _castleOrders?.PruneFinishedConstructions();
 
         _currentFrame++;
     }

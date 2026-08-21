@@ -8,10 +8,14 @@
 //   -> isPlayerAllowedToPackOrUnpack -> (non-explicit form only) affordability, charging
 //   UnpackCost from the matched CastleToUnpackForFaction entry -> initiateUnpack.
 //
-// Economy: the S4 ResourceBank is the ledger (research/systems/economy-production.md §1:
+// Economy: the ledger contract is IPlayerFunds (research/systems/economy-production.md §1:
 // callers check CanAfford BEFORE the charge; the withdraw clamps). Banks are resolved per
 // player through a delegate so the future SimPlayer wires in without touching this file;
 // tests construct banks directly. Money is int/uint end-to-end (F3).
+//   R15 S9-05: the LIVE ledger this resolves to in a real game is Player.BankAccount (via
+//   Economy.BankAccountFunds), not Economy.ResourceBank - nothing constructs a per-player
+//   ResourceBank yet, so resolving to one would have made every castle purchase free. See
+//   Economy/IPlayerFunds.cs for the full reconciliation.
 //
 // Result codes exist so tests (and the future dispatch layer) can assert WHICH guard
 // rejected an order - the original silently drops, ours drops loudly.
@@ -37,8 +41,21 @@ public enum CastleOrderResult
     NothingToCancel,
 }
 
-/// <summary>Resolves the money ledger for a player (the future SimPlayer's ResourceBank).</summary>
-public delegate Economy.ResourceBank CastleBankResolver(Player player);
+/// <summary>
+/// Resolves the money ledger for a player.
+/// </summary>
+/// <remarks>
+/// R15 S9-05 ledger reconciliation: this used to name <c>Economy.ResourceBank</c> concretely,
+/// which was the right shape for the S4 tests that construct banks directly but the WRONG
+/// ledger for the live game - nothing in the engine constructs a per-player ResourceBank, so
+/// a live resolver would have charged a ledger nobody funds and nobody reads, making
+/// castle/foundation construction free for the human AND for the S9 skirmish AI. It now
+/// returns <see cref="Economy.IPlayerFunds"/>; the production resolver is
+/// <c>Economy.PlayerFunds.ForPlayer</c> (binds to <c>Player.BankAccount</c>, the live ledger),
+/// installed by <c>GameLogic.CastleOrders</c>. ResourceBank implements the same interface, so
+/// every existing test resolver still compiles unchanged. See Economy/IPlayerFunds.cs.
+/// </remarks>
+public delegate Economy.IPlayerFunds CastleBankResolver(Player player);
 
 [SimState]
 public sealed class CastleOrderHandler
