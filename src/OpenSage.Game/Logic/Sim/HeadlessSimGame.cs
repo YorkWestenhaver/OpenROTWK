@@ -96,6 +96,13 @@ internal sealed class HeadlessSimGame : IGame
             [OpenSage.Data.Map.Player.CreateNeutralPlayer(), OpenSage.Data.Map.Player.CreateCivilianPlayer()],
             GameType.Skirmish);
 
+        // Was declared but never constructed (a pre-existing harness gap, not part of this
+        // packet's own port): any ISimContext member that reaches Game.TeamFactory (e.g. the
+        // TemporarilyDefectUpdate port's FindTeamById, GarrisonContain's existing citation of
+        // the same path) would NRE under this headless host without it. Empty until a test
+        // calls Initialize with its own map teams.
+        TeamFactory = new TeamFactory(this);
+
         TerrainLogic = new TerrainLogic();
         TerrainLogic.SetHeightMapData(HeightMapData.Create(0, new ushort[2, 2] { { 0, 0 }, { 0, 0 } }));
 

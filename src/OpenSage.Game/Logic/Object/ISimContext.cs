@@ -46,6 +46,11 @@ public interface IGameLogic
 {
     GameObject GetObjectById(ObjectId id);
 
+    /// <summary>Team lookup by id (grown for the TemporarilyDefectUpdate port: the revert path
+    /// resolves the object's pre-defection team from its persisted uint id, since Team has no
+    /// Xfer-hostable reference form). Null when no such team (e.g. disbanded).</summary>
+    Team FindTeamById(uint id);
+
     /// <summary>
     /// Spawns a new object of <paramref name="definition"/> owned by <paramref name="owner"/>,
     /// standing where <paramref name="at"/> stands (same position and pathfind layer) and facing
