@@ -79,6 +79,10 @@ internal sealed class SimContext : ISimContext
 
         public GameObject GetObjectById(ObjectId id) => _engine.GameLogic.GetObjectById(id);
 
+        // F-TDU-2 (TemporarilyDefectUpdate port): one-line passthrough to the already-existing
+        // TeamFactory.FindTeamById, the exact shape GetObjectById above already uses.
+        public Team FindTeamById(uint id) => _engine.Game.TeamFactory.FindTeamById(id);
+
         public GameObject CreateObjectAt(ObjectDefinition definition, Player owner, GameObject at, Fix64 orientation)
         {
             var created = _engine.GameLogic.CreateObject(definition, owner);
