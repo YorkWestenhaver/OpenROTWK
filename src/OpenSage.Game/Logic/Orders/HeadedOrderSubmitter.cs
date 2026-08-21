@@ -32,6 +32,7 @@
 
 using System;
 using OpenSage.Network;
+using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 
 namespace OpenSage.Logic.Orders;
