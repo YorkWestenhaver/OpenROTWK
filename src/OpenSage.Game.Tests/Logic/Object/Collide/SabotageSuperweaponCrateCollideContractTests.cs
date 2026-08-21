@@ -284,6 +284,10 @@ End
         }
         Assert.True(specialPower.Ready);
 
+        // A deliberate sabotage order: GPL's executeCrateBehavior requires the AI goal object
+        // to be the victim, so the order must be in place for the reset to proceed.
+        saboteur.AIUpdate.GoalObject = victim;
+
         Assert.True(module.IsValidToExecute(victim, RelationshipType.Enemies));
 
         var result = module.ExecuteCrateBehavior(victim);
@@ -305,6 +309,8 @@ End
             game.Step();
         }
         Assert.True(specialPower.Ready);
+
+        saboteur.AIUpdate.GoalObject = victim;
 
         Assert.True(module.IsValidToExecute(victim, RelationshipType.Enemies));
         Assert.True(module.ExecuteCrateBehavior(victim));
@@ -420,6 +426,7 @@ End
         var module = ModuleOf(saboteur);
 
         Assert.Empty(victim.FindBehaviors<SpecialPowerModule>());
+        saboteur.AIUpdate.GoalObject = victim;
         Assert.True(module.ExecuteCrateBehavior(victim));
     }
 }
