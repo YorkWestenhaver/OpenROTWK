@@ -12,6 +12,12 @@
 // Conversely, phase advancement only happens inside Update(), so every phase assertion
 // follows the right number of Step() calls; the module's first Update() lands on the first
 // Step() after spawn given the constructor's UpdateSleepTime.None.
+//
+// Frame-numbering convention: GameLogic.Update() increments its frame counter at the END of the
+// tick, so the Nth game.Step() runs update modules at frame N-1. A driven seam invoked before
+// the step loop therefore opens its window at frame 0, and a T-frame window (phase-end frame T)
+// lapses on step T+1, not step T. Same convention the sibling this file is modeled on encodes -
+// ToggleHiddenSpecialAbilityUpdateContractTests steps 6 times to lapse a PreparationTime of 5.
 
 using System.Linq;
 using System.Numerics;
@@ -131,35 +137,38 @@ End
     {
         var module = ModuleOf(obj);
 
+        // Initiate runs before the step loop, i.e. at frame 0, so the UnpackTime=5 window ends
+        // at frame 5 - the frame the 6th Step executes.
         Assert.True(module.InitiateIntentToDoSpecialPower("TestGivePower", null));
 
-        // Step 1: Unpacking begins immediately.
+        // Step 1 (frame 0): Unpacking, the flag having been set by the initiate itself.
         game.Step();
         Assert.True(obj.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
         Assert.False(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        // Steps 2-4: still Unpacking (one step before the UnpackTime=5 boundary).
-        Step(game, 3);
+        // Steps 2-5 (frames 1-4): still Unpacking, one step before the boundary.
+        Step(game, 4);
         Assert.True(obj.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
 
-        // Step 5: UnpackTime elapses -> Prepared (no model-condition flag of its own).
+        // Step 6 (frame 5): UnpackTime elapses -> Prepared (no model-condition flag of its
+        // own); the PreparationTime=5 window opened here ends at frame 10.
         game.Step();
         Assert.False(obj.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
         Assert.False(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        // Steps 6-9: still Prepared (one step before the PreparationTime=5 boundary).
+        // Steps 7-10 (frames 6-9): still Prepared, one step before the boundary.
         Step(game, 4);
         Assert.False(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        // Step 10: PreparationTime elapses -> Packing.
+        // Step 11 (frame 10): PreparationTime elapses -> Packing, ending at frame 15.
         game.Step();
         Assert.True(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        // Steps 11-14: still Packing (one step before the PackTime=5 boundary).
+        // Steps 12-15 (frames 11-14): still Packing, one step before the boundary.
         Step(game, 4);
         Assert.True(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        // Step 15: PackTime elapses -> back to Packed.
+        // Step 16 (frame 15): PackTime elapses -> back to Packed.
         game.Step();
         Assert.False(obj.ModelConditionFlags.Get(ModelConditionFlag.Packing));
     }
@@ -201,9 +210,10 @@ End
         Assert.False(module.InitiateIntentToDoSpecialPower("TestGivePower", null));
 
         // The in-flight cycle is unperturbed: still Unpacking here, and it completes on the
-        // ordinary case-1 schedule from this point (3 more steps to the UnpackTime boundary).
+        // ordinary case-1 schedule from this point - 4 more steps (frames 1-4) still Unpacking,
+        // then step 6 runs frame 5 and the UnpackTime=5 window opened at frame 0 lapses.
         Assert.True(porter.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
-        Step(game, 3);
+        Step(game, 4);
         Assert.True(porter.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
         game.Step();
         Assert.False(porter.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
