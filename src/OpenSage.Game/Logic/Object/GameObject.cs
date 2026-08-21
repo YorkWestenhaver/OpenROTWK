@@ -323,6 +323,23 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
     /// </summary>
     public bool HealthBelowMax => _body != null && _body.Health < _body.MaxHealth;
 
+    // ---- R13 AutoPickUpUpdate port: Fix64 health facade (additive) ----
+    /// <summary>
+    /// Fix64 current health for ported [SimState] modules (same wire-boundary rationale as
+    /// <see cref="VisionRange"/>/<see cref="CollisionMinorRadius"/>/
+    /// <see cref="MaxHeightAbovePosition"/>). Check for this property before adding a third
+    /// near-duplicate health accessor to this file.
+    /// </summary>
+    public SimCore.Numerics.Fix64 HealthFix64 =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(_body?.Health ?? 0f));
+
+    /// <summary>
+    /// Fix64 max health for ported [SimState] modules, same F4 quantization boundary as
+    /// <see cref="HealthFix64"/>.
+    /// </summary>
+    public SimCore.Numerics.Fix64 MaxHealthFix64 =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(_body?.MaxHealth ?? 0f));
+
     // ---- R9 EnemyNearUpdate port: Fix64 vision-range facade (additive) ----
     /// <summary>
     /// Fix64 vision range for ported [SimState] modules (the original's
