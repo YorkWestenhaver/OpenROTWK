@@ -37,6 +37,18 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
         return definition;
     }
 
+    // INT-R1B: ObjectDefinition.cs:308 files the "Body =" block into Behaviors alongside the
+    // "Behavior =" ones, so the fixture's own ActiveBody is always a second entry and
+    // Assert.Single(definition.Behaviors) can never hold. Select the dropped module by its
+    // tag instead - that is what these tests were actually about.
+    private static ModuleData DroppedModuleOf(ObjectDefinition definition)
+    {
+        Assert.True(
+            definition.Behaviors.TryGetValue("ModuleTag_Dropped", out var container),
+            "the dropped module did not land in Behaviors under its own tag");
+        return container.Data;
+    }
+
     // ---- each dropped module still parses through the real "Behavior =" keyword dispatch ----
 
     [Fact]
@@ -48,7 +60,7 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
             "    SpecialPowerTemplate = SpecialPower_Placeholder\n" +
             "  End\n");
 
-        var data = Assert.IsType<HeroDieModuleData>(Assert.Single(definition.Behaviors).Value.Data);
+        var data = Assert.IsType<HeroDieModuleData>(DroppedModuleOf(definition));
         Assert.Equal("SpecialPower_Placeholder", data.SpecialPowerTemplate);
     }
 
@@ -63,7 +75,7 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
             "    DPSMax = 2.0\n" +
             "  End\n");
 
-        var data = Assert.IsType<RainOfFireUpdateModuleData>(Assert.Single(definition.Behaviors).Value.Data);
+        var data = Assert.IsType<RainOfFireUpdateModuleData>(DroppedModuleOf(definition));
         Assert.Equal(1000, data.StartRainTime);
         Assert.Equal(2.0f, data.DpsMax);
     }
@@ -78,7 +90,7 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
             "    AliveOnly = Yes\n" +
             "  End\n");
 
-        var data = Assert.IsType<OilSpillUpdateModuleData>(Assert.Single(definition.Behaviors).Value.Data);
+        var data = Assert.IsType<OilSpillUpdateModuleData>(DroppedModuleOf(definition));
         Assert.Equal("OilSpillBreadcrumb", data.BreadcrumbName);
         Assert.True(data.AliveOnly);
     }
@@ -91,7 +103,7 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
             "  Behavior = GateProxyBehavior ModuleTag_Dropped\n" +
             "  End\n");
 
-        Assert.IsType<GateProxyBehaviorModuleData>(Assert.Single(definition.Behaviors).Value.Data);
+        Assert.IsType<GateProxyBehaviorModuleData>(DroppedModuleOf(definition));
     }
 
     [Fact]
@@ -102,7 +114,7 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
             "  Behavior = DelayedLuaEventUpdate ModuleTag_Dropped\n" +
             "  End\n");
 
-        Assert.IsType<DelayedLuaEventUpdateModuleData>(Assert.Single(definition.Behaviors).Value.Data);
+        Assert.IsType<DelayedLuaEventUpdateModuleData>(DroppedModuleOf(definition));
     }
 
     // ---- parsing one of the dropped modules contributes zero runtime behavior modules ----
@@ -146,8 +158,10 @@ public class DroppedModuleParseRetentionTests : MockedGameTest
         Assert.NotNull(baselineDefinition);
         Assert.NotNull(allFiveDefinition);
 
-        // The five dropped Behavior= declarations parsed (5 ModuleDataContainer entries)...
-        Assert.Equal(5, allFiveDefinition.Behaviors.Count);
+        // The five dropped Behavior= declarations parsed - measured as a DELTA against the
+        // baseline object, because Behaviors also holds the shared "Body = ActiveBody" entry
+        // (ObjectDefinition.cs:308) that both fixtures declare.
+        Assert.Equal(5, allFiveDefinition.Behaviors.Count - baselineDefinition.Behaviors.Count);
 
         var baselineObject = new GameObject(baselineDefinition, Generals.GameEngine, Generals.PlayerManager.GetPlayerByIndex(0));
         var allFiveObject = new GameObject(allFiveDefinition, Generals.GameEngine, Generals.PlayerManager.GetPlayerByIndex(0));
