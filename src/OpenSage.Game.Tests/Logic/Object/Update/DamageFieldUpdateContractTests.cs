@@ -328,7 +328,14 @@ End
         var body = BodyOf(grunt);
         var startingHealth = body.DamageCore.CurrentHealth;
 
-        var previousNextPulseFrame = module.NextPulseFrame;
+        // The module's own §2.5 cadence source is Context.CurrentFrame + DrawDelayBetweenShots()
+        // seeded from _nextPulseFrame's uninitialized default (frame 0), so the module's first
+        // post-wake Update() pulses immediately - no artificial stagger before the first hit
+        // (spec §2.5, PointDefenseLaserUpdate.cs:139-143 precedent). That means the very first
+        // pulse's resulting NextPulseFrame is anchored to whatever frame the module actually woke
+        // on, not to the frame-0 placeholder captured before the upgrade fired - the "+2 per
+        // pulse" invariant only holds pulse-to-pulse, starting from the second pulse.
+        LogicFrame? previousNextPulseFrame = null;
         var pulses = 0;
 
         for (var i = 0; i < 9; i++)
@@ -341,8 +348,13 @@ End
             {
                 pulses++;
                 Assert.Equal(Fix(20), healthBefore - healthAfter);
-                // NextPulseFrame advances by exactly 2 (400ms at 5 Hz) per pulse.
-                Assert.Equal(previousNextPulseFrame + new LogicFrameSpan(2), module.NextPulseFrame);
+
+                if (previousNextPulseFrame is { } prev)
+                {
+                    // NextPulseFrame advances by exactly 2 (400ms at 5 Hz) between pulses.
+                    Assert.Equal(prev + new LogicFrameSpan(2), module.NextPulseFrame);
+                }
+
                 previousNextPulseFrame = module.NextPulseFrame;
             }
         }
