@@ -269,6 +269,8 @@ public sealed class AiOrderEmitter : IAiBrainManager
     /// Attacks <paramref name="targetId"/> with <paramref name="unitIds"/>.
     /// Emits SetSelection(ids) + AttackObject/ForceAttackObject(target).
     /// </summary>
+    /// <param name="unitIds">Attackers. Normalized to ascending, deduplicated, valid ids.</param>
+    /// <param name="targetId">The object to attack.</param>
     /// <param name="force">
     /// True issues ForceAttackObject, which attacks regardless of alliance. The AI should pass
     /// false for ordinary aggression so that OrderProcessor's normal targeting rules apply.
@@ -463,6 +465,7 @@ public sealed class AiOrderEmitter : IAiBrainManager
     /// <summary>
     /// Whether <paramref name="count"/> more orders fit this frame.
     /// </summary>
+    /// <param name="count">Size of the batch being considered, in orders.</param>
     /// <param name="overBudget">
     /// Set when the batch is larger than the entire per-frame budget and is being let through
     /// anyway. A batch is atomic - splitting it would put a SetSelection on one frame and its
