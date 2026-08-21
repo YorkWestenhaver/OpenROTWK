@@ -384,14 +384,25 @@ End
         game.Step();
         Assert.True(module.InitiateIntentToDoSpecialPower("TestArrowStorm", null));
 
-        Step(game, 5);
+        // Both fixtures are IsTrainable, so the automatic ModuleTag_ExperienceHelper
+        // (ExperienceUpdate.Initialize) floors their XP at 1 on its first tick - a baseline
+        // this module neither controls nor should be asserted against. Sample the baseline
+        // after the helper has settled but before the trigger frame, and assert the award
+        // as a delta.
+        Step(game, 4);
+        Assert.Equal(0, module.TriggerCount);
+        var archerBaseline = archer.ExperienceTracker.CurrentExperience;
+        var bystanderBaseline = bystander.ExperienceTracker.CurrentExperience;
+
+        Step(game, 1);
         Assert.Equal(1, module.TriggerCount);
-        Assert.Equal(100, archer.ExperienceTracker.CurrentExperience);
-        Assert.Equal(0, bystander.ExperienceTracker.CurrentExperience);
+        Assert.Equal(archerBaseline + 100, archer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(bystanderBaseline, bystander.ExperienceTracker.CurrentExperience);
 
         // No further award from stepping past the trigger frame.
         Step(game, 10);
-        Assert.Equal(100, archer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(archerBaseline + 100, archer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(bystanderBaseline, bystander.ExperienceTracker.CurrentExperience);
     }
 
     [Fact]
@@ -404,12 +415,23 @@ End
         game.Step();
         Assert.True(module.InitiateIntentToDoSpecialPower("TestArrowStorm", null));
 
+        // PreparationTime is 1 frame here, so the first trigger lands on the same frame the
+        // ExperienceHelper would apply its floor-of-1 baseline; which of the two runs first is
+        // module-order-dependent and must not decide the assertion. Measure trigger 2 and 3 as
+        // a delta from the post-first-trigger total, which is baseline-independent.
+        while (module.TriggerCount < 1)
+        {
+            game.Step();
+        }
+
+        var afterFirstTrigger = archer.ExperienceTracker.CurrentExperience;
+
         while (module.TriggerCount < 3)
         {
             game.Step();
         }
 
-        Assert.Equal(300, archer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(afterFirstTrigger + 200, archer.ExperienceTracker.CurrentExperience);
     }
 
     // 9. RequiredConditions ModelConditionFlag gate.
