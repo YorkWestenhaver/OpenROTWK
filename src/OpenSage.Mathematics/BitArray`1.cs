@@ -158,7 +158,19 @@ public sealed class BitArray<TEnum> : IEquatable<BitArray<TEnum>>
         }
     }
 
-    public bool Equals(BitArray<TEnum>? other) => _data.Equals(other?._data);
+    // Must call the value-equality overload BitArray512.Equals(in BitArray512) directly: with
+    // `other?._data`, the null-conditional promotes the struct field access to
+    // Nullable<BitArray512>, which is not implicitly convertible to the `in BitArray512`
+    // parameter, so overload resolution silently falls back to inherited
+    // ValueType.Equals(object) - a reflection-based comparison that includes BitArray512's
+    // private `_setBits` lazy-popcount cache. Two value-equal bit patterns whose caches happen
+    // to differ (e.g. one freshly constructed with a valid 0 cache, the other invalidated to -1
+    // by a prior Set() call) then compare unequal, which broke Dictionary<BitArray<TEnum>, _>
+    // lookups (WeaponSet.Update()'s exact-match weapon-set resolve) whenever a condition bit
+    // was cleared back to a set of all-false bits. Guarding the null case here keeps
+    // `other._data` a plain (non-nullable) BitArray512, so this resolves to the intended
+    // field-only Equals(in BitArray512).
+    public bool Equals(BitArray<TEnum>? other) => other is not null && _data.Equals(other._data);
 
     public override int GetHashCode()
     {
