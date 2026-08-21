@@ -248,6 +248,45 @@ End
         Assert.NotEmpty(first.AIUpdate.TargetPoints);
     }
 
+    // ---- HordeContainBehavior._payload dedup (R13 fix) ----
+
+    /// <summary>
+    /// R13 fix: ExitGarrisonHorde reads the horde's RankInfo-driven formation offset through
+    /// HordeContainBehavior.GetFormationOffset, which has the side effect of adding the queried
+    /// object to the horde's own `_payload` list (used by HordeContainBehavior.SelectAll). Before
+    /// the fix, that add had no dedup guard, so every garrison/exit cycle re-added every member,
+    /// growing `_payload` unboundedly (`original_count * (cycles + 1)`) for an ordinary,
+    /// repeatable player action. The guard makes GetFormationOffset idempotent per object, so
+    /// `_payload` - observable via SelectAll's return value - stays exactly at the horde's member
+    /// count no matter how many times it garrisons and exits.
+    /// </summary>
+    [Fact]
+    public void RepeatedGarrisonExitCycles_DoNotDuplicateHordePayloadEntries()
+    {
+        var game = NewGame();
+        var horde = SpawnHorde(game, "KnightHorde", new Vector3(0, 100, 0));
+        var settlement = game.SpawnObject("Settlement", game.CivilianPlayer, new Vector3(0, 0, 0));
+        var garrison = settlement.FindBehavior<HordeGarrisonContain>();
+        var hordeContain = horde.FindBehavior<HordeContainBehavior>();
+        var members = HordeMembers(game, horde);
+        Assert.Equal(4, members.Count);
+
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            Assert.True(garrison.TryGarrisonHorde(horde));
+            Assert.True(garrison.ExitGarrisonHorde(horde));
+        }
+
+        // SelectAll returns the live `_payload` list itself: it must still hold exactly one
+        // entry per member, not one per (member * cycle) as it did before the dedup guard.
+        var payload = hordeContain.SelectAll(true);
+        Assert.Equal(4, payload.Count);
+        foreach (var member in members)
+        {
+            Assert.Single(payload, o => o == member);
+        }
+    }
+
     // ---- testCase 6: garrison destruction ----
 
     [Fact]
