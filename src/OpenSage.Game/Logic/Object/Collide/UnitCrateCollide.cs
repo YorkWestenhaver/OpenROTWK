@@ -1,10 +1,10 @@
 ﻿// UnitCrateCollide - crate collision module that spawns UnitCount units of UnitName, for the
-// collecting player's team, scattered around the crate (R12 port; task packet
+// collecting player's team, scattered around the crate (R12 port; R13 fix pass; task packet
 // unit-crate-collide).
 //
-// No generals-gpl checkout is available in this workspace, so this port is implemented
-// directly from the task-packet behavioral summary (translate what is specified; do not
-// invent beyond it) rather than a decompiled/GPL source translation.
+// GPL reference: generals-gpl/GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Collide/
+// CrateCollide/{CrateCollide,UnitCrateCollide}.cpp and
+// .../GameLogic/Object/PartitionManager.cpp (PartitionManager::findPositionAround).
 //
 // FINDINGS (behavior-fact gaps / seam constraints, filed not invented):
 //   F-UCC-1 This file is deliberately NOT [SimState]-marked. CollideModule.OnCollide's
@@ -16,14 +16,32 @@
 //     placement, clearance) is Fix64/FixVector3 end to end regardless - only the required
 //     interface plumbing is float-shaped. A future round that migrates ICollideModule itself
 //     onto a Fix64 signature can drop this file into full SimState scope.
-//   F-UCC-2 Placement clearance uses a fixed constant (SpawnClearance) per live neighbour
-//     rather than each neighbour's/spawned unit's real bounding geometry: ISimContext's
-//     asset-store seam (IAssetStore) exposes object-definition lookup by name only, not
-//     per-template geometry. A future round that grows IAssetStore can replace the constant
-//     with the real bounding radii.
+//   F-UCC-2 GPL's findPositionAround (PartitionManager.cpp:3887-3961) rejects candidate rings
+//     via terrain/pathfind-cell legality (cliff cells, impassable cells, water flags) that
+//     ISimContext has no seam for (IAssetStore exposes object-definition lookup by name only,
+//     not terrain/pathfind queries or per-template bounding geometry). This port keeps the
+//     real algorithm's *shape* - one random start angle per spawned unit, then a deterministic
+//     expanding-ring/angle search that mirrors findPositionAround's ringSpacing/angleSpacing
+//     math exactly - but substitutes a fixed per-neighbour clearance (SpawnClearance) for the
+//     terrain-legality test as the per-candidate accept/reject check. A future round that
+//     grows ISimContext with terrain/pathfind + per-template geometry seams can replace that
+//     substitute check with the real one.
 //   F-UCC-3 "Plays free-unit pickup audio on successful execution" (task packet) is read as
 //     "at least one unit was actually spawned": an unresolvable UnitName (TC3) or
 //     UnitCount <= 0 (TC4) both play no audio and spawn nothing.
+//   R13 fixes applied against the GPL source above (prior header wrongly claimed no GPL
+//     checkout was available and this was ported from an invented behavioral summary instead):
+//       - The crate is now destroyed on successful execution (CrateCollide::onCollide
+//         destroys the crate whenever executeCrateBehavior returns TRUE, which
+//         UnitCrateCollide::executeCrateBehavior does unconditionally once unitType resolves -
+//         UnitCrateCollide.cpp:56-92).
+//       - The placement search anchors on the COLLECTOR's position
+//         (`Coord3D creationPoint = *other->getPosition();`, UnitCrateCollide.cpp:72), not the
+//         crate's own position.
+//       - The placement search now draws exactly one random value (the start angle) per
+//         spawned unit, matching findPositionAround's single
+//         `GameLogicRandomValueReal(0, TWO_PI)` draw (PartitionManager.cpp:3909-3914), instead
+//         of drawing angle+radius per retry attempt.
 
 using OpenSage.Data.Ini;
 using OpenSage.Logic.Object.Locomotion;
@@ -33,15 +51,16 @@ namespace OpenSage.Logic.Object;
 
 public sealed class UnitCrateCollide : CrateCollide
 {
-    // Placement clearance kept from any live neighbour (F-UCC-2).
+    // Placement clearance kept from any live neighbour (F-UCC-2 substitute legality check).
     private static readonly Fix64 SpawnClearance = new Fix64(5);
 
-    // Scatter radius ceiling (task packet: "0-20 unit radius").
+    // Scatter radius ceiling: GPL's FindPositionOptions.maxRadius = 20.0f (minRadius = 0.0f)
+    // (UnitCrateCollide.cpp:75-76).
     private static readonly Fix64 MaxScatterRadius = new Fix64(20);
 
-    // Bounded retries per spawned unit before falling back to the last drawn candidate,
-    // rather than looping forever when the crate is deep in a crowd.
-    private const int MaxPlacementAttempts = 8;
+    // GPL's PartitionManager.cpp:3877 `static Real ringSpacing = 5.0f;` - the ring step used
+    // by findPositionAround's outer search loop.
+    private static readonly Fix64 RingSpacing = new Fix64(5);
 
     private readonly UnitCrateCollideModuleData _data;
 
@@ -80,7 +99,11 @@ public sealed class UnitCrateCollide : CrateCollide
 
         // TC6: spawned units inherit the collector's orientation.
         var orientation = SimTransformBridge.PullYaw(collector);
-        var anchor = SimTransformBridge.PullPosition(GameObject);
+
+        // GPL anchors the placement search on the COLLECTOR's position
+        // (`Coord3D creationPoint = *other->getPosition();`, UnitCrateCollide.cpp:72), not the
+        // crate's own position.
+        var anchor = SimTransformBridge.PullPosition(collector);
 
         // Snapshot of nearby live objects within the scatter radius, used as placement
         // obstacles; grows as each newly spawned unit becomes an obstacle for the next.
@@ -116,30 +139,69 @@ public sealed class UnitCrateCollide : CrateCollide
         {
             Context.Events.FireCrateFreeUnitPickupSound();
         }
+
+        // GPL's CrateCollide::onCollide destroys the crate whenever executeCrateBehavior
+        // returns TRUE (CrateCollide.cpp:115-148); UnitCrateCollide::executeCrateBehavior
+        // returns TRUE unconditionally once unitType resolves, regardless of how many
+        // individual newObject calls actually succeeded (UnitCrateCollide.cpp:56-92). We
+        // already returned above for an unresolvable UnitName/UnitCount<=0, so reaching here
+        // means unitType resolved and the crate is always consumed.
+        Context.GameLogic.DestroyObject(GameObject);
     }
 
     /// <summary>
-    /// Draws a scatter offset in [0, MaxScatterRadius) at a uniformly random angle, retrying
-    /// up to <see cref="MaxPlacementAttempts"/> times for one that keeps
-    /// <see cref="SpawnClearance"/> from every known obstacle (F-UCC-2). Falls back to the
-    /// last drawn offset when no clear spot is found - a best-effort placement rather than a
-    /// failed pickup.
+    /// Ports GPL's PartitionManager::findPositionAround (PartitionManager.cpp:3887-3961) for a
+    /// single spawned unit: draws exactly one random start angle, then walks the same
+    /// expanding-ring / ping-ponging-angle search GPL uses (ringSpacing = 5, angleSpacing =
+    /// 2*Pi at the innermost ring and (ringSpacing/(dist+1)) * (2*Pi/6) beyond it), accepting
+    /// the first candidate that clears every known obstacle by <see cref="SpawnClearance"/>
+    /// (F-UCC-2 substitute for GPL's terrain/pathfind legality test, which ISimContext has no
+    /// seam for). Falls back to the anchor itself (offset zero) when no ring position clears -
+    /// this matches GPL's own fallback: `findPositionAround(&creationPoint, ..., &creationPoint)`
+    /// passes the same pointer as both center and result, so when the search runs out of rings
+    /// without success, `result` (and thus the unit's spawn point) is left at the original
+    /// `creationPoint` - the collector's position - untouched.
     /// </summary>
     private FixVector3 PickClearOffset(in FixVector3 anchor, System.Collections.Generic.List<FixVector3> obstacles)
     {
-        var offset = FixVector3.Zero;
-        for (var attempt = 0; attempt < MaxPlacementAttempts; attempt++)
-        {
-            var angle = Context.GameLogicRandom.NextFix64(Fix64.Zero, Fix64.PiTimes2);
-            var radius = Context.GameLogicRandom.NextFix64(Fix64.Zero, MaxScatterRadius);
-            offset = new FixVector3(radius * FixTrig.Cos(angle), radius * FixTrig.Sin(angle), Fix64.Zero);
+        var startAngle = Context.GameLogicRandom.NextFix64(Fix64.Zero, Fix64.PiTimes2);
 
-            if (IsClear(anchor + offset, obstacles))
+        for (var dist = Fix64.Zero; dist <= MaxScatterRadius; dist += RingSpacing)
+        {
+            var angleSpacing = dist == Fix64.Zero
+                ? Fix64.PiTimes2
+                : (RingSpacing / (dist + Fix64.One)) * (Fix64.PiTimes2 / new Fix64(6));
+
+            var samples = (int)Fix64.Ceiling((Fix64.PiTimes2 / angleSpacing) / Fix64.Two);
+
+            for (var i = 0; i < samples; i++)
             {
-                return offset;
+                var candidate = TryRingOffset(anchor, dist, startAngle + angleSpacing * new Fix64(i), obstacles);
+                if (candidate.HasValue)
+                {
+                    return candidate.Value;
+                }
+
+                if (i != 0)
+                {
+                    candidate = TryRingOffset(anchor, dist, startAngle - angleSpacing * new Fix64(i), obstacles);
+                    if (candidate.HasValue)
+                    {
+                        return candidate.Value;
+                    }
+                }
             }
         }
-        return offset;
+
+        // No ring position cleared: fall back to the anchor (the collector's position),
+        // matching GPL's untouched-`creationPoint` fallback described above.
+        return FixVector3.Zero;
+    }
+
+    private static FixVector3? TryRingOffset(in FixVector3 anchor, Fix64 dist, Fix64 angle, System.Collections.Generic.List<FixVector3> obstacles)
+    {
+        var offset = new FixVector3(dist * FixTrig.Cos(angle), dist * FixTrig.Sin(angle), Fix64.Zero);
+        return IsClear(anchor + offset, obstacles) ? offset : null;
     }
 
     private static bool IsClear(in FixVector3 position, System.Collections.Generic.List<FixVector3> obstacles)
