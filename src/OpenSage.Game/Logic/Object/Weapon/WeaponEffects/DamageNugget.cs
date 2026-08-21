@@ -123,6 +123,6 @@ public class DamageNugget : WeaponEffectNugget
 
         // The S1 Fix64 chain: nugget amount (quantized at parse) -> DamagePipeline ->
         // armor -> scalar -> health, no float hop on this side.
-        context.Weapon.CurrentTarget.DoDamage(DamageType, Damage, DeathType, context.Weapon.ParentGameObject);
+        context.Weapon.CurrentTarget.DoDamage(DamageType, Damage, DeathType, context.Weapon.ParentGameObject, context.Weapon.Template);
     }
 }

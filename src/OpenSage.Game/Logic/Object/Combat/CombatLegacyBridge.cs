@@ -46,6 +46,7 @@ internal static class CombatLegacyBridge
             DeathType = legacy.DeathType,
             Amount = QuantizeFloat(legacy.Amount),
             Kill = legacy.Kill,
+            SourceWeaponTemplate = legacy.SourceWeaponTemplate,
         };
     }
 
@@ -60,6 +61,7 @@ internal static class CombatLegacyBridge
             DeathType = input.DeathType,
             Amount = input.Amount.ToFloatForDisplay(),
             Kill = input.Kill,
+            SourceWeaponTemplate = input.SourceWeaponTemplate,
         };
     }
 

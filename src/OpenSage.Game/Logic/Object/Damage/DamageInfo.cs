@@ -39,6 +39,7 @@ public struct DamageInfoInput() : IPersistableObject
 {
     private ObjectId _sourceID = ObjectId.Invalid;
     private ObjectDefinition? _sourceTemplate;
+    private WeaponTemplate? _sourceWeaponTemplate;
 
     /// <summary>
     /// Source of the damage.
@@ -49,6 +50,19 @@ public struct DamageInfoInput() : IPersistableObject
     /// Source of the damage (the template).
     /// </summary>
     public ObjectDefinition? SourceTemplate => _sourceTemplate;
+
+    /// <summary>
+    /// The weapon (ammo) template that fired this damage, when known. Distinct from
+    /// <see cref="SourceTemplate"/>, which is the attacking object's own template (e.g.
+    /// <c>MordorCatapult</c>) rather than the fired ammo (e.g. <c>MordorCatapultHumanHeads</c>).
+    /// Threaded in from <see cref="CombatLegacyBridge.ToLegacyInput"/>; null for
+    /// environmental/non-weapon damage.
+    /// </summary>
+    public WeaponTemplate? SourceWeaponTemplate
+    {
+        get => _sourceWeaponTemplate;
+        set => _sourceWeaponTemplate = value;
+    }
 
     /// <summary>
     /// Player mask of <see cref="SourceID"/>.
@@ -123,7 +137,7 @@ public struct DamageInfoInput() : IPersistableObject
 
     public void Persist(StatePersister reader)
     {
-        var version = reader.PersistVersion(3);
+        var version = reader.PersistVersion(4);
 
         reader.PersistObjectId(ref _sourceID);
         reader.PersistPlayerMaskType(ref PlayerMaskType);
@@ -151,6 +165,18 @@ public struct DamageInfoInput() : IPersistableObject
             if (reader.Mode == StatePersistMode.Read)
             {
                 _sourceTemplate = reader.AssetStore.ObjectDefinitions.GetByName(attackerName);
+            }
+        }
+
+        if (version >= 4)
+        {
+            var attackerWeaponName = SourceWeaponTemplate?.Name ?? "";
+            reader.PersistAsciiString(ref attackerWeaponName);
+            if (reader.Mode == StatePersistMode.Read)
+            {
+                _sourceWeaponTemplate = string.IsNullOrEmpty(attackerWeaponName)
+                    ? null
+                    : reader.AssetStore.WeaponTemplates.GetByName(attackerWeaponName);
             }
         }
     }

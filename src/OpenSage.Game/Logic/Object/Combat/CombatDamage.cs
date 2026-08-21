@@ -47,6 +47,23 @@ public struct CombatDamageInput()
     /// <summary>Always kills the victim regardless of amount (GPL m_kill).</summary>
     public bool Kill = false;
 
+    /// <summary>
+    /// The weapon (ammo) template dealing this damage, when known - e.g. a catapult's
+    /// <c>MordorCatapultHumanHeads</c> ammo, distinct from the attacker object's own
+    /// template. Set at the one live call site (<c>WeaponTarget.DoDamage</c>) and threaded
+    /// through <see cref="CombatLegacyBridge.ToLegacyInput"/> into the legacy
+    /// <see cref="DamageInfoInput.SourceWeaponTemplate"/>, which is the field
+    /// <see cref="IDamageModule.OnDamage"/> consumers (e.g. EvacuateDamage) actually read.
+    /// Deliberately NOT walked by <see cref="Xfer"/>: <see cref="CombatDamageInput"/> is a
+    /// transient call parameter (never itself stored as persisted sim state - see the
+    /// dead <see cref="CombatDamage"/> wrapper below), and <see cref="IXfer"/> carries no
+    /// string/asset-reference primitive to route a <see cref="WeaponTemplate"/> by name
+    /// through the four Save/Load/Crc/DeepDump visitors. The one place this value truly
+    /// persists is the legacy float view, which already has that machinery
+    /// (<see cref="StatePersister.PersistAsciiString"/> + asset-store resolution).
+    /// </summary>
+    public WeaponTemplate? SourceWeaponTemplate = null;
+
     public void Xfer(IXfer xfer)
     {
         xfer.XferObjectId("SourceId", ref SourceId);
@@ -56,6 +73,7 @@ public struct CombatDamageInput()
         xfer.XferEnum("DeathType", ref DeathType);
         xfer.XferFix64("Amount", ref Amount, Tolerance.Quantum);
         xfer.XferBool("Kill", ref Kill);
+        // SourceWeaponTemplate intentionally excluded - see field doc comment.
     }
 }
 

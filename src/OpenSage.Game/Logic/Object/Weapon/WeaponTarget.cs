@@ -33,7 +33,12 @@ internal sealed class WeaponTarget
 
     public GameObject GetTargetObject() => _gameObjects.GetObjectById(TargetObjectId);
 
-    public void DoDamage(DamageType damageType, Fix64 amount, DeathType deathType, GameObject damageDealer)
+    public void DoDamage(
+        DamageType damageType,
+        Fix64 amount,
+        DeathType deathType,
+        GameObject damageDealer,
+        WeaponTemplate sourceWeaponTemplate = null)
     {
         if (TargetType == WeaponTargetType.Object)
         {
@@ -45,6 +50,7 @@ internal sealed class WeaponTarget
                 DamageType = damageType,
                 DeathType = deathType,
                 Amount = amount,
+                SourceWeaponTemplate = sourceWeaponTemplate,
             });
         }
     }
