@@ -63,4 +63,19 @@ public interface ISimScriptHost
     /// runtime also latches the frame in its own Xfer'd state.
     /// </summary>
     void RequestMapExit();
+
+    /// <summary>
+    /// GPL doNamedMoveToWaypoint (MOVE_NAMED_UNIT_TO, ZH id 38): plain move, no combat
+    /// engagement. Unknown unit or waypoint is a silent no-op.
+    /// </summary>
+    void NamedMoveToWaypoint(string unitName, string waypointName);
+
+    /// <summary>
+    /// BFME2 ATTACK_MOVE_NAMED_UNIT_TO (content id 546; no GPL ScriptAction case — a
+    /// BFME2-only addition, observed behavior inferred from the sibling GPL AI entry point
+    /// AIUpdateInterface::privateAttackMoveToPosition / AI_ATTACK_MOVE_TO: move toward the
+    /// waypoint, but engage opportunistically along the way and resume once the fight ends.
+    /// Unknown unit or waypoint is a silent no-op.
+    /// </summary>
+    void NamedAttackMoveToWaypoint(string unitName, string waypointName);
 }

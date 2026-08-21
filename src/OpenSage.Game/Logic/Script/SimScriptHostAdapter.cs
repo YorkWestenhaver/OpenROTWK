@@ -35,6 +35,7 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
     private readonly List<(string Name, Vector3 Position)> _waypoints = new();
     private readonly List<TeamEntry> _teams = new();
     private readonly List<(string Attacker, string Victim)> _attackOrders = new();
+    private readonly List<NamedAttackMoveOrder> _namedAttackMoveOrders = new();
 
     /// <summary>Members' own combat drives them once released; locomotor clamps to its max.</summary>
     private static readonly Fix64 AttackMoveSpeedSentinel = Fix64.FromDecimalLiteral("99999");
@@ -44,6 +45,19 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
         public string Name;
         public Player Owner;
         public readonly List<ObjectId> Members = new();
+    }
+
+    /// <summary>
+    /// Standing state for one ATTACK_MOVE_NAMED_UNIT_TO order (see TickNamedAttackMoves).
+    /// <see cref="Engaged"/> is our own bookkeeping, not the locomotor's — it is what tells
+    /// TickNamedAttackMoves apart "we halted the unit to fight" from "the locomotor finished
+    /// the approach on its own", since both leave the mover in the same idle mode.
+    /// </summary>
+    private sealed class NamedAttackMoveOrder
+    {
+        public ObjectId UnitId;
+        public Vector3 Destination;
+        public bool Engaged;
     }
 
     public SimScriptHostAdapter(IGame game, Player defaultTeamOwner)
@@ -213,15 +227,18 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
 
     /// <summary>
     /// Per-frame combat drive for the standing TEAM_ATTACK_TEAM orders (SimMapRun calls
-    /// this each StepFrame). The AIUpdate family is deliberately unfrozen (api-freeze-v1
-    /// §7), so the harness supplies the minimal HordeAIUpdate shape here: each attacking
-    /// horde marches on the victim team's lead object until its rangefinder range, flips
-    /// the S6 melee mux, and its members fight through the real S1 weapon pipeline
-    /// (retargeting to the nearest live enemy member as targets die). Weapon state
-    /// machines tick here because the headless host has no Scene3D.LogicTick.
+    /// this each StepFrame), plus the ATTACK_MOVE_NAMED_UNIT_TO drive (TickNamedAttackMoves).
+    /// The AIUpdate family is deliberately unfrozen (api-freeze-v1 §7), so the harness
+    /// supplies the minimal HordeAIUpdate shape here: each attacking horde marches on the
+    /// victim team's lead object until its rangefinder range, flips the S6 melee mux, and
+    /// its members fight through the real S1 weapon pipeline (retargeting to the nearest
+    /// live enemy member as targets die). Weapon state machines tick here because the
+    /// headless host has no Scene3D.LogicTick.
     /// </summary>
     public void TickCombat()
     {
+        TickNamedAttackMoves();
+
         foreach (var (attackerName, victimName) in _attackOrders)
         {
             var attackers = FindTeam(attackerName);
@@ -417,6 +434,165 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
     {
         MapExitRequested = true;
     }
+
+    /// <summary>
+    /// GPL doNamedMoveToWaypoint subset: clearWaypointQueue + leaveGroup + aiMoveToPosition
+    /// collapse here to a single locomotor order (no group/formation system yet to leave).
+    /// A plain move supersedes anything the unit was doing, so any live weapon target and
+    /// any standing attack-move order for it are cleared first — the same "clear the state
+    /// machine before setting the new state" shape the GPL performs via
+    /// getStateMachine()-&gt;clear().
+    /// </summary>
+    public void NamedMoveToWaypoint(string unitName, string waypointName)
+    {
+        if (!_gameLogic.TryGetObjectByName(unitName, out var unit) || unit == null ||
+            !TryGetWaypoint(waypointName, out var destination))
+        {
+            return;
+        }
+
+        RemoveNamedAttackMoveOrder(unit.Id);
+        unit.CurrentWeapon?.SetTarget(null);
+
+        var mover = unit.FindBehavior<SimLocomotorUpdate>();
+        mover?.SetTargetPosition(ToFixVector3(destination), AttackMoveSpeedSentinel);
+    }
+
+    /// <summary>
+    /// Honest subset of ATTACK_MOVE_NAMED_UNIT_TO (no GPL ScriptAction — see
+    /// ISimScriptHost.NamedAttackMoveToWaypoint doc). Starts the same locomotor order as a
+    /// plain move, then registers a standing order that TickNamedAttackMoves drives once
+    /// per frame: opportunistic engage-if-an-enemy-comes-into-weapon-range, otherwise keep
+    /// walking, exactly the "moves like MOVE, fights if something is there" shape of
+    /// AI_ATTACK_MOVE_TO minus its pathing/retry machinery we don't have.
+    /// </summary>
+    public void NamedAttackMoveToWaypoint(string unitName, string waypointName)
+    {
+        if (!_gameLogic.TryGetObjectByName(unitName, out var unit) || unit == null ||
+            !TryGetWaypoint(waypointName, out var destination))
+        {
+            return;
+        }
+
+        RemoveNamedAttackMoveOrder(unit.Id);
+        unit.CurrentWeapon?.SetTarget(null);
+
+        var mover = unit.FindBehavior<SimLocomotorUpdate>();
+        mover?.SetTargetPosition(ToFixVector3(destination), AttackMoveSpeedSentinel);
+
+        _namedAttackMoveOrders.Add(new NamedAttackMoveOrder { UnitId = unit.Id, Destination = destination });
+    }
+
+    /// <summary>
+    /// Per-frame drive for standing ATTACK_MOVE_NAMED_UNIT_TO orders (SimMapRun calls this
+    /// each StepFrame, alongside the TEAM_ATTACK_TEAM drive above). Honest-subset detection
+    /// radius is the unit's own weapon range (no sight/perception system to draw on), and
+    /// "enemy" is the same scripted hostility TEAM_ATTACK_TEAM establishes via Player.Enemies
+    /// — PlayerManager does not yet wire the map's authored playerEnemies/Allies relationships
+    /// (see the "TODO: Setup player relationships" note in PlayerManager.OnNewGame), so an
+    /// attack-moving unit that crosses paths with a side no prior TEAM_ATTACK_TEAM ever
+    /// declared hostile will walk past it — GPL, reading the map's authored relationships,
+    /// would have engaged. Once no enemy is in range and the locomotor has finished the
+    /// approach on its own, the order is complete and is dropped.
+    /// </summary>
+    private void TickNamedAttackMoves()
+    {
+        for (var i = _namedAttackMoveOrders.Count - 1; i >= 0; i--)
+        {
+            var order = _namedAttackMoveOrders[i];
+            var unit = _gameLogic.GetObjectById(order.UnitId);
+            if (unit == null || unit.IsEffectivelyDead || unit.IsDestroyed)
+            {
+                _namedAttackMoveOrders.RemoveAt(i);
+                continue;
+            }
+
+            var weapon = unit.CurrentWeapon;
+            var mover = unit.FindBehavior<SimLocomotorUpdate>();
+            var enemy = weapon != null ? NearestLiveEnemyInWeaponRange(unit, weapon) : null;
+
+            if (enemy != null)
+            {
+                order.Engaged = true;
+                if (enemy.Id != weapon.CurrentTarget?.TargetObjectId)
+                {
+                    weapon.SetTarget(new WeaponTarget(_gameLogic, enemy.Id));
+                }
+
+                if (mover != null && mover.Mode == SimMoveMode.MoveToPosition)
+                {
+                    mover.Stop();
+                }
+
+                weapon.LogicTick();
+                continue;
+            }
+
+            if (order.Engaged)
+            {
+                // The fight ended (victim died or left range): resume toward the waypoint.
+                order.Engaged = false;
+                weapon?.SetTarget(null);
+                mover?.SetTargetPosition(ToFixVector3(order.Destination), AttackMoveSpeedSentinel);
+                continue;
+            }
+
+            if (mover == null || mover.Mode != SimMoveMode.MoveToPosition)
+            {
+                // Never engaged and no longer moving: the approach finished on its own.
+                _namedAttackMoveOrders.RemoveAt(i);
+            }
+        }
+    }
+
+    /// <summary>Nearest live object hostile to <paramref name="unit"/>'s owner within its weapon's range.</summary>
+    private GameObject NearestLiveEnemyInWeaponRange(GameObject unit, Weapon weapon)
+    {
+        var range = weapon.Template.AttackRange;
+        GameObject best = null;
+        var bestDistanceSquared = float.MaxValue;
+
+        foreach (var candidate in _gameLogic.Objects)
+        {
+            if (candidate == null || candidate == unit || candidate.IsEffectivelyDead || candidate.IsDestroyed)
+            {
+                continue;
+            }
+
+            if (candidate.Owner == unit.Owner || !unit.Owner.Enemies.Contains(candidate.Owner))
+            {
+                continue;
+            }
+
+            var distanceSquared = Vector3.DistanceSquared(unit.Translation, candidate.Translation);
+            if (distanceSquared > range * range || distanceSquared >= bestDistanceSquared)
+            {
+                continue;
+            }
+
+            best = candidate;
+            bestDistanceSquared = distanceSquared;
+        }
+
+        return best;
+    }
+
+    private void RemoveNamedAttackMoveOrder(ObjectId unitId)
+    {
+        for (var i = _namedAttackMoveOrders.Count - 1; i >= 0; i--)
+        {
+            if (_namedAttackMoveOrders[i].UnitId == unitId)
+            {
+                _namedAttackMoveOrders.RemoveAt(i);
+            }
+        }
+    }
+
+    /// <summary>Waypoint float substrate crossing into the sim locomotor's Fix64 domain (D-7 shape).</summary>
+    private static FixVector3 ToFixVector3(in Vector3 position) => new(
+        Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(position.X)),
+        Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(position.Y)),
+        Fix64.FromWireFloat(BitConverter.SingleToUInt32Bits(position.Z)));
 
     // ---- internals ----
 

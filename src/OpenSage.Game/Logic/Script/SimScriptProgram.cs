@@ -60,6 +60,8 @@ public enum SimScriptActionKind
     NamedAttackNamed,               // NAMED_ATTACK_NAMED <attacker> <victim>
     TeamTransferToPlayer,           // TEAM_TRANSFER_TO_PLAYER <team> <player>
     MapExit,                        // MAP_EXIT (BFME2-only, content id 496)
+    NamedMoveToWaypoint,            // MOVE_NAMED_UNIT_TO <unit> <waypoint> (ZH id 38)
+    NamedAttackMoveToWaypoint,      // ATTACK_MOVE_NAMED_UNIT_TO <unit> <waypoint> (BFME2-new, content id 546)
 }
 
 /// <summary>WorldBuilder comparison operators, in the map file's own encoding.</summary>

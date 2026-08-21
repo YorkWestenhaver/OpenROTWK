@@ -383,6 +383,11 @@ public static class SimScriptCompiler
                 case SimScriptActionKind.TeamAttackTeam:
                 case SimScriptActionKind.NamedAttackNamed:
                 case SimScriptActionKind.TeamTransferToPlayer:
+                case SimScriptActionKind.NamedMoveToWaypoint:
+                case SimScriptActionKind.NamedAttackMoveToWaypoint:
+                    // NamedMoveToWaypoint/NamedAttackMoveToWaypoint: census sig [14,7] ==
+                    // [unit-name string, waypoint string] (script-content-census.json ids
+                    // 38/546) — Name0 = unit, Name1 = waypoint.
                     return new SimScriptAction
                     {
                         Kind = kind,
@@ -417,13 +422,19 @@ public static class SimScriptCompiler
             "NAMED_ATTACK_NAMED" => SimScriptActionKind.NamedAttackNamed,
             "TEAM_TRANSFER_TO_PLAYER" => SimScriptActionKind.TeamTransferToPlayer,
             "MAP_EXIT" => SimScriptActionKind.MapExit,
+            "MOVE_NAMED_UNIT_TO" => SimScriptActionKind.NamedMoveToWaypoint,
+            "ATTACK_MOVE_NAMED_UNIT_TO" => SimScriptActionKind.NamedAttackMoveToWaypoint,
             _ => SimScriptActionKind.Unknown,
         };
 
         /// <summary>
         /// Generals-era numeric fallback. NOTE: deliberately NO entry for MAP_EXIT — its
         /// BFME2 id (496) collides with ZH GateReady, which is exactly why internal names
-        /// are the primary key.
+        /// are the primary key. Same reasoning excludes ATTACK_MOVE_NAMED_UNIT_TO (content
+        /// id 546): it is a BFME2-only addition with no ZH-era ScriptActionType value at
+        /// all, so it can never appear on a name-less (Generals-era) map — internal name is
+        /// its only path. MOVE_NAMED_UNIT_TO's ZH id (38) is the real GPL enum ordinal
+        /// (generals-gpl Scripts.h ScriptActionType) and is safe to carry here.
         /// </summary>
         private static SimScriptActionKind ActionKindByZhId(uint id) => id switch
         {
@@ -438,6 +449,7 @@ public static class SimScriptCompiler
             16 => SimScriptActionKind.SubCounter,
             20 => SimScriptActionKind.SetMillisecondTimer,
             33 => SimScriptActionKind.TeamAttackTeam,
+            38 => SimScriptActionKind.NamedMoveToWaypoint,
             39 => SimScriptActionKind.NamedAttackNamed,
             40 => SimScriptActionKind.CreateNamedOnTeamAtWaypoint,
             41 => SimScriptActionKind.CreateUnnamedOnTeamAtWaypoint,

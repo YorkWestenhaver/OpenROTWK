@@ -472,6 +472,14 @@ public sealed class SimScriptEngine
                 _host.TeamTransferToPlayer(action.Name0, action.Name1);
                 break;
 
+            case SimScriptActionKind.NamedMoveToWaypoint:
+                _host.NamedMoveToWaypoint(action.Name0, action.Name1);
+                break;
+
+            case SimScriptActionKind.NamedAttackMoveToWaypoint:
+                _host.NamedAttackMoveToWaypoint(action.Name0, action.Name1);
+                break;
+
             case SimScriptActionKind.MapExit:
                 if (!_mapExitRequested)
                 {

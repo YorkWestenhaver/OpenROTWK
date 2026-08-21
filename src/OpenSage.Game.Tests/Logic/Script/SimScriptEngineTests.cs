@@ -11,6 +11,7 @@ using System.Numerics;
 using OpenSage.Data.Map;
 using OpenSage.Logic.Map;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Object.Locomotion;
 using OpenSage.Logic.Script;
 using OpenSage.Logic.Sim;
 using OpenSage.Scripting;
@@ -79,6 +80,12 @@ public class SimScriptEngineTests
 
         public void TeamTransferToPlayer(string teamName, string playerName) =>
             Log.Add($"transfer:{teamName}:{playerName}");
+
+        public void NamedMoveToWaypoint(string unitName, string waypointName) =>
+            Log.Add($"move:{unitName}:{waypointName}");
+
+        public void NamedAttackMoveToWaypoint(string unitName, string waypointName) =>
+            Log.Add($"attackmove:{unitName}:{waypointName}");
 
         public void RequestMapExit()
         {
@@ -334,6 +341,23 @@ public class SimScriptEngineTests
 
         Run(engine, host, 1);
         Assert.Equal(4, engine.GetCounterValue("C"));
+    }
+
+    [Fact]
+    public void NamedMoveAndAttackMove_DispatchToTheHost()
+    {
+        var b = new ProgramBuilder();
+        b.AddScript("Move", [True()],
+            [new SimScriptAction { Kind = SimScriptActionKind.NamedMoveToWaypoint, Name0 = "Atk_1", Name1 = "wpDef" }]);
+        b.AddScript("AttackMove", [True()],
+            [new SimScriptAction { Kind = SimScriptActionKind.NamedAttackMoveToWaypoint, Name0 = "Atk_2", Name1 = "wpEnemy" }]);
+
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+        Run(engine, host, 1);
+
+        Assert.Contains("move:Atk_1:wpDef", host.Log);
+        Assert.Contains("attackmove:Atk_2:wpEnemy", host.Log);
     }
 
     [Fact]
@@ -636,6 +660,26 @@ Weapon ScriptTestGun
   End
 End
 
+Weapon ScriptShortGun
+  AttackRange = 20
+  DamageNugget
+    Damage = 10
+    Radius = 0.0
+    DamageType = SLASH
+    DeathType = NORMAL
+  End
+End
+
+Locomotor ScriptTestLoco
+  Surfaces = GROUND
+  Speed = 30
+  TurnRate = 360
+  Acceleration = 100
+  Braking = 100
+  Appearance = TWO_LEGS
+  ZAxisBehavior = NO_Z_MOTIVE_FORCE
+End
+
 Object ScriptWarrior
   KindOf = INFANTRY CAN_ATTACK
   Geometry = CYLINDER
@@ -651,6 +695,33 @@ Object ScriptWarrior
 End
 
 Object ScriptDummy
+  KindOf = INFANTRY
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+End
+
+Object ScriptMover
+  KindOf = INFANTRY CAN_ATTACK
+  Geometry = CYLINDER
+  GeometryMajorRadius = 5
+  GeometryHeight = 10
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = SimLocomotorUpdate ModuleTag_Loco
+  End
+  Locomotor = SET_NORMAL ScriptTestLoco
+  WeaponSet
+    Conditions = None
+    Weapon = PRIMARY ScriptShortGun
+  End
+End
+
+Object ScriptFoe
   KindOf = INFANTRY
   Geometry = CYLINDER
   GeometryMajorRadius = 5
@@ -718,6 +789,158 @@ End
         // And the telemetry exit fired on schedule.
         Assert.True(host.MapExitRequested);
         Assert.Equal(10u, engine.MapExitFrame.Value);
+    }
+
+    // ---- MOVE_NAMED_UNIT_TO / ATTACK_MOVE_NAMED_UNIT_TO contract: real spawn, real order,
+    // position advances toward the waypoint over frames (the locomotor's first sleepy Update
+    // lands on the second game.Step(), same shape as SimLocomotorContractTests). ----
+
+    private static (HeadlessSimGame Game, SimScriptHostAdapter Host, GameObject Mover) SpawnMover(
+        Vector3 start, string waypointName, Vector3 waypointPosition, SimScriptActionKind moveKind)
+    {
+        var game = new HeadlessSimGame(SageGame.Bfme2, 0xB00);
+        game.LoadIniText(Definitions);
+
+        var host = new SimScriptHostAdapter(game, game.CivilianPlayer);
+        host.RegisterWaypoint("wpStart", start);
+        host.RegisterWaypoint(waypointName, waypointPosition);
+
+        var b = new ProgramBuilder();
+        var moverSlot = b.Unit("Mover_1");
+        b.AddScript("Spawn", [True()],
+            [new SimScriptAction
+            {
+                Kind = SimScriptActionKind.CreateNamedOnTeamAtWaypoint,
+                NameSlotIndex = moverSlot,
+                Name0 = "Mover_1", Name1 = "ScriptMover", Name2 = "teamMover", Name3 = "wpStart",
+            }]);
+        b.AddScript("Order",
+            [new SimScriptCondition { Kind = SimScriptConditionKind.NamedCreated, NameSlotIndex = moverSlot, SubjectName = "Mover_1" }],
+            [new SimScriptAction { Kind = moveKind, Name0 = "Mover_1", Name1 = waypointName }]);
+
+        var engine = new SimScriptEngine(b.Build(), host, game.GameEngine.SimContext.GameLogicRandom);
+
+        for (var i = 0; i < 30; i++)
+        {
+            engine.Update();
+            host.TickCombat(); // also drives the ATTACK_MOVE_NAMED_UNIT_TO standing order
+            game.Step();
+        }
+
+        Assert.True(game.GameLogic.TryGetObjectByName("Mover_1", out var mover));
+        return (game, host, mover);
+    }
+
+    [Fact]
+    public void MoveNamedUnitTo_AdvancesTowardTheWaypoint()
+    {
+        var start = new Vector3(0, 0, 0);
+        var goal = new Vector3(300, 0, 0);
+        var (_, _, mover) = SpawnMover(start, "wpGoal", goal, SimScriptActionKind.NamedMoveToWaypoint);
+
+        // Plain move: no weapon target, but real progress toward the waypoint.
+        Assert.True(mover.Translation.X > 0f, "MOVE_NAMED_UNIT_TO did not advance the unit at all.");
+        Assert.True(mover.Translation.X < goal.X, "unit should not have reached a 300-unit goal in 30 frames.");
+        Assert.Null(mover.CurrentWeapon?.CurrentTarget);
+    }
+
+    [Fact]
+    public void AttackMoveNamedUnitTo_NoEnemyInRange_AdvancesLikeAPlainMove()
+    {
+        var start = new Vector3(0, 0, 0);
+        var goal = new Vector3(300, 0, 0);
+        var (_, _, mover) = SpawnMover(start, "wpGoal", goal, SimScriptActionKind.NamedAttackMoveToWaypoint);
+
+        // No enemy anywhere: the attack-move subset behaves exactly like MOVE.
+        Assert.True(mover.Translation.X > 0f, "ATTACK_MOVE_NAMED_UNIT_TO did not advance the unit at all.");
+        Assert.True(mover.Translation.X < goal.X, "unit should not have reached a 300-unit goal in 30 frames.");
+        Assert.Null(mover.CurrentWeapon?.CurrentTarget);
+    }
+
+    [Fact]
+    public void AttackMoveNamedUnitTo_EngagesAnEnemyEncounteredEnRoute()
+    {
+        var game = new HeadlessSimGame(SageGame.Bfme2, 0xB00);
+        game.LoadIniText(Definitions);
+
+        // ScriptShortGun's AttackRange is 20; the foe sits at x=50, well past the attacker's
+        // 5-frame-ish opening approach (Speed 30 -> 6/frame), so the contract that matters —
+        // the unit walks toward the waypoint FIRST and only diverts to fight once the foe is
+        // actually in range — is exercised, not sidestepped by spawning already in range.
+        var attackerOwner = game.PlayerManager.GetPlayerByIndex(0); // neutral
+        var foeOwner = game.CivilianPlayer;
+        attackerOwner.AddEnemy(foeOwner);
+        foeOwner.AddEnemy(attackerOwner);
+
+        var host = new SimScriptHostAdapter(game, game.CivilianPlayer);
+        host.RegisterTeam("teamAtk", attackerOwner);
+        host.RegisterTeam("teamFoe", foeOwner);
+        host.RegisterWaypoint("wpStart", new Vector3(0, 0, 0));
+        host.RegisterWaypoint("wpFoe", new Vector3(50, 0, 0));
+        host.RegisterWaypoint("wpGoal", new Vector3(300, 0, 0));
+
+        var b = new ProgramBuilder();
+        var moverSlot = b.Unit("Mover_1");
+        var foeSlot = b.Unit("Foe_1");
+        b.AddScript("SpawnMover", [True()],
+            [new SimScriptAction
+            {
+                Kind = SimScriptActionKind.CreateNamedOnTeamAtWaypoint,
+                NameSlotIndex = moverSlot,
+                Name0 = "Mover_1", Name1 = "ScriptMover", Name2 = "teamAtk", Name3 = "wpStart",
+            }]);
+        b.AddScript("SpawnFoe", [True()],
+            [new SimScriptAction
+            {
+                Kind = SimScriptActionKind.CreateNamedOnTeamAtWaypoint,
+                NameSlotIndex = foeSlot,
+                Name0 = "Foe_1", Name1 = "ScriptFoe", Name2 = "teamFoe", Name3 = "wpFoe",
+            }]);
+        b.AddScript("Order",
+            [new SimScriptCondition { Kind = SimScriptConditionKind.NamedCreated, NameSlotIndex = moverSlot, SubjectName = "Mover_1" }],
+            [new SimScriptAction { Kind = SimScriptActionKind.NamedAttackMoveToWaypoint, Name0 = "Mover_1", Name1 = "wpGoal" }]);
+
+        var engine = new SimScriptEngine(b.Build(), host, game.GameEngine.SimContext.GameLogicRandom);
+
+        Assert.True(game.GameLogic.TryGetObjectByName("Mover_1", out _) == false); // not yet spawned
+
+        for (var i = 0; i < 3; i++)
+        {
+            engine.Update();
+            host.TickCombat();
+            game.Step();
+        }
+
+        Assert.True(game.GameLogic.TryGetObjectByName("Mover_1", out var mover));
+        Assert.True(game.GameLogic.TryGetObjectByName("Foe_1", out var foe));
+
+        // Early on (still outside the 20-unit weapon range), it is walking, not fighting.
+        Assert.True(mover.Translation.X > 0f);
+        Assert.Null(mover.CurrentWeapon?.CurrentTarget);
+
+        for (var i = 0; i < 20; i++)
+        {
+            engine.Update();
+            host.TickCombat();
+            game.Step();
+        }
+
+        // Once in range, the mover opportunistically engages: weapon target set to the foe,
+        // and it stops advancing toward the original waypoint instead of walking through it.
+        Assert.NotNull(mover.CurrentWeapon?.CurrentTarget);
+        Assert.Equal(foe.Id, mover.CurrentWeapon.CurrentTarget.TargetObjectId);
+        Assert.True(mover.Translation.X < 300f - 1f);
+
+        var xAfterEngage = mover.Translation.X;
+        for (var i = 0; i < 5; i++)
+        {
+            engine.Update();
+            host.TickCombat();
+            game.Step();
+        }
+
+        // Halted, not sailing past the foe toward wpGoal.
+        Assert.Equal(xAfterEngage, mover.Translation.X, 3);
     }
 
     // ---- the scenariogen map: compile the real .map, run it natively ----
