@@ -212,7 +212,13 @@ End
         var replacement = game.GameLogic.Objects.Single(o => o.Definition.Name == "MountedHero");
         Assert.Equal(400f, replacement.BodyModule.Health, 1);
         Assert.Equal(400f, replacement.BodyModule.MaxHealth, 1);
-        Assert.Equal(0, replacement.ExperienceTracker.CurrentExperience);
+        // Not 0: every GameObject carries an automatic ExperienceUpdate (GameObject.cs's
+        // ModuleTag_ExperienceHelper, pre-existing/unrelated to this port) that raises a
+        // still-zero CurrentExperience to a rank-1 floor of 1 on its own first Update() tick -
+        // see ShareExperienceBehavior.cs's own citation of this same behavior. The replacement
+        // ticks at least once before StepUntilDestroyed returns, so this floor is the true
+        // "fresh instance" baseline, not a veterancy carry-over from the donor's 100000 XP.
+        Assert.Equal(1, replacement.ExperienceTracker.CurrentExperience);
         Assert.Equal(VeterancyLevel.Regular, replacement.ExperienceTracker.VeterancyLevel);
     }
 
@@ -349,6 +355,13 @@ End
         var rider = game.SpawnObject("TestRider", game.CivilianPlayer, new Vector3(1, 0, 0));
         var module = ModuleOf(foot);
 
+        // Every GameObject carries an automatic ExperienceUpdate (GameObject.cs's
+        // ModuleTag_ExperienceHelper, pre-existing/unrelated to this port) that raises a
+        // still-zero CurrentExperience to a rank-1 floor of 1 on its own first Update() tick -
+        // see ShareExperienceBehavior.cs's own citation of this same behavior. Step once first
+        // so that floor has already settled before capturing the "before" baseline, isolating
+        // this module's own AwardXPForTriggering grant in the assertions below.
+        game.Step();
         var experienceBefore = rider.ExperienceTracker.CurrentExperience;
 
         Assert.True(module.InitiateIntentToDoSpecialPower("TestToggleMounted", rider));
