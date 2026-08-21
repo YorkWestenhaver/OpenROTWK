@@ -36,6 +36,15 @@
 //    ModuleKinds.Behavior lookup regresses).
 // 8. No retail save-format Load(StatePersister) walk - same posture as the landed
 //    HordeSiegeEngineContain sibling.
+//
+// Integrate-lane fix (contract-test failure): the death path is dispatched from
+// IDieModule.OnDie (GPL OpenContain::onDie, OpenContain.cpp:857-874), not polled from
+// Update() via GameObject.IsEffectivelyDead. A container with no other Die module has zero
+// entries in GameObject.OnDie's dieModules list, which auto-Destroy()s it before its own
+// sleepy Update() ever gets a tick (GameLogic.DeleteDestroyed reaps a destroyed object
+// ahead of any Update() call on the same or a later frame) - so the IsEffectivelyDead poll
+// could never actually fire. Implementing IDieModule puts this module in that dispatch,
+// matching the existing TunnelContain/ParachuteContain precedent.
 
 using System.Collections.Generic;
 using OpenSage.Data.Ini;
@@ -49,7 +58,7 @@ using OpenSage.SimCore.Ticking;
 namespace OpenSage.Logic.Object;
 
 [SimState]
-public sealed class SiegeEngineContain : UpdateModule
+public sealed class SiegeEngineContain : UpdateModule, IDieModule
 {
     private const int NoExitPath = -1;
     private const int SingleExitPath = 0;
@@ -143,20 +152,35 @@ public sealed class SiegeEngineContain : UpdateModule
 
     // ---- per-frame ----
 
+    /// <summary>
+    /// GPL OpenContain::onDie (OpenContain.cpp:857-874): a container is itself a die-callback
+    /// target that empties its slot list when it dies - the death handling runs from
+    /// GameObject::onDie's die-module dispatch, not from a per-frame poll. Ported here as the same event
+    /// dispatch rather than an <c>Update()</c>-side <c>GameObject.IsEffectivelyDead</c> check:
+    /// when this container has no other Die module of its own (every corpus fixture and the
+    /// R13 spec's minimal object shape), <c>GameObject.OnDie</c> auto-destroys the container
+    /// the instant it registers zero die modules (GameObject.cs OnDie's
+    /// "dieModules.Count == 0 -&gt; Destroy()" branch) - and a destroyed object is reaped
+    /// (GameLogic.DeleteDestroyed) before its sleepy <c>Update()</c> ever gets a tick, so the
+    /// death-damage-and-release path could never run. Implementing <see cref="IDieModule"/>
+    /// registers this module in that dispatch, both firing the death handling synchronously
+    /// and (as a side effect matching TunnelContain/ParachuteContain's precedent) suppressing
+    /// the auto-destroy so any other Die module on the same object still gets its say.
+    /// </summary>
+    void IDieModule.OnDie(in DamageInfoInput damageInput)
+    {
+        if (_deathDamageApplied)
+        {
+            return;
+        }
+        _deathDamageApplied = true;
+        ApplyDeathDamageToOccupants();
+        ReleaseAllOccupantsImmediately();
+        _exitQueue.Clear();
+    }
+
     public override UpdateSleepTime Update()
     {
-        if (GameObject.IsEffectivelyDead)
-        {
-            if (!_deathDamageApplied)
-            {
-                _deathDamageApplied = true;
-                ApplyDeathDamageToOccupants();
-            }
-            ReleaseAllOccupantsImmediately();
-            _exitQueue.Clear();
-            return UpdateSleepTime.None;
-        }
-
         ReapDeadOccupants();
 
         while (_exitQueue.Count > 0 && _nextExitAllowedAfter < Context.CurrentFrame)
