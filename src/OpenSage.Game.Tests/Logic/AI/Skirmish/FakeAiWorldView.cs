@@ -41,6 +41,18 @@ internal sealed class FakeAiWorldView : IAiWorldView
 
     public DifficultyTuning? DifficultyTuning { get; set; }
 
+    // ---- (S9-06) base/plot slice ----
+
+    /// <summary>Mutable backing for <see cref="Plots"/>.</summary>
+    public List<AiPlotView> PlotList { get; } = new();
+
+    /// <summary>Mutable backing for <see cref="BuildableStructures"/>.</summary>
+    public List<AiBuildableTemplate> Buildable { get; } = new();
+
+    public IReadOnlyList<AiPlotView> Plots => PlotList;
+
+    public IReadOnlyList<AiBuildableTemplate> BuildableStructures => Buildable;
+
     /// <summary>Advances the fake clock by one frame, as a real logic tick would.</summary>
     public void AdvanceFrame() => CurrentFrame++;
 }
