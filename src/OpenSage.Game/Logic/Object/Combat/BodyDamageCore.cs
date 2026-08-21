@@ -203,11 +203,14 @@ public sealed class BodyDamageCore
     }
 
     /// <summary>
-    /// GPL <c>isSubdued</c>: accumulated subdual damage has reached the module's
-    /// SubdualDamageCap (the last cap value passed to <see cref="AddSubdualDamage"/>) - not
-    /// max health. A zero/never-set cap means subdual damage isn't tracked, so never subdued.
+    /// GPL <c>isSubdued</c> (ActiveBody.cpp:1316-1319): <c>return m_maxHealth &lt;=
+    /// m_currentSubdualDamage;</c> - the threshold is MAX HEALTH, not SubdualDamageCap.
+    /// SubdualDamageCap (<see cref="AddSubdualDamage"/>'s cap parameter) is only an
+    /// accumulator ceiling clamp inside internalAddSubdualDamage; it is a wholly separate
+    /// quantity from the subdued threshold and the two are not required to be equal by any
+    /// INI contract.
     /// </summary>
-    public bool IsSubdued => _subdualDamageCap > Fix64.Zero && _currentSubdualDamage >= _subdualDamageCap;
+    public bool IsSubdued => _currentSubdualDamage >= _maxHealth;
 
     /// <summary>
     /// GPL <c>calcDamageState</c> predicate chain, division-free:
@@ -249,7 +252,8 @@ public sealed class BodyDamageCore
     /// </summary>
     public void LoadState(
         Fix64 currentHealth, Fix64 subdualDamage, Fix64 previousHealth,
-        Fix64 maxHealth, Fix64 initialHealth, BodyDamageType damageState)
+        Fix64 maxHealth, Fix64 initialHealth, BodyDamageType damageState,
+        Fix64 subdualDamageCap)
     {
         _currentHealth = currentHealth;
         _currentSubdualDamage = subdualDamage;
@@ -257,18 +261,22 @@ public sealed class BodyDamageCore
         _maxHealth = maxHealth;
         _initialHealth = initialHealth;
         _currentDamageState = damageState;
+        _subdualDamageCap = subdualDamageCap;
     }
 
     // ---- the single walk (F9: declaration order, ours). Health fields are the
     // conformance channel-2 quantities (Tolerance.Quantum against the float oracle). ----
     public void Xfer(IXfer xfer)
     {
-        xfer.XferVersion(1);
+        // v2: added SubdualDamageCap (R13 fix - was missing, causing IsSubdued
+        // transition edges to misfire on the first subdual event after any Xfer boundary).
+        xfer.XferVersion(2);
         xfer.XferFix64("CurrentHealth", ref _currentHealth, Tolerance.Quantum);
         xfer.XferFix64("PreviousHealth", ref _previousHealth, Tolerance.Quantum);
         xfer.XferFix64("MaxHealth", ref _maxHealth, Tolerance.Quantum);
         xfer.XferFix64("InitialHealth", ref _initialHealth, Tolerance.Quantum);
         xfer.XferFix64("SubdualDamage", ref _currentSubdualDamage, Tolerance.Quantum);
         xfer.XferEnum("DamageState", ref _currentDamageState);
+        xfer.XferFix64("SubdualDamageCap", ref _subdualDamageCap, Tolerance.Quantum);
     }
 }
