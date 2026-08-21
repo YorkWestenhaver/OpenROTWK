@@ -530,6 +530,12 @@ public partial class Player : IPersistableObject
         {
             _upgrades.Remove(upgradeToRemove);
         }
+
+        // GPL Common/RTS/Player.cpp Player::removeUpgrade also clears BOTH the in-progress and
+        // the completed upgrade mask bits, not just the upgrade-list link. Without this,
+        // HasUpgrade() kept reporting true for a removed Player-scope upgrade.
+        _upgradesInProgress.Remove(template);
+        UpgradesCompleted.Remove(template);
     }
 
     internal void CancelUpgrade(UpgradeTemplate template)

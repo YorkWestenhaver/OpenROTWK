@@ -280,6 +280,12 @@ End
         // one of the two queued passengers evacuates on the first Step() after Evacuate().
         Assert.Equal(1, contain.ContainedObjectIds.Count);
 
+        // The gate is `_nextEvacAllowedAfter < currentFrame` (strict, verbatim from the landed
+        // TransportContain sibling), so a 1-frame span set at frame F re-opens at F+2, not F+1:
+        // the frame immediately after the first evac is still blocked.
+        game.Step();
+        Assert.Equal(1, contain.ContainedObjectIds.Count);
+
         game.Step(); // past the delay - the second passenger evacuates
         Assert.Equal(0, contain.ContainedObjectIds.Count);
     }

@@ -247,14 +247,16 @@ public sealed class HordeGarrisonContainModuleData : HordeTransportContainModule
     internal static new readonly IniParseTable<HordeGarrisonContainModuleData> FieldParseTable = HordeTransportContainModuleData.FieldParseTable
         .Concat(new IniParseTable<HordeGarrisonContainModuleData>
         {
-            { "ContainMax", (parser, x) => x.ContainMax = parser.ParseInteger() },
+            // "ContainMax" is NOT redeclared here: now that HordeTransportContainModuleData is
+            // rooted at OpenContainModuleData, the key (and its property) are already inherited
+            // from that base table, and re-adding it makes IniParseTable.Concat throw on the
+            // duplicate key at static-init time.
             { "MaxHordeCapacity", (parser, x) => x.MaxHordeCapacity = parser.ParseInteger() },
             { "EntryPosition", (parser, x) => x.EntryPosition = parser.ParseVector3() },
             { "EntryOffset", (parser, x) => x.EntryOffset = parser.ParseVector3() },
             { "ExitOffset", (parser, x) => x.ExitOffset = parser.ParseVector3() }
         });
 
-    public int ContainMax { get; private set; }
     public int MaxHordeCapacity { get; private set; }
     public Vector3 EntryPosition { get; private set; }
     public Vector3 EntryOffset { get; private set; }
