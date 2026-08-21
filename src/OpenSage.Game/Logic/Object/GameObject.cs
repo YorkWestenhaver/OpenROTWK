@@ -988,6 +988,8 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
             ModelConditionFlags.Set(ModelConditionFlag.Sold, false);
         }
 
+        List<string> expiredAttributeModifierKeys = null;
+
         foreach (var (key, modifier) in _attributeModifiers)
         {
             if (!modifier.Applied)
@@ -997,11 +999,20 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
             else if (modifier.Invalid || modifier.Expired(time))
             {
                 modifier.Remove(this, _gameEngine);
-                _attributeModifiers.Remove(key);
+                expiredAttributeModifierKeys ??= new List<string>();
+                expiredAttributeModifierKeys.Add(key);
             }
             else
             {
                 modifier.Update(this, time);
+            }
+        }
+
+        if (expiredAttributeModifierKeys != null)
+        {
+            foreach (var key in expiredAttributeModifierKeys)
+            {
+                _attributeModifiers.Remove(key);
             }
         }
     }
