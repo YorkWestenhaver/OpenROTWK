@@ -11,9 +11,11 @@
 //     BFME2-added fork layered on top (spec §2.2): 100% of shipped AotR usages
 //     (harad/evilmen/evilbeasts/angmar mumakil-family units) set it to Yes, with the object's
 //     own INI comment naming the trigger source - "Triggers when DetachableRiderUpdate says
-//     so!" - itself a still-[ParseOnly] module (DetachableRiderUpdateModuleData), so
-//     Trigger() below has no landed caller yet (spec §5 finding 5, same "no caller yet"
-//     posture as AutoAbilityBehavior.TryConsumePendingActivation).
+//     so!" - and DetachableRiderUpdate.OnRiderDied is now the landed caller (R13, closing
+//     F-ROM-5 from the caller side; DetachableRiderUpdateModuleData.md §2.4). What remains
+//     open is the *detection* half - who tells DetachableRiderUpdate the rider died - filed
+//     as F-DRU-1, plus the shipped Rohirrim data's own missing RunOffMapWaypointName
+//     (F-DRU-5, lands in this module's own F-ROM-1 sleep-forever path below).
 //   - ChinookHeadOffMapState::update (ChinookAIUpdate.cpp:170-183): polls every frame; once
 //     outside the map extent, silently TheGameLogic->destroyObject(owner) - no Die dispatch.
 //     This is the DieOnMap=false branch (spec §2.4): never shipped in AotR data, but a legal
@@ -53,9 +55,13 @@
 //   F-ROM-3: GameObject.IsOffMap is not wired by this port (pre-existing, never-set flag;
 //     exposing a setter is a GameObject.cs change out of scope, same posture as EmpUpdate's
 //     F-EMP-6).
-//   F-ROM-5 (spec §5.5): DetachableRiderUpdate never actually calls Trigger() in this port -
-//     that module is itself still [ParseOnly]; RequiresSpecificTrigger=Yes objects are inert
-//     until that sibling module lands and is wired to call this via FindBehavior.
+//   F-ROM-5 (spec §5.5, closed from the caller side in R13): DetachableRiderUpdate.OnRiderDied
+//     now calls Trigger() via FindBehavior (DetachableRiderUpdateModuleData.md §2.4). What
+//     F-ROM-5 named as "no caller yet" re-scopes to F-DRU-1 (detection: who calls
+//     OnRiderDied, and when - still blocked on the deliberately unfrozen Contain rider-slot
+//     surface) and F-DRU-5 (the shipped Rohirrim RunOffMapBehavior block authors no
+//     RunOffMapWaypointName, so triggering it lands in this module's own F-ROM-1 path below -
+//     correct observed behavior of the shipped data, no default waypoint invented).
 //
 // Every mutable sim field appears in Xfer exactly once (§3 of the spec); declaration order is
 // Xfer order (F9, ours to choose). No position field of its own: the goal position lives in
@@ -110,11 +116,10 @@ public sealed class RunOffMapBehavior : UpdateModule
 
     /// <summary>
     /// External trigger (GPL: fired by DetachableRiderUpdate, per this object's own INI
-    /// comment). No landed caller exists yet - DetachableRiderUpdate is itself still
-    /// [ParseOnly] (research/modules-r13/audit/DetachableRiderUpdateModuleData.md). A future
-    /// DetachableRiderUpdate port calls this directly (both modules live on the same
-    /// GameObject via FindBehavior, no order-pipeline hop needed). No-op if this module does
-    /// not require a trigger, or has already been triggered.
+    /// comment). The landed caller is DetachableRiderUpdate.OnRiderDied (R13, both modules
+    /// live on the same GameObject via FindBehavior, no order-pipeline hop needed) - see
+    /// research/modules-r13/specs/DetachableRiderUpdateModuleData.md §2.4. No-op if this
+    /// module does not require a trigger, or has already been triggered.
     /// </summary>
     public void Trigger()
     {
