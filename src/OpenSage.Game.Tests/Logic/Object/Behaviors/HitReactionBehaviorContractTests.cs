@@ -9,6 +9,20 @@
 // are observable immediately after the Step() the hit lands in. The armed-wake EXPIRY, however,
 // is this module's own Update() and IS sleepy-gated - tests budget one extra Step() at the start
 // to cross that boundary before counting down LifeTimerN frames.
+//
+// Frame arithmetic used throughout (the thing the first cut of this file got wrong):
+//   * BFME2's logic rate is 5 Hz, not 30 (SageGameExtensions.LogicFramesPerSecond), so an INI
+//     ms duration quantizes to ceil(ms / 200) frames - 200 ms = 1 frame, 400 ms = 2, 600 ms = 3,
+//     2000 ms = 10. The retail AotR values (45/60/90/1500 ms) all collapse to 1-8 frames; the
+//     small ones collapse to a single frame, which makes them useless for a multi-frame-hold
+//     assertion, so these fixtures name the ms values that land on the frame counts each case
+//     actually needs, and the one-frame collapse gets its own dedicated case.
+//   * A hit applied between Step()s lands on the just-completed frame N (GameLogic.Update
+//     increments _currentFrame last), so the wake is armed at N + LifeTimerN and this module's
+//     Update() fires on the Step that runs frame N + LifeTimerN - i.e. the flags survive
+//     LifeTimerN Step()s after the hit and are cleared on the next one. That is the frame the
+//     hit lands on being frame zero of the hold, per the module's GPL PoisonedBehavior timing
+//     citation; it is the module's convention, and these tests count against it.
 
 using System.Numerics;
 using System.Linq;
@@ -21,9 +35,9 @@ namespace OpenSage.Tests.Logic.Object.Behaviors;
 
 public class HitReactionBehaviorContractTests
 {
-    // demotest.ini values, reused verbatim (spec §3, case 1): Threshold1=0/2=25/3=50,
-    // LifeTimer1=45ms/2=90ms/3=60ms. At 30 fps (F6): 45ms -> 2 frames, 90ms -> 3 frames,
-    // 60ms -> 2 frames (ceil(ms * fps / 1000)).
+    // demotest.ini's threshold ladder, reused verbatim (spec §3, case 1): Threshold1=0/2=25/3=50.
+    // The LifeTimerN ms values are chosen per fixture for the frame count the case needs at
+    // BFME2's 5 Hz logic rate (ceil(ms / 200) frames): 200 -> 1, 400 -> 2, 600 -> 3, 2000 -> 10.
     private const string Definitions = @"
 Object Reactor
   KindOf = INFANTRY
@@ -31,9 +45,9 @@ Object Reactor
     MaxHealth = 1000
   End
   Behavior = HitReactionBehavior ModuleTag_Hit
-    HitReactionLifeTimer1 = 45
-    HitReactionLifeTimer2 = 90
-    HitReactionLifeTimer3 = 60
+    HitReactionLifeTimer1 = 400
+    HitReactionLifeTimer2 = 600
+    HitReactionLifeTimer3 = 400
     HitReactionThreshold1 = 0.0
     HitReactionThreshold2 = 25.0
     HitReactionThreshold3 = 50.0
@@ -47,10 +61,26 @@ Object ReactorNonZeroFloor
     MaxHealth = 1000
   End
   Behavior = HitReactionBehavior ModuleTag_Hit
-    HitReactionLifeTimer1 = 45
-    HitReactionLifeTimer2 = 90
-    HitReactionLifeTimer3 = 60
+    HitReactionLifeTimer1 = 400
+    HitReactionLifeTimer2 = 600
+    HitReactionLifeTimer3 = 400
     HitReactionThreshold1 = 10.0
+    HitReactionThreshold2 = 25.0
+    HitReactionThreshold3 = 50.0
+    FastHitsResetReaction = No
+  End
+End
+
+Object ReactorOneFrameHold
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1000
+  End
+  Behavior = HitReactionBehavior ModuleTag_Hit
+    HitReactionLifeTimer1 = 200
+    HitReactionLifeTimer2 = 200
+    HitReactionLifeTimer3 = 200
+    HitReactionThreshold1 = 0.0
     HitReactionThreshold2 = 25.0
     HitReactionThreshold3 = 50.0
     FastHitsResetReaction = No
@@ -63,9 +93,9 @@ Object ReactorLongHold
     MaxHealth = 1000
   End
   Behavior = HitReactionBehavior ModuleTag_Hit
-    HitReactionLifeTimer1 = 1000
-    HitReactionLifeTimer2 = 90
-    HitReactionLifeTimer3 = 60
+    HitReactionLifeTimer1 = 2000
+    HitReactionLifeTimer2 = 600
+    HitReactionLifeTimer3 = 400
     HitReactionThreshold1 = 0.0
     HitReactionThreshold2 = 25.0
     HitReactionThreshold3 = 50.0
@@ -79,9 +109,9 @@ Object ReactorLongHoldFastReset
     MaxHealth = 1000
   End
   Behavior = HitReactionBehavior ModuleTag_Hit
-    HitReactionLifeTimer1 = 1000
-    HitReactionLifeTimer2 = 90
-    HitReactionLifeTimer3 = 60
+    HitReactionLifeTimer1 = 2000
+    HitReactionLifeTimer2 = 600
+    HitReactionLifeTimer3 = 400
     HitReactionThreshold1 = 0.0
     HitReactionThreshold2 = 25.0
     HitReactionThreshold3 = 50.0
@@ -95,9 +125,9 @@ Object ReactorShortHoldFastReset
     MaxHealth = 1000
   End
   Behavior = HitReactionBehavior ModuleTag_Hit
-    HitReactionLifeTimer1 = 90
-    HitReactionLifeTimer2 = 90
-    HitReactionLifeTimer3 = 60
+    HitReactionLifeTimer1 = 600
+    HitReactionLifeTimer2 = 600
+    HitReactionLifeTimer3 = 400
     HitReactionThreshold1 = 0.0
     HitReactionThreshold2 = 25.0
     HitReactionThreshold3 = 50.0
@@ -182,18 +212,42 @@ End
 
         // Cross the sleepy-update boundary (module's first live Update() opportunity) first.
         game.Step();
-        Damage(reactor, 10f); // tier 1, LifeTimer1 = 2 frames
+        Damage(reactor, 10f); // tier 1, LifeTimer1 = 400 ms -> 2 frames
         game.Step();
 
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
 
-        // One more frame: still within the 2-frame hold.
+        // Frame 2 of the 2-frame hold: still held.
         game.Step();
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
 
-        // Expiry frame: both flags clear.
+        // Expiry frame (hit frame + LifeTimer1): both flags clear.
+        game.Step();
+        Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
+        Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
+    }
+
+    [Fact]
+    public void SingleFrameHold_ClearsOnTheVeryNextStep()
+    {
+        // The frame-count boundary the first cut of this file tripped over: at BFME2's 5 Hz
+        // logic rate every LifeTimerN at or under 200 ms quantizes to exactly one frame, so the
+        // hold is the hit's own frame and nothing more. demotest.ini's 45/60/90 ms values all
+        // land here, so this is the shape most retail data actually produces. Pinned as its own
+        // case so a future logic-rate or quantization change fails loudly here rather than
+        // silently lengthening every reaction in the game.
+        var game = NewGame();
+        var reactor = game.SpawnObject("ReactorOneFrameHold", game.CivilianPlayer, Vector3.Zero);
+
+        game.Step();
+        Damage(reactor, 10f); // tier 1, LifeTimer1 = 200 ms -> 1 frame
+        game.Step();
+
+        Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
+        Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
+
         game.Step();
         Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
         Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
@@ -240,8 +294,9 @@ End
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel3));
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
 
-        // Tier 3's LifeTimer3 = 2 frames from the SECOND hit, not from the first: still set one
-        // frame later (frame 1 of 2), cleared on frame 2.
+        // Tier 3's LifeTimer3 (400 ms -> 2 frames) runs from the SECOND hit, not from the first,
+        // and does not stack onto tier 1's remaining 10-frame hold: still set one frame later
+        // (frame 2 of 2), cleared on the frame after that - far short of the tier-1 schedule.
         game.Step();
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel3));
 
@@ -253,7 +308,7 @@ End
     [Fact]
     public void FastHitsResetReaction_True_RepeatedSameTierHits_RestartNotStack()
     {
-        // LifeTimer1 = 90ms -> 3 frames at 30 fps. Three tier-1 hits, one per Step(), each
+        // LifeTimer1 = 600 ms -> 3 frames at 5 Hz. Three tier-1 hits, one per Step(), each
         // re-arming the wake; the reaction must expire exactly 3 frames after the LAST hit
         // (case 7) - if durations stacked, it would still be active well past that point.
         var game = NewGame();
@@ -298,8 +353,13 @@ End
         game.Step();
 
         // Healing does not clear or alter the in-flight reaction; only the armed Update() expiry
-        // does (case: ReactionAutoExpires_AfterItsTiersLifeTimer).
+        // does (case: ReactionAutoExpires_AfterItsTiersLifeTimer). Frame 2 of the 2-frame hold.
         Assert.True(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
+
+        // Nor does it extend it: the reaction still expires on the schedule the hit armed.
+        game.Step();
+        Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitLevel1));
+        Assert.False(reactor.ModelConditionFlags.Get(ModelConditionFlag.HitReaction));
     }
 
     [Fact]
