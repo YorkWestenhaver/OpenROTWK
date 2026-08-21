@@ -1,10 +1,16 @@
 ﻿using System.Linq;
-using OpenSage.Content;
 using OpenSage.IO;
 using OpenSage.Logic.Object;
 using Xunit;
 
 namespace OpenSage.Tests.Data.Ini;
+
+// `SubsystemLoader` is ambiguous by shadowing, not by conflict: this file's namespace nests inside
+// `OpenSage`, which declares an *enum* of that name (LoadSubsystem.cs), and a type found in an
+// enclosing namespace beats one merely imported by a `using` — so a plain `using OpenSage.Content;`
+// resolves the enum here. The alias has to sit inside the namespace declaration (not above it) to
+// be considered before the `OpenSage`-level enum.
+using SubsystemLoader = OpenSage.Content.SubsystemLoader;
 
 /// <summary>
 /// A few INI files never appear in subsystemlegend.ini; the engine loads them by name, and always
