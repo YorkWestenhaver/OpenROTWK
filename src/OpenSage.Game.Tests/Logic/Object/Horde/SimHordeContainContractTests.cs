@@ -122,6 +122,26 @@ Object DoomedHorde
   End
   Locomotor = SET_NORMAL TestHordeLoco
 End
+
+Object UnflankableHorde
+  KindOf = HORDE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = SimLocomotorUpdate ModuleTag_Loco
+  End
+  Behavior = SimHordeContain ModuleTag_Contain
+    ObjectStatusOfContained =
+    InitialPayload = HordeGrunt 4
+    Slots = 4
+    RankInfo = RankNumber:1 UnitType:HordeGrunt Position:X:10 Y:-10 Position:X:10 Y:10
+    RankInfo = RankNumber:2 UnitType:HordeGrunt Position:X:25 Y:-10 Position:X:25 Y:10
+    FrontAngle = 360
+    FlankedDelay = 1000
+    FlankedDuration = 2000
+  End
+  Locomotor = SET_NORMAL TestHordeLoco
+End
 ";
 
     private static HeadlessSimGame NewGame(uint seed = 0x60DE)
@@ -333,6 +353,44 @@ End
             game.Step();
         }
         Assert.False(contain.IsFlanked);
+    }
+
+    [Fact]
+    public void Flanking_FrontAngle360IsUnflankable_ButNarrowerAngleStillFlanks()
+    {
+        // Regression: FrontAngle=360 must gate out ALL attacks, including a straight-behind
+        // one that would flank any horde with a narrower arc. The comparison has to treat
+        // the parsed "360 degrees" value as reaching the unflankable threshold exactly, not
+        // one raw unit short of it.
+        var (game, _, contain) = SpawnHorde(template: "UnflankableHorde");
+        for (var i = 0; i < 5; i++)
+        {
+            game.Step();
+        }
+        var member = Members(game, contain)[0];
+
+        var rear = game.SpawnObject("Enemy", game.CivilianPlayer, new Vector3(-100, 100, 0));
+        game.Step();
+        PortedModuleTestKit.ApplyDamage(member, 10f, source: rear);
+        Assert.False(contain.IsFlanked);
+
+        var side = game.SpawnObject("Enemy", game.CivilianPlayer, new Vector3(100, 300, 0));
+        game.Step();
+        PortedModuleTestKit.ApplyDamage(member, 10f, source: side);
+        Assert.False(contain.IsFlanked);
+
+        // A narrower-arc horde (GruntHorde, FrontAngle=180) still flanks from straight
+        // behind, confirming the fix didn't disable flanking generally.
+        var (game2, _, contain2) = SpawnHorde(template: "GruntHorde");
+        for (var i = 0; i < 5; i++)
+        {
+            game2.Step();
+        }
+        var member2 = Members(game2, contain2)[0];
+        var rear2 = game2.SpawnObject("Enemy", game2.CivilianPlayer, new Vector3(-100, 100, 0));
+        game2.Step();
+        PortedModuleTestKit.ApplyDamage(member2, 10f, source: rear2);
+        Assert.True(contain2.IsFlanked);
     }
 
     // ---- banner replenish (spec §7 / §4.3) ----

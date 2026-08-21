@@ -207,7 +207,14 @@ public sealed class SimHordeContain : UpdateModule
     /// </summary>
     public void NotifyMemberDamaged(ObjectId memberId, FixVector2 attackerPosition)
     {
-        if (_data.FrontAngleRadians >= Fix64.PiTimes2)
+        // Unflankable gate: FrontAngle parsed from data as "360" degrees lands on the raw
+        // value of Fix64.Pi * Fix64.Two exactly, but Fix64.PiTimes2 is a separately rounded
+        // constant that sits one raw ULP above that product. Comparing against PiTimes2 would
+        // make a 360-degree horde's radians value compare as strictly less than the threshold,
+        // so the early-out never fires and a horde that should be unflankable stays flankable.
+        // Comparing against the same expression the parser's value actually equals closes that
+        // gap for the exact-360 case (and anything above it).
+        if (_data.FrontAngleRadians >= Fix64.Pi * Fix64.Two)
         {
             return;
         }
