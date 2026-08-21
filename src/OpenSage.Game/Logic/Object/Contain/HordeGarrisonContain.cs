@@ -11,8 +11,9 @@
 //
 // The horde GameObject itself is never added to the container - it is never hidden, disabled,
 // or deselected - so it stays command-selectable while its members are sequestered (task
-// packet item 4). That is the one behavioral difference from a (still-[ParseOnly])
-// HordeTransportContain, which would contain the horde object as a single passenger instead.
+// packet item 4). That is the one behavioral difference from HordeTransportContain (landed as
+// its own runtime port - see HordeTransportContain.cs), which would contain the horde object
+// as a single passenger instead.
 //
 // Formation layout while garrisoned is a flat slot list keyed off EntryPosition/EntryOffset
 // (task packet item 1): member i sits at container-local EntryPosition + i * EntryOffset,

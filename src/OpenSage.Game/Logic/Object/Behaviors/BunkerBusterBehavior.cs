@@ -26,10 +26,15 @@
 //     contain, false for open/transport contain - see ContainModule.h/GarrisonContain.h/
 //     OpenContain.h). OpenSage's IContainModule has no such member, and this task's
 //     reservedNames adds none, so the closest already-published gate is used instead:
-//     IContainModule.IsGarrisonable. No Contain-category module is landed yet (every Contain
-//     module in this codebase is still [ParseOnly]; census: Contain), so GameObject.Contain is
-//     null for every object today - this path is presently inert end-to-end pending that
-//     landing, but is wired correctly for when it arrives.
+//     IContainModule.IsGarrisonable. Most Contain-category modules are landed by now (e.g.
+//     GarrisonContain, TunnelContain, OpenContain, TransportContain are not [ParseOnly] - the
+//     old "every Contain module ... is still [ParseOnly]" framing here was stale), but none of
+//     them currently implement the IContainModule interface itself (only ParachuteContain does,
+//     with IsGarrisonable => false) - so GameObject.Contain is still null for every
+//     Garrison/Tunnel/Open/Transport-contained object today, and this path is presently inert
+//     end-to-end for the same practical reason as before (no landed IContainModule implementer
+//     with IsGarrisonable => true), just not because the Contain modules themselves are
+//     unported.
 //   F-BBB-2 GPL's harmAndForceExitAllContained() both damages AND ejects each occupant from the
 //     container; killAllContained() unconditionally kills and ejects. IContainModule exposes no
 //     eject/force-exit verb, so only the damage/kill half is modeled here; occupants remain

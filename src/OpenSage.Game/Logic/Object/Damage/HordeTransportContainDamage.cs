@@ -9,19 +9,19 @@
 // landed ProductionQueueHordeContain precedent doing exactly this for the same field name on a
 // structurally identical Contain-family pairing.
 //
-// SEQUENCING GAP (spec §5, not a Ghidra-only unknown): HordeTransportContain itself is still
-// [ParseOnly] as of this port - it has no runtime class, so there is nothing this module can
-// call GameObject.FindBehavior<HordeTransportContain>() against yet. This port therefore lands
+// SEQUENCING GAP (spec §5, not a Ghidra-only unknown; UPDATE: HordeTransportContain has since
+// landed its own runtime port - see HordeTransportContain.cs - so the compile-time blocker
+// described below no longer applies; the OnDamage body itself is simply not written yet, a
+// follow-up port task, not a sequencing dependency). At the time of this port, HordeTransportContain
+// itself was still [ParseOnly] - it had no runtime class, so there was nothing this module could
+// call GameObject.FindBehavior<HordeTransportContain>() against. This port therefore landed
 // only the conservative, verifiable half of the spec: [ParseOnly] removal, CreateModule wiring,
 // and the version-only Xfer walk (this module owns no mutable state of its own - the spec is
 // explicit that the passenger list and DamagePercentToUnits both live on the sibling). The
-// OnDamage BODY - the actual damage-propagation logic - is left unimplemented (falls through
-// to DamageModule's no-op virtual) until HordeTransportContain lands its own runtime port and
-// exposes a passenger-enumeration surface + Fix64-typed DamagePercentToUnits to code against.
-// Writing a FindBehavior<HordeTransportContain>() call today would not compile (no such
-// runtime type exists), and inventing a different lookup shape now would risk colliding with
-// whatever surface that sibling port actually ships. This is the residual the spec itself
-// calls out as "resolvable once HordeTransportContain lands" - see the task packet §5.
+// OnDamage BODY - the actual damage-propagation logic - remains unimplemented (falls through
+// to DamageModule's no-op virtual); now that HordeTransportContain exposes a passenger-
+// enumeration surface + Fix64-typed DamagePercentToUnits, a FindBehavior<HordeTransportContain>()
+// call against it is possible and this is ready to pick up as a follow-up port task.
 
 using OpenSage.Data.Ini;
 using OpenSage.SimCore.Sync;
@@ -32,9 +32,9 @@ namespace OpenSage.Logic.Object;
 /// Reacts to damage taken by a horde-transport object by splashing a configured percentage of
 /// the actual damage dealt onto every seated passenger (per the sibling
 /// <see cref="HordeTransportContainModuleData.DamagePercentToUnits"/>). Owns no INI-configured
-/// data and no mutable sim state of its own - see the file header for the sequencing gap that
-/// currently leaves <see cref="DamageModule.OnDamage"/> at its inherited no-op until the
-/// sibling HordeTransportContain module lands its own runtime port.
+/// data and no mutable sim state of its own - see the file header for why
+/// <see cref="DamageModule.OnDamage"/> is still at its inherited no-op (a follow-up port task;
+/// the sibling HordeTransportContain module has already landed its own runtime port).
 /// </summary>
 public sealed class HordeTransportContainDamage : DamageModule
 {

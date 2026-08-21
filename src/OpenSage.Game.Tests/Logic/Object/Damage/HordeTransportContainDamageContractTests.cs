@@ -1,14 +1,15 @@
 ﻿// HordeTransportContainDamage R13 contract tests (task packet modules-r13/specs/
 // HordeTransportContainDamageModuleData.md §3).
 //
-// SEQUENCING GAP (spec §5, carried into the tests): the spec's full behavioral contract
-// (passenger-splash damage propagation) requires the sibling HordeTransportContain module,
-// which is still [ParseOnly] and has no runtime class as of this port - there is nothing this
-// module's OnDamage could call FindBehavior<HordeTransportContain>() against yet, so the
+// SEQUENCING GAP (spec §5, carried into the tests; UPDATE: the sibling HordeTransportContain
+// module has since landed its own runtime port - see HordeTransportContain.cs - so this is now
+// a follow-up port task, not a compile-time blocker). At the time of this port, HordeTransportContain
+// was still [ParseOnly] and had no runtime class - there was nothing this module's OnDamage could
+// call FindBehavior<HordeTransportContain>() against, so the
 // numbered damage-propagation cases in the spec (§3.1-§3.8) are NOT written here as running
 // [Fact]s; they remain a recorded [create -> tick -> observable] contract in the spec itself,
-// to be turned into real tests once HordeTransportContain lands its own runtime port (spec's
-// own framing: "a sequencing dependency, not a missing fact").
+// to be turned into real tests once HordeTransportContainDamage.OnDamage is implemented against
+// the now-landed sibling (spec's own framing: "a sequencing dependency, not a missing fact").
 //
 // What IS tested here, real and running today: the module parses, instantiates, and wires
 // cleanly (ParseOnly removal + CreateModule), its OnDamage dispatch is a safe no-op (matches

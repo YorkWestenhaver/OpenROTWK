@@ -22,8 +22,9 @@
 // magnitude composition of any kind lives in this module). The AotR `.danetta` screen-blend
 // identity from bfme2-workbench/research/aotr-patch-semantics.md (S1, RESOLVED 2026-08-17) is a
 // clean-room behavioral characterization of AttributeModifierPoolUpdate's OWN fold over multiple
-// simultaneous modifier RECORDS from arbitrary sources -- that module (still [ParseOnly] on the
-// Round-4 backlog) is where composition belongs, not here. This aura port previously exposed a
+// simultaneous modifier RECORDS from arbitrary sources -- that module (AttributeModifierPoolUpdate,
+// landed as its own runtime port - see AttributeModifierPoolUpdate.cs) is where composition
+// belongs, not here. This aura port previously exposed a
 // standalone ComposeAuraStrength utility "for" that spec; it was never called from this module's
 // grant path (RefreshTargets below) and has been removed as dead, misleading code (R13 finding:
 // tests validating an unused utility misrepresented this module's actual behavior as composed
