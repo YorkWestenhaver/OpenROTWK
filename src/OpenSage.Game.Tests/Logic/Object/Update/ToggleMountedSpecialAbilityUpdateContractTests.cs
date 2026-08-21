@@ -29,6 +29,11 @@ public class ToggleMountedSpecialAbilityUpdateContractTests
 Object FootHero
   KindOf = INFANTRY
   IsTrainable = Yes
+  ; Without ExperienceRequired, ExperienceTracker treats a missing table as 0 XP per rank, so any
+  ; nonzero grant promotes straight to Heroic and veterancy becomes unobservable. Real thresholds
+  ; are what make Case 2's no-veterancy-carry-over assertion mean anything: the 100000-XP donor
+  ; reaches Heroic, the fresh replacement must stay Regular.
+  ExperienceRequired = 0 100 200 300
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
@@ -49,6 +54,7 @@ End
 Object MountedHero
   KindOf = CAVALRY
   IsTrainable = Yes
+  ExperienceRequired = 0 100 200 300
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 400
   End
@@ -360,9 +366,16 @@ End
         // still-zero CurrentExperience to a rank-1 floor of 1 on its own first Update() tick -
         // see ShareExperienceBehavior.cs's own citation of this same behavior. Step once first
         // so that floor has already settled before capturing the "before" baseline, isolating
-        // this module's own AwardXPForTriggering grant in the assertions below.
-        game.Step();
+        // this module's own AwardXPForTriggering grant in the assertions below. Step until the
+        // floor is observable rather than a fixed number of times: a freshly spawned module's
+        // first Update() lands on the SECOND Step() (file header), and a single Step() here left
+        // the baseline at 0, so the floor landed mid-loop and was misread as a request-time grant.
+        for (var i = 0; i < 10 && rider.ExperienceTracker.CurrentExperience == 0; i++)
+        {
+            game.Step();
+        }
         var experienceBefore = rider.ExperienceTracker.CurrentExperience;
+        Assert.True(experienceBefore > 0, "test setup expected the rank-1 XP floor to have settled");
 
         Assert.True(module.InitiateIntentToDoSpecialPower("TestToggleMounted", rider));
 
