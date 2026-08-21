@@ -6,6 +6,17 @@
 // same road a human's do: NetworkMessageBuffer.AddLocalOrder -> (net frame) -> OrderProcessor.
 // Nothing here is AI-specific except the counters, which the match report (S9-02) reads to
 // prove the AI actually ordered something.
+//
+// S9-04 amendment (documentation only, no behaviour change): AiOrderEmitter relies on this
+// sink preserving ADJACENCY, not merely order. Its SetSelection+command pairs only work if the
+// two orders reach OrderProcessor with nothing of this player's in between, and they do:
+// NetworkMessageBuffer.AddLocalOrder appends to a plain List<Order>, Tick hands that list to
+// _connection.Send in place and re-collects it into FrameOrders[frame] in arrival order, and
+// OrderProcessor.Process walks that list in order (NetworkMessageBuffer.cs:28-57). Any future
+// implementation of IAiOrderSink - including S9-16's SimCore one - inherits that requirement:
+// re-ordering, coalescing, de-duplicating or filtering submitted orders would silently detach
+// commands from their selections, which produces an AI that acts on the wrong units rather
+// than an AI that visibly fails. See design-netcode.md "P4 swap contract (AI lane)".
 
 using OpenSage.Logic.Orders;
 using OpenSage.Network;
