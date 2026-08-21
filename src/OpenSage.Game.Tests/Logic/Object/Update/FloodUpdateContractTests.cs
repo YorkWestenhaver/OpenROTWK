@@ -237,6 +237,53 @@ End
         Assert.True(sawOffLine, "member never left the straight chord between its endpoints");
     }
 
+    // R13 regression (blocker finding): TotalLength (spawn-time) and FindTForLength's
+    // per-frame bisection must resample the curve at the same segment count. When the
+    // bisection used a coarser polyline than TotalLength, its achievable t=1 arc length
+    // fell strictly short of the finer TotalLength for a curved (non-collinear) member, so
+    // the bisection converged on t~1 (member snapped to the curve endpoint, P3) for one or
+    // more frames *before* DistanceTraveled actually reached TotalLength - a visible
+    // freeze-at-destination glitch that lasted until the Done/despawn branch finally fired.
+    // This test catches that: it walks the curved (non-collinear) member 0 of
+    // FloodSpawnerCurve (speed 6, so it takes several frames to finish) and asserts its
+    // world position keeps changing every single frame it remains alive - no two
+    // consecutive alive frames may report the same position.
+    [Fact]
+    public void CurvedMember_NeverFreezesAtTheEndpointBeforeDespawning()
+    {
+        var game = NewLoadedGame();
+        var spawner = game.SpawnObject("FloodSpawnerCurve", game.CivilianPlayer, new Vector3(1000, 1000, 0));
+        var flood = ModuleOf(spawner);
+
+        // (Primer Step(): see Spawn_CreatesOneMemberPerFloodMemberEntry_OnItsOwnCurve.)
+        game.Step();
+        game.Step();
+
+        var memberId = flood.GetMember(0).MemberId;
+        var member = game.GameLogic.GetObjectById(memberId);
+        Assert.NotNull(member);
+
+        var previousPosition = member.Transform.Translation;
+        var framesObserved = 0;
+        for (var i = 0; i < 30 && !member.IsDestroyed; i++)
+        {
+            game.Step();
+            if (member.IsDestroyed)
+            {
+                break;
+            }
+
+            var current = member.Transform.Translation;
+            Assert.True(
+                Vector3.Distance(current, previousPosition) > 0.001f,
+                $"curved member sat frozen at {current} instead of advancing (frame {i})");
+            previousPosition = current;
+            framesObserved++;
+        }
+
+        Assert.True(framesObserved > 0, "member despawned before any position could be observed");
+    }
+
     // ------------------------------------------------------------------------------------------
     // AngleOfFlow: absolute rotation of every control point at spawn.
     // ------------------------------------------------------------------------------------------

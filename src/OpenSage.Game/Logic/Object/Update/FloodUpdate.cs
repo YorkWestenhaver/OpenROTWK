@@ -51,9 +51,17 @@ public sealed class FloodUpdate : UpdateModule
         public bool Done;
     }
 
-    /// <summary>Fixed sample counts for the deterministic arc-length approximation (F2).</summary>
-    private const int TotalLengthSegments = 32;
-    private const int BisectArcSegments = 8;
+    /// <summary>
+    /// Fixed sample count for the deterministic arc-length approximation (F2). Spawn-time
+    /// TotalLength and every per-frame FindTForLength bisection MUST resample the curve at
+    /// the same segment count: a coarser bisection polyline has a strictly shorter t=1
+    /// length than a finer spawn-time one for any genuinely curved (non-collinear) Bezier
+    /// (R13 review finding), so the bisection would never be able to reach a targetLength
+    /// approaching the stored TotalLength and would incorrectly converge on t~1 (member
+    /// snapped to the curve endpoint) for one or more frames before DistanceTraveled
+    /// actually crosses TotalLength - a visible freeze-then-despawn glitch.
+    /// </summary>
+    private const int ArcSegments = 32;
     private const int BisectIterations = 20;
 
     private static readonly Fix64 Three = new Fix64(3);
@@ -194,7 +202,7 @@ public sealed class FloodUpdate : UpdateModule
                 continue;
             }
 
-            var totalLength = ArcLength(p0, p1, p2, p3, Fix64.One, TotalLengthSegments);
+            var totalLength = ArcLength(p0, p1, p2, p3, Fix64.One, ArcSegments);
             _members.Add(new FloodMemberState
             {
                 MemberId = created.Id,
@@ -327,9 +335,12 @@ public sealed class FloodUpdate : UpdateModule
 
     /// <summary>
     /// Arc-length reparametrization: finds t such that the poly-line arc length from 0 to t
-    /// equals <paramref name="targetLength"/>, by fixed-iteration-count bisection (BisectArcSegments
+    /// equals <paramref name="targetLength"/>, by fixed-iteration-count bisection (ArcSegments
     /// x BisectIterations sample points every call - determinism over a stored table, R2's
-    /// wide-length-squared rule already keeps each sample cheap).
+    /// wide-length-squared rule already keeps each sample cheap). Must resample at the same
+    /// ArcSegments count used to compute TotalLength at spawn (see ArcSegments doc comment):
+    /// otherwise a coarser bisection polyline can never reach a targetLength approaching the
+    /// finer TotalLength and incorrectly converges on t~1 early.
     /// </summary>
     private static Fix64 FindTForLength(
         in FixVector3 p0, in FixVector3 p1, in FixVector3 p2, in FixVector3 p3,
@@ -349,7 +360,7 @@ public sealed class FloodUpdate : UpdateModule
         for (var i = 0; i < BisectIterations; i++)
         {
             var mid = (lo + hi) * Fix64.Half;
-            var len = ArcLength(p0, p1, p2, p3, mid, BisectArcSegments);
+            var len = ArcLength(p0, p1, p2, p3, mid, ArcSegments);
             if (len < targetLength)
             {
                 lo = mid;
