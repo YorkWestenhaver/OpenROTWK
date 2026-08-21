@@ -126,6 +126,16 @@ internal sealed class HeadlessSimGame : IGame
         // R15 packet BR-P4B: the same dispatcher the headed game builds in its constructor.
         OrderProcessor = new OpenSage.Logic.Orders.OrderProcessor(this);
 
+        // ...and a loop of its own, so this host is never half-wired: IGame.Orders and
+        // IGame.OrderSubmitter are live from construction, exactly as they are on Game. A test
+        // that drives its own loop (to observe phases, or to advance frames) assigns SimLoop
+        // and replaces this one; a test that only cares that an order was submitted does not
+        // have to know the pipe exists.
+        SimLoop = new SimLoop(new HeadedSimSystems(this))
+        {
+            CrcCheckpointIntervalInFrames = 0,
+        };
+
         Scene3D = GameEngine.Scene3D;
     }
 
@@ -279,14 +289,15 @@ internal sealed class HeadlessSimGame : IGame
     }
 
     /// <summary>
-    /// The loop driving this host, if anything drives it. Tests build their own
-    /// <see cref="SimLoop"/> over a <see cref="HeadedSimSystems"/> and attach it here so that
-    /// <see cref="Orders"/> - which the transport pump reaches through <see cref="IGame"/> -
-    /// is the very pipe that loop drains.
+    /// The loop this host's order pipe belongs to. Constructed with the host; a test that
+    /// builds its own <see cref="SimLoop"/> (to observe phases, or to advance frames) assigns
+    /// it here BEFORE setting <see cref="NetworkMessageBuffer"/>, so that <see cref="Orders"/>
+    /// - which the transport pump reaches through <see cref="IGame"/> - is the very pipe that
+    /// loop drains.
     /// </summary>
     internal SimLoop SimLoop { get; set; }
 
-    /// <summary>See <see cref="IGame.Orders"/>. Null until a loop is attached.</summary>
+    /// <summary>See <see cref="IGame.Orders"/>.</summary>
     public OrderIngest Orders => SimLoop?.Orders;
 
     /// <summary>

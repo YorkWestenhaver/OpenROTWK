@@ -30,6 +30,14 @@
 // menu is up (IsLogicRunning is true from the constructor) - so this buffer translates: it
 // pins the loop frame of its first Tick as frame 0 of the connection and converts in both
 // directions. OrderIngest always sees absolute loop frames, connections always see net frames.
+//
+// KNOWN EDGE, bounded and deliberate: the OrderIngest belongs to the loop, which outlives an
+// individual match, while this buffer is rebuilt per match. An order issued in the last two
+// logic frames before EndGame is therefore still scheduled when the next match starts, and
+// would dispatch into it. At most two frames' worth, only for a player who quits mid-click.
+// Fixing it properly means a reset seam on the loop (the same seam R14 packet 3 needs to pin
+// SimLoop.CurrentFrame and GameLogic.CurrentFrame equal), which is that packet's to add - not
+// an unreviewed addition to a frozen SimCore surface here.
 
 using System;
 using System.Collections.Generic;
@@ -83,10 +91,17 @@ public sealed class NetworkMessageBuffer : DisposableBase
         var submitter = _game.OrderSubmitter;
         if (submitter == null)
         {
-            throw new InvalidOperationException(
-                "This game has a NetworkMessageBuffer but no IOrderSubmitter, so a local " +
-                "order has nowhere to go. Game builds the submitter whenever it sets the " +
-                "buffer; a host that sets the buffer itself must do the same.");
+            // Game and HeadlessSimGame both build the submitter whenever they set the buffer,
+            // so this is only reachable on a hand-wired host (a mocked game with a buffer and
+            // no loop). Fall back to the pre-P4b behaviour - queue it for broadcast - rather
+            // than throwing inside somebody's unrelated test, but say so loudly: on such a
+            // host the order will never be dispatched, because nothing drains the pipe.
+            Logger.Error(
+                $"Order {order.OrderType} was added to a NetworkMessageBuffer whose game has " +
+                "no IOrderSubmitter; queueing it for broadcast, but nothing will execute it.");
+
+            EnqueueForBroadcast(order);
+            return;
         }
 
         submitter.Submit(order, OrderOrigin.Local);
@@ -161,18 +176,23 @@ public sealed class NetworkMessageBuffer : DisposableBase
             scheduledNetFrame = currentNetFrame;
         }
 
-        var key = (scheduledNetFrame, order.PlayerIndex);
-        _submissionCounters.TryGetValue(key, out var submissionIndex);
-        _submissionCounters[key] = submissionIndex + 1;
-
         var orders = _game.Orders;
         if (orders == null)
         {
-            throw new InvalidOperationException(
-                "This game has no OrderIngest (IGame.Orders), so a received order has nowhere " +
-                "to be scheduled. A host that pumps a NetworkMessageBuffer must expose the " +
-                "SimLoop's order pipe.");
+            // Same shape as AddLocalOrder's guard: unreachable on Game and on HeadlessSimGame,
+            // both of which always have a loop. On a hand-wired host, degrade to exactly what
+            // this buffer did before P4b - execute it here and now - rather than dropping it.
+            Logger.Error(
+                $"Order {order.OrderType} arrived on a game with no OrderIngest " +
+                "(IGame.Orders); executing it immediately instead of scheduling it.");
+
+            _game.OrderProcessor?.Process(order);
+            return;
         }
+
+        var key = (scheduledNetFrame, order.PlayerIndex);
+        _submissionCounters.TryGetValue(key, out var submissionIndex);
+        _submissionCounters[key] = submissionIndex + 1;
 
         Logger.Trace(
             $"Scheduling order {order.OrderType} for player {order.PlayerIndex} at net frame " +

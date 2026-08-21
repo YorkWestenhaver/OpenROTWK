@@ -184,8 +184,8 @@ public abstract class NetworkConnection : EchoConnection
     /// the single place the contract offset is applied (it has to be: the buffer is what tells
     /// OrderIngest which frame an order belongs to). Adding it again here would schedule
     /// remote orders four frames out while the local schedule said two.
-    /// <see cref="OrderSchedulingOffsetInFrames"/> is still used below, by
-    /// <see cref="Receive"/>'s "no barrier before the first schedulable frame" guard.
+    /// <see cref="OrderSchedulingOffsetInFrames"/> is still used, by <see cref="Receive"/>'s
+    /// "no barrier before the first schedulable frame" guard.
     /// </remarks>
     public override void Send(uint frame, List<Order> orders)
     {
