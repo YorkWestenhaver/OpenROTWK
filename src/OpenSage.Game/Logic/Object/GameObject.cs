@@ -368,6 +368,28 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(Geometry.MaxZ));
 
     /// <summary>
+    /// Fix64 view of the geometry's bounding-sphere radius (the original's
+    /// <c>GeometryInfo::getBoundingSphereRadius</c>: a true 3D sphere radius that grows
+    /// with the shape's height, unlike <see cref="CollisionMinorRadius"/>'s 2D bounding
+    /// circle). Added for R13/height-die-update's FROM_BOUNDINGSPHERE_3D structure scan,
+    /// same F4 quantization boundary as <see cref="MaxHeightAbovePosition"/>.
+    /// </summary>
+    public SimCore.Numerics.Fix64 BoundingSphereRadius =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits(Geometry.BoundingSphereRadius));
+
+    /// <summary>
+    /// Fix64 view of how far above the object's canonical (feet) position its geometry's
+    /// own "center" sits (the original's <c>GeometryInfo::getZDeltaToCenterPosition</c>:
+    /// half the shape's height for cylinder/box, zero for sphere). GPL's
+    /// FROM_BOUNDINGSPHERE_3D distance calc adds this to both objects' Z before measuring,
+    /// since object positions are the bottom-center of the geometry, not the bounding
+    /// sphere's own center. Added for R13/height-die-update; same F4 boundary as the
+    /// other Fix64 geometry facades on this object.
+    /// </summary>
+    public SimCore.Numerics.Fix64 GeometryZDeltaToCenterPosition =>
+        SimCore.Numerics.Fix64.FromWireFloat(System.BitConverter.SingleToUInt32Bits((Geometry.MinZ + Geometry.MaxZ) / 2.0f));
+
+    /// <summary>
     /// Float-free "carries subdual damage" view for ported modules (same boundary rationale
     /// as the Fix64 <see cref="AttemptHealing(SimCore.Numerics.Fix64, GameObject)"/>
     /// overload): the original's <c>getCurrentSubdualDamageAmount() &gt; 0</c> predicate.
