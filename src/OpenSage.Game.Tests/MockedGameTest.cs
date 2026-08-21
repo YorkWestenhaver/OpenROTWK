@@ -127,6 +127,8 @@ public abstract class MockedGameTest : IDisposable
             PlayerManager = new PlayerManager(this);
             PlayerManager.OnNewGame([OpenSage.Data.Map.Player.CreateNeutralPlayer(), OpenSage.Data.Map.Player.CreateCivilianPlayer()], GameType.Skirmish);
 
+            TeamFactory = new TeamFactory(this);
+
             TerrainLogic = new TerrainLogic();
             TerrainLogic.SetHeightMapData(OpenSage.Data.Map.HeightMapData.Create(0, new ushort[2, 2] { { 0, 0 }, { 0, 0 } }));
 
