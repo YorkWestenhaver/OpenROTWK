@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the NeutronBlastBehavior port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the NeutronBlastBehavior port (api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch from the R13 module spec, [create -> Kill() -> observe], plus
 // the shadow-copy base test and a mid-behavior save/load round-trip.
 //

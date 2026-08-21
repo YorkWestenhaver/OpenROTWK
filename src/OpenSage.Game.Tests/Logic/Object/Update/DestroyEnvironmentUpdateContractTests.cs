@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the DestroyEnvironmentUpdate port (api-freeze-v1 §6 fitness item
+﻿// Mocked-game unit tests for the DestroyEnvironmentUpdate port (api-freeze-v1 §6 fitness item
 // 4): one test per behavior branch from the R13 spec, [create -> tick -> observable effect],
 // plus the shadow-copy base test and a mid-sequence save/load round-trip. Same shape as
 // EmpUpdateContractTests.

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the RemoveUpgradeUpgrade port
+﻿// Mocked-game contract tests for the RemoveUpgradeUpgrade port
 // (research/modules-r13/specs/RemoveUpgradeUpgradeModuleData.md §3): one test per spec test
 // case, plus the shared shadow-copy base test. Definitions parse from INI text through the
 // real parser, so both parse-correctness fixes the spec makes (UpgradeGroupsToRemove as a

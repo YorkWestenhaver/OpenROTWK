@@ -1,4 +1,4 @@
-// AutoPickUpUpdate - R13 port. No exact generals-gpl sibling (confirmed by the audit's grep
+﻿// AutoPickUpUpdate - R13 port. No exact generals-gpl sibling (confirmed by the audit's grep
 // over generals-gpl + generals-community for "PickUp"/"EatObject": crate-collide/supply-truck/
 // AI-guard hits only). Composed from two landed idioms instead of a single GPL translation
 // target (bfme2-workbench/research/modules-r13/specs/AutoPickUpUpdateModuleData.md §0):

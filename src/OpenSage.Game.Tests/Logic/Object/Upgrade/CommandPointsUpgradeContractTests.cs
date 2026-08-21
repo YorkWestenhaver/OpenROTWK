@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the CommandPointsUpgrade port (api-freeze-v1 §6 fitness item 4),
+﻿// Mocked-game unit tests for the CommandPointsUpgrade port (api-freeze-v1 §6 fitness item 4),
 // mirroring CostModifierUpgradeContractTests' shape: one test per INI branch
 // [create -> trigger -> observable effect on the player's CommandPointsBank], plus the
 // shadow-copy base test and a mid-behavior save/load round-trip.

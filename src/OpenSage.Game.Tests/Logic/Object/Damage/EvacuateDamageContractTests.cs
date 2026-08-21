@@ -1,4 +1,4 @@
-// EvacuateDamage R13 contract tests (spec packet: bfme2-workbench/research/modules-r13/specs/
+﻿// EvacuateDamage R13 contract tests (spec packet: bfme2-workbench/research/modules-r13/specs/
 // EvacuateDamageModuleData.md), mirroring BoneFXDamageContractTests's shape: HeadlessSimGame +
 // LoadIniText, one test per behavioral branch, plus the version-only Xfer contract walk (shadow
 // copy CRC + mid-state save/load).

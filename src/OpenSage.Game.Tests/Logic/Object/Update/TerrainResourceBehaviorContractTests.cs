@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the TerrainResourceBehavior port (R13): the passive area-income
+﻿// Mocked-game contract tests for the TerrainResourceBehavior port (R13): the passive area-income
 // tick (baseline deposit every IncomeInterval, the UpgradeBonusPercent extra when a nearby
 // matching+upgraded object is present, the null-is-inert "no bonus configured" path, the sleepy
 // re-arm shape, and the shadow-copy base test), plus coexistence with the already-landed R12

@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the RunOffMapBehavior port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the RunOffMapBehavior port (api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch from research/modules-r13/specs/RunOffMapBehaviorModuleData.md
 // §4's test plan, [create -> tick -> observable effect], plus the mid-behavior save/load
 // round-trip and the shadow-copy base test - the same shape as PilotFindVehicleUpdate's and

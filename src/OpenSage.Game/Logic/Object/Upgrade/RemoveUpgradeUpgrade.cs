@@ -1,4 +1,4 @@
-// RemoveUpgradeUpgrade - R13 port (research/modules-r13/specs/RemoveUpgradeUpgradeModuleData.md).
+﻿// RemoveUpgradeUpgrade - R13 port (research/modules-r13/specs/RemoveUpgradeUpgradeModuleData.md).
 // BFME2-only OnUpgrade-triggered side-effect module: unlike the two pure-marker Upgrade
 // exemplars used for idiom (AllowBannerSpawnUpgrade, UpgradeDieModule's category), this one
 // removes a set of named/grouped upgrades from the triggering object (and optionally the

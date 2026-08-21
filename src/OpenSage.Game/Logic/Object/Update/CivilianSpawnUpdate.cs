@@ -1,4 +1,4 @@
-// CivilianSpawnUpdate - R13 port. BFME-only (no generals-gpl sibling, confirmed §0 of the spec);
+﻿// CivilianSpawnUpdate - R13 port. BFME-only (no generals-gpl sibling, confirmed §0 of the spec);
 // the audit's mis-specification fix (Civilian: BitArray<ObjectKinds> -> LazyAssetReference
 // <ObjectDefinition>[]) plus two S5-class distance/duration retypes (SpawnDelayTime ->
 // LogicFrameSpan, MaximumDistance -> Fix64). Three primitives, all data-derivable (audit +

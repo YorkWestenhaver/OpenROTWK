@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the OathbreakersFadeAwayBehavior port (R13): the linear
+﻿// Mocked-game contract tests for the OathbreakersFadeAwayBehavior port (R13): the linear
 // opacity ramp from One to Zero over FadeOutTime, the zero-length-span-is-fully-elapsed
 // convention, destroy-on-completion, per-instance independence, and the shadow-copy /
 // save-load base tests. Modeled directly on FadeAndDieOrnamentUpdateContractTests.cs.

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the EntEnragedUpdate port (R13,
+﻿// Mocked-game contract tests for the EntEnragedUpdate port (R13,
 // modules-r13/specs/EntEnragedUpdateModuleData.md §3): the periodic scan-based trigger proxy
 // (dead ally + hated enemy both within ScanDistance -> Enraged), the EnragedTime/
 // TimeUntilCanRageAgain cooldown cycle, the EnragedOnBuffFX/EnragedOffBuffFX edge-fire

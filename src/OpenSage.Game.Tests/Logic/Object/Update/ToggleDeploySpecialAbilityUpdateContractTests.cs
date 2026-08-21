@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the ToggleDeploySpecialAbilityUpdate port (api-freeze-v1 §6
+﻿// Mocked-game unit tests for the ToggleDeploySpecialAbilityUpdate port (api-freeze-v1 §6
 // fitness item 4): one test per behavior branch, [create -> Toggle() -> observable effect],
 // covering the R13 spec's own contract-test plan (research/modules-r13/specs/
 // ToggleDeploySpecialAbilityUpdateModuleData.md §3).

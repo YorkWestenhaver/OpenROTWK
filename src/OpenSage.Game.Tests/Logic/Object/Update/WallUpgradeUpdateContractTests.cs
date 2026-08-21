@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the WallUpgradeUpdate port (R13; api-freeze-v1 §6 fitness item
+﻿// Mocked-game unit tests for the WallUpgradeUpdate port (R13; api-freeze-v1 §6 fitness item
 // 4). Per modules-r13/specs/WallUpgradeUpdateModuleData.md §3: this module has exactly one
 // INI branch (the empty one, F-WUU-2), so the test list is short by construction, not by
 // shortcut. The module is a stateless marker that sleeps forever from construction (F-WUU-1),

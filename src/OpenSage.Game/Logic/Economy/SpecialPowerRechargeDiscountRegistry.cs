@@ -1,4 +1,4 @@
-// Per-Player registry of special-power recharge-time-discount modifiers (the economy sink for
+﻿// Per-Player registry of special-power recharge-time-discount modifiers (the economy sink for
 // SpellRechargeModifierUpgrade). Structurally the sibling KindOfProductionCostRegistry with the
 // KindOf mask removed - this module has no EffectKindOf-equivalent field to carry one (spec
 // research/modules-r13/specs/SpellRechargeModifierUpgradeModuleData.md §1). Ref-count semantics

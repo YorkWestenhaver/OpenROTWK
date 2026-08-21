@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the OneRingPenaltyUpdate port (api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the OneRingPenaltyUpdate port (api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch, [create -> tick/drive -> observable effect], covering the
 // R13 port spec's testCases
 // (bfme2-workbench/research/modules-r13/specs/OneRingPenaltyUpdateModuleData.md §3).
@@ -123,7 +123,7 @@ End
         // Past the spawn frame (5), accounting for the caveat's one-frame registration offset.
         Step(game, 6);
 
-        var ring = Assert.Single(game.GameLogic.Objects.Where(o => o.Definition.Name == "RingToken"));
+        var ring = Assert.Single(game.GameLogic.Objects, o => o.Definition.Name == "RingToken");
         var distance = Vector3.Distance(
             new Vector3(ring.Translation.X, ring.Translation.Y, 0),
             new Vector3(origin.X, origin.Y, 0));

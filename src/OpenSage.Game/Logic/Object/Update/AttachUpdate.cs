@@ -1,4 +1,4 @@
-// AttachUpdate - R13 port. BFME2-only, no generals-gpl sibling exists (no "AttachUpdate" match
+﻿// AttachUpdate - R13 port. BFME2-only, no generals-gpl sibling exists (no "AttachUpdate" match
 // anywhere in generals-gpl/generals-community) - every citation below is
 // crate.ini/field-name/already-ported-primitive based, not GPL translation (see
 // research/modules-r13/specs/AttachUpdateModuleData.md §1.0). No GPL text is quoted here.

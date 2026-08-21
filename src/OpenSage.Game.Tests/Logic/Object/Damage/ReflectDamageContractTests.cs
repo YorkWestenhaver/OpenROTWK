@@ -1,4 +1,4 @@
-// ReflectDamage R13 contract tests (modules-r13/specs/ReflectDamageModuleData.md §3): one test
+﻿// ReflectDamage R13 contract tests (modules-r13/specs/ReflectDamageModuleData.md §3): one test
 // per behavioral branch (type gate, minimum-amount gate incl. the >= boundary, null-mask "match
 // all" convention, zero-percent early-out, self/invalid/destroyed source guards, the
 // non-reentrancy guard, the unused-hooks no-op), plus the version-only Xfer contract walk

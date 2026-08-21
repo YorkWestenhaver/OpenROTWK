@@ -1,4 +1,4 @@
-// CivilianSpawnCollide - generic filtered-delete-on-collide module (R13 port).
+﻿// CivilianSpawnCollide - generic filtered-delete-on-collide module (R13 port).
 //
 // GPL reference: none. The audit's repo-wide grep for CivilianSpawnCollide/SpawnCollide over
 // generals-gpl + generals-community returns empty - this is a BFME-only module with no

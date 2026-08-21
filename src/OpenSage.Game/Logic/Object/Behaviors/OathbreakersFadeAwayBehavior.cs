@@ -1,4 +1,4 @@
-// OathbreakersFadeAwayBehavior - R13 port. GPL grounding (idiom, not class-name match):
+﻿// OathbreakersFadeAwayBehavior - R13 port. GPL grounding (idiom, not class-name match):
 // generals-gpl/GeneralsMD/Code/GameEngine/Include/GameLogic/Module/SlowDeathBehavior.h:27 -
 // "Update that will count down a lifetime and destroy object when it reaches zero" - the
 // canonical countdown-then-destroy shape, repeated at SlowDeathBehavior.cpp:246,401,444,473

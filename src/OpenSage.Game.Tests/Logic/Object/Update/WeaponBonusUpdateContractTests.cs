@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the WeaponBonusUpdate port (R13): the periodic scan
+﻿// Mocked-game contract tests for the WeaponBonusUpdate port (R13): the periodic scan
 // (relationship/liveness/off-map filters, ALL-bits-required RequiredAffectKindOf, ANY-bit-reject
 // ForbiddenAffectKindOf), F-WBU-3's unconditional self-inclusion, the contained-passenger pass
 // that reaches valid contents of an invalid (kindof-failing) transport independent of the

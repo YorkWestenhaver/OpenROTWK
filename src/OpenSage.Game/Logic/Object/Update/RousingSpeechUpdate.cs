@@ -1,4 +1,4 @@
-// RousingSpeechUpdate - R13 port (research/modules-r13/specs/RousingSpeechUpdateModuleData.md).
+﻿// RousingSpeechUpdate - R13 port (research/modules-r13/specs/RousingSpeechUpdateModuleData.md).
 // BFME-only (no generals-gpl sibling - grep confirms zero hits); data-derivable from two live
 // retail INI instances (Theoden's cinematicobjects.ini block, plus a corroborating
 // commented-out bard.ini block), no Ghidra/game.dat material read or cited anywhere in this

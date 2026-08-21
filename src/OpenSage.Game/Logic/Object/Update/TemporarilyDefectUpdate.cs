@@ -1,4 +1,4 @@
-// TemporarilyDefectUpdate - R13 port (data-derivable per task; no exact GPL sibling for the
+﻿// TemporarilyDefectUpdate - R13 port (data-derivable per task; no exact GPL sibling for the
 // auto-revert mechanic itself - see the full source list and F-TDU-1/F-TDU-2/F-TDU-3 in
 // bfme2-workbench/research/modules-r13/specs/TemporarilyDefectUpdateModuleData.md).
 //

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the WeaponModeSpecialPowerUpdate port (R13): the
+﻿// Mocked-game contract tests for the WeaponModeSpecialPowerUpdate port (R13): the
 // special-power-gated, timed, reversible weapon-set switch described in the port spec
 // (bfme2-workbench/research/modules-r13/specs/WeaponModeSpecialPowerUpdateModuleData.md).
 //

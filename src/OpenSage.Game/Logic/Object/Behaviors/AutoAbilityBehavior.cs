@@ -1,4 +1,4 @@
-// AutoAbilityBehavior - R13 port (api-freeze-v1 §6 / template v1.1; see
+﻿// AutoAbilityBehavior - R13 port (api-freeze-v1 §6 / template v1.1; see
 // bfme2-workbench/research/modules-r13/specs/AutoAbilityBehaviorModuleData.md for the full
 // port spec this file implements).
 //

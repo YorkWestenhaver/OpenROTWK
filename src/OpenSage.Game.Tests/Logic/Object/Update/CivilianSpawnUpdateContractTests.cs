@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the CivilianSpawnUpdate port (R13): the periodic
+﻿// Mocked-game contract tests for the CivilianSpawnUpdate port (R13): the periodic
 // random-pick spawn (Civilian pool), the S5-class SpawnDelayTime/MaximumDistance retypes, the
 // audit's core Civilian-field fix (object-template references, not ObjectKinds bits), and the
 // TryFindRunToTarget selection-only query (F-CSU-2). Same shape as
@@ -228,7 +228,7 @@ End
         StepFrames(game, 20);
 
         Assert.Equal(0, ModuleOf(spawner).NumSpawned);
-        Assert.Empty(game.GameLogic.Objects.Where(o => o.Id != spawner.Id && !beforeIds.Contains(o.Id)));
+        Assert.DoesNotContain(game.GameLogic.Objects, o => o.Id != spawner.Id && !beforeIds.Contains(o.Id));
     }
 
     [Fact]

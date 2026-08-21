@@ -278,16 +278,16 @@ End
         // At 5 Hz LogicFramesPerSecond, ExitDelay = 250ms -> 250/1000*5 = 1.25 -> 1 LogicFrameSpan
         // (integer-truncating cast, matching TransportContain's identical arithmetic) - so only
         // one of the two queued passengers evacuates on the first Step() after Evacuate().
-        Assert.Equal(1, contain.ContainedObjectIds.Count);
+        Assert.Single(contain.ContainedObjectIds);
 
         // The gate is `_nextEvacAllowedAfter < currentFrame` (strict, verbatim from the landed
         // TransportContain sibling), so a 1-frame span set at frame F re-opens at F+2, not F+1:
         // the frame immediately after the first evac is still blocked.
         game.Step();
-        Assert.Equal(1, contain.ContainedObjectIds.Count);
+        Assert.Single(contain.ContainedObjectIds);
 
         game.Step(); // past the delay - the second passenger evacuates
-        Assert.Equal(0, contain.ContainedObjectIds.Count);
+        Assert.Empty(contain.ContainedObjectIds);
     }
 
     // ---- testCase 6: parent-death eject applies DamagePercentToUnits; KillPassengersOnDeath inert (disclosed gap) ----

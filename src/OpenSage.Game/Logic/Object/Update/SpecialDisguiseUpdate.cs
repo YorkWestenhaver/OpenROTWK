@@ -1,4 +1,4 @@
-// SpecialDisguiseUpdate - R13 port (api-freeze-v1 / template v1.1), per
+﻿// SpecialDisguiseUpdate - R13 port (api-freeze-v1 / template v1.1), per
 // bfme2-workbench/research/modules-r13/specs/SpecialDisguiseUpdateModuleData.md.
 //
 // Classification: gpl-sibling (timing fields) + data-derivable (disguise/opacity fields). No

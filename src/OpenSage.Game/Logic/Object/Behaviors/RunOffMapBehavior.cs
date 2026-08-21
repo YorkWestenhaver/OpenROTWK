@@ -1,4 +1,4 @@
-// RunOffMapBehavior - R13 port, translated from generals-gpl GeneralsMD
+﻿// RunOffMapBehavior - R13 port, translated from generals-gpl GeneralsMD
 // ChinookAIUpdate.cpp's ChinookHeadOffMapState (GPL semantics reference; api-freeze-v1 §6 /
 // template v1.1), generalized for BFME2's data-authored fork per
 // research/modules-r13/specs/RunOffMapBehaviorModuleData.md.

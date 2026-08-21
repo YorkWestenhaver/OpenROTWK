@@ -1,4 +1,4 @@
-// TerrainResourceBehavior - R13 port. Data-derivable (no GPL sibling; the Generals/ZH economy
+﻿// TerrainResourceBehavior - R13 port. Data-derivable (no GPL sibling; the Generals/ZH economy
 // mechanic is the truck-hauls-resource-piles supply chain (SupplyWarehouseDockUpdate.h/
 // SupplyCenterDockUpdate.h/SupplyTruckAIUpdate.h), structurally unrelated to this passive
 // area-income building - see bfme2-workbench/research/modules-r13/specs/

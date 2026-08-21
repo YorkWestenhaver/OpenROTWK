@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the AutoPickUpUpdate port (R13), following
+﻿// Mocked-game contract tests for the AutoPickUpUpdate port (R13), following
 // bfme2-workbench/research/modules-r13/specs/AutoPickUpUpdateModuleData.md §3: the hunger gate
 // (§1.1), the scan + AND'ed filter gates (§1.2, F-APU-1), consume-and-heal-toward-TargetHealth
 // with no overheal (§1.3), the unconditional re-arm (§1.4), the shadow-copy base test, and a

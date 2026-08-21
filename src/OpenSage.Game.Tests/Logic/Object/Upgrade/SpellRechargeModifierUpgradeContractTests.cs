@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SpellRechargeModifierUpgrade port (api-freeze-v1 §6 fitness
+﻿// Mocked-game unit tests for the SpellRechargeModifierUpgrade port (api-freeze-v1 §6 fitness
 // item 4): one test per INI branch [create -> trigger -> observable effect on the player's
 // special-power recharge-discount registry], plus the shadow-copy base test and a
 // mid-behavior save/load round-trip. Mirrors CostModifierUpgradeContractTests.cs case-for-case

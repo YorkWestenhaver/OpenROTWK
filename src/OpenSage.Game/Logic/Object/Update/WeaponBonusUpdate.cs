@@ -1,4 +1,4 @@
-// WeaponBonusUpdate - R13 port. GPL sibling: generals-community/GeneralsMD/Code/GameEngine/
+﻿// WeaponBonusUpdate - R13 port. GPL sibling: generals-community/GeneralsMD/Code/GameEngine/
 // Include/GameLogic/Module/WeaponBonusUpdate.h,
 // .../Source/GameLogic/Object/Update/WeaponBonusUpdate.cpp (also read, for doTempWeaponBonus's
 // real semantics: .../Include/GameLogic/Module/TempWeaponBonusHelper.h,

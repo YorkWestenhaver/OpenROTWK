@@ -1,4 +1,4 @@
-// DestroyEnvironmentUpdate - R13 port (data-derivable, no GPL sibling; see
+﻿// DestroyEnvironmentUpdate - R13 port (data-derivable, no GPL sibling; see
 // bfme2-workbench/research/modules-r13/specs/DestroyEnvironmentUpdateModuleData.md).
 //
 // Fields (StartTime, DestructionTime) fully pin the semantics: the object is killed at

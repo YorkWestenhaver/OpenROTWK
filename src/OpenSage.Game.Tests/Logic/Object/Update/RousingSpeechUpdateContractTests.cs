@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the RousingSpeechUpdate port (R13,
+﻿// Mocked-game contract tests for the RousingSpeechUpdate port (R13,
 // research/modules-r13/specs/RousingSpeechUpdateModuleData.md): the SpecialPowerTemplate +
 // StartAbilityRange trigger gate, the timed BonusRadius/ObjectFilter/RequiredConditions scan
 // (grounded on AttributeModifierAuraUpdate, spec §0.1), LeaderFX/FollowerFX event firing, the

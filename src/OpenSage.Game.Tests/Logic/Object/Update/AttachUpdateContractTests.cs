@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the AttachUpdate port (R13; api-freeze-v1 §6 fitness item 4):
+﻿// Mocked-game unit tests for the AttachUpdate port (R13; api-freeze-v1 §6 fitness item 4):
 // one test per behavior branch from research/modules-r13/specs/AttachUpdateModuleData.md §5,
 // [create -> tick -> observable effect], plus the shadow-copy base test and a mid-behavior
 // save/load round-trip.

@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the CritterEmitterUpdate port (R13): the periodic
+﻿// Mocked-game contract tests for the CritterEmitterUpdate port (R13): the periodic
 // fire-FX-and-maybe-spawn cadence, the optional SpawnObject guard (the only enabled AotR
 // usage, natureunits.ini:4720-4724, leaves it unset), and the shadow-copy base test.
 //

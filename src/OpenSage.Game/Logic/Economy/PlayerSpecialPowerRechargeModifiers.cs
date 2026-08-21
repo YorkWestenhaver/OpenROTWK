@@ -1,4 +1,4 @@
-// mod/spellrechargemodifierupgrademoduledata (R13): the Player-side sink
+﻿// mod/spellrechargemodifierupgrademoduledata (R13): the Player-side sink
 // SpellRechargeModifierUpgrade writes to. Additive partial-class member only - no change to
 // any existing Player member (merge hygiene). Mirrors Economy/PlayerProductionCostModifiers.cs
 // exactly. The registry is transient derived sim state rebuilt on load (see

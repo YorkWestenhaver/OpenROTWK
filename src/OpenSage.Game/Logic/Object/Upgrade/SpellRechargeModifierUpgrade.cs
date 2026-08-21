@@ -1,4 +1,4 @@
-// SpellRechargeModifierUpgrade - R13 port (modules-r13, spec:
+﻿// SpellRechargeModifierUpgrade - R13 port (modules-r13, spec:
 // research/modules-r13/specs/SpellRechargeModifierUpgradeModuleData.md). No GPL file of its
 // own exists (SpellRecharge* has zero hits under generals-gpl/generals-community); ported by
 // analogy to the audited structural sibling CostModifierUpgrade (identical field shape:

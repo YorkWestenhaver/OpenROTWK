@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the UpgradeSoundSelectorClientBehavior port (R13):
+﻿// Mocked-game contract tests for the UpgradeSoundSelectorClientBehavior port (R13):
 // the audio-only module parses its list of gated SoundUpgrade bundles (each gated by
 // RequiredModelConditions AND ExcludedUpgrades), instantiates as a live (permanently parked)
 // runtime module, and round-trips its empty state - the [ParseOnly] hole is closed without

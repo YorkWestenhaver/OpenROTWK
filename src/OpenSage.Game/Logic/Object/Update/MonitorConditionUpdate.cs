@@ -1,4 +1,4 @@
-// MonitorConditionUpdate - R13 port. Data-derivable (no generals-gpl/generals-community
+﻿// MonitorConditionUpdate - R13 port. Data-derivable (no generals-gpl/generals-community
 // sibling; see modules-r13/specs/MonitorConditionUpdateModuleData.md for the full audit
 // trail). No Ghidra material used or needed.
 //

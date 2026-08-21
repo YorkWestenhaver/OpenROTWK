@@ -1,4 +1,4 @@
-// Mocked-game contract tests for the MonitorConditionUpdate port (R13): baseline capture,
+﻿// Mocked-game contract tests for the MonitorConditionUpdate port (R13): baseline capture,
 // ModelConditionFlags/WeaponSetFlags toggle-on/off (restore), independent-inert-pair
 // non-interference, and the shadow-copy base test. See
 // bfme2-workbench/research/modules-r13/specs/MonitorConditionUpdateModuleData.md for the

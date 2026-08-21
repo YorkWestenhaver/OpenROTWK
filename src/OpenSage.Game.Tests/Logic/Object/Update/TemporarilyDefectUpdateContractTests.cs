@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the TemporarilyDefectUpdate port (R13, data-derivable per the
+﻿// Mocked-game unit tests for the TemporarilyDefectUpdate port (R13, data-derivable per the
 // task packet - see the full source list and F-TDU-1/F-TDU-2/F-TDU-3 in
 // bfme2-workbench/research/modules-r13/specs/TemporarilyDefectUpdateModuleData.md). One test
 // per behavior branch, [create -> tick/act -> observable effect], plus the shadow-copy base

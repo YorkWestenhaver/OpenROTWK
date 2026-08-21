@@ -1,4 +1,4 @@
-// Mocked-game unit tests for the SpecialDisguiseUpdate port (R13), per
+﻿// Mocked-game unit tests for the SpecialDisguiseUpdate port (R13), per
 // bfme2-workbench/research/modules-r13/specs/SpecialDisguiseUpdateModuleData.md §3: one test
 // per behavior branch, [create -> trigger/tick -> observable effect], covering the spec's
 // twelve contract cases. Frame arithmetic follows ToggleHiddenSpecialAbilityUpdateContractTests'

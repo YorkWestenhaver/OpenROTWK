@@ -1,4 +1,4 @@
-// Contract tests for the CivilianSpawnCollide port (R13; task packet civilian-spawn-collide):
+﻿// Contract tests for the CivilianSpawnCollide port (R13; task packet civilian-spawn-collide):
 // a generic filtered-delete-on-collide module - on OnCollide, destroys `other` iff
 // DeleteObjectFilter matches it, guarded against a null/already-destroyed `other`.
 //
