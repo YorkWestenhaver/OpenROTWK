@@ -198,7 +198,9 @@ End
         // Same owner as the trap: not ENEMIES. AutoDetonationWithFriendsInvolved = No (INI),
         // so a friendly in range aborts the scan outright (GPL: friends present, not allowed
         // to detonate with friends -> bail without detonating).
-        game.SpawnObject("EnemyVehicle", game.CivilianPlayer, new Vector3(10, 0, 0));
+        var friendly = game.SpawnObject("EnemyVehicle", game.CivilianPlayer, new Vector3(10, 0, 0));
+        AssignSingletonTeam(game, trap, game.CivilianPlayer);
+        AssignSingletonTeam(game, friendly, game.CivilianPlayer);
 
         // The module's first live tick is the second Step() (SetWakeFrame(None) wakes it one
         // frame after spawn - see EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
@@ -209,10 +211,15 @@ End
         Assert.False(trap.IsDestroyed);
 
         // Prove the scan loop actually ran and reached the friendly-bailout branch (rather
-        // than, say, never scanning at all): a genuine enemy showing up should still detonate
-        // on a later scan.
-        game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        // than, say, never scanning at all): with the friendly walked out of range, a genuine
+        // enemy in its place should still detonate on a later scan. The friendly has to LEAVE
+        // - AutoDetonationWithFriendsInvolved = No means a friendly in range bails the whole
+        // scan regardless of who else is standing there, so leaving it put would (correctly)
+        // suppress detonation and prove nothing.
+        friendly.SetTranslation(new Vector3(500, 0, 0));
+        var enemy = game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+        AssignSingletonTeam(game, enemy, game.PlayerManager.NeutralPlayer);
         StepUntilFired(game, trap, WeaponSlot.Tertiary);
         Assert.True(trap.IsDestroyed);
     }
@@ -223,8 +230,10 @@ End
         var game = NewGame();
         var trap = game.SpawnObject("DemoTrap", game.CivilianPlayer, Vector3.Zero);
         // IgnoreTargetTypes = INFANTRY (INI): an enemy of an ignored kind never counts.
-        game.SpawnObject("EnemyInfantry", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        var infantry = game.SpawnObject("EnemyInfantry", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+        AssignSingletonTeam(game, trap, game.CivilianPlayer);
+        AssignSingletonTeam(game, infantry, game.PlayerManager.NeutralPlayer);
 
         // The module's first live tick is the second Step() (see
         // EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
@@ -236,7 +245,8 @@ End
 
         // Prove the scan loop actually ran and reached the kind-filter branch: a
         // non-ignored enemy showing up should still detonate on a later scan.
-        game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        var vehicle = game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        AssignSingletonTeam(game, vehicle, game.PlayerManager.NeutralPlayer);
         StepUntilFired(game, trap, WeaponSlot.Tertiary);
         Assert.True(trap.IsDestroyed);
     }
@@ -250,6 +260,8 @@ End
         // (GameObject.IsAboveTerrain), same as a flying unit GPL's demo trap must not trigger on.
         var enemy = game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 50));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+        AssignSingletonTeam(game, trap, game.CivilianPlayer);
+        AssignSingletonTeam(game, enemy, game.PlayerManager.NeutralPlayer);
 
         // The module's first live tick is the second Step() (see
         // EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
