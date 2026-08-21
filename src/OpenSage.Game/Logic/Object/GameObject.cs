@@ -838,11 +838,16 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     public void AddAttributeModifier(string name, AttributeModifier modifier)
     {
-        if (_attributeModifiers.ContainsKey(name))
+        // A prior grant under this name that was later revoked (RemoveAttributeModifier below
+        // only flags it Invalid; the legacy Scene3D LogicTick loop is what actually evicts the
+        // dictionary entry, and that loop does not run under the headless/deterministic sim) must
+        // not permanently block a fresh grant of the same name once eligibility returns -- only a
+        // still-live entry blocks a duplicate simultaneous grant.
+        if (_attributeModifiers.TryGetValue(name, out var existing) && !existing.Invalid)
         {
             return;
         }
-        _attributeModifiers.Add(name, modifier);
+        _attributeModifiers[name] = modifier;
     }
 
     public void RemoveAttributeModifier(string name)

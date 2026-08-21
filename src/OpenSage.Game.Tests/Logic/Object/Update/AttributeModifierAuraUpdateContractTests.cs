@@ -1,16 +1,16 @@
-﻿// Mocked-game contract tests for the AttributeModifierAuraUpdate port (R12): the periodic
+﻿// Mocked-game contract tests for the AttributeModifierAuraUpdate port (R12/R13): the periodic
 // scan (StartsActive/TargetEnemy/ObjectFilter/RequiredConditions/AllowSelf), ConflictsWith,
-// refresh-loop consistency, the Permanent-flag reaction to a (currently test-only, see the
-// module's OnTriggerRemoved doc) upgrade removal, the AotR weighted-blend composition identity,
-// and the shadow-copy base test. Object definitions are parsed from INI text through the real
-// parser, so the RefreshDelay/Range quantizing parse is on the tested path.
+// refresh-loop consistency (including a revoke-then-back-in-range round trip), the Permanent-flag
+// reaction to a (currently test-only, see the module's OnTriggerRemoved doc) upgrade removal, the
+// flat/uncomposed grant path's no-stacking behavior, and the shadow-copy base test. Object
+// definitions are parsed from INI text through the real parser, so the RefreshDelay/Range
+// quantizing parse is on the tested path.
 
 using System.Linq;
 using System.Numerics;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
-using OpenSage.SimCore.Numerics;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Update;
@@ -318,33 +318,58 @@ End
         Assert.False(ModuleOf(source).IsActive);
     }
 
-    [Theory]
-    [InlineData("0", "0.5", "0.5")]
-    [InlineData("0.5", "0.5", "0.75")]
-    public void ComposeAuraStrength_FoldsAsScreenBlend_NotPlainSum(string accumulator, string value, string expected)
+    [Fact]
+    public void SecondSourceGrantingTheSameModifierName_DoesNotComposeWithTheFirst()
     {
-        var acc = Fix64.FromDecimalLiteral(accumulator);
-        var v = Fix64.FromDecimalLiteral(value);
-        var expectedFix = Fix64.FromDecimalLiteral(expected);
+        // The aura's grant path is flat/uncomposed (R13 finding: a standalone
+        // ComposeAuraStrength screen-blend utility was dead code here, never called from
+        // RefreshTargets, and was removed -- composition of simultaneous records belongs to
+        // AttributeModifierPoolUpdate, not this module). Two independent sources granting the
+        // same modifier name to one target must not stack: the second grant is a plain no-op
+        // against the still-live first entry.
+        var game = NewGame();
+        var sourceA = game.SpawnObject("AuraSource", game.CivilianPlayer, new Vector3(0, 0, 0));
+        var ally = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(10, 0, 0));
 
-        var result = AttributeModifierAuraUpdate.ComposeAuraStrength(acc, v);
+        StepFrames(game, 3);
+        Assert.True(ally.HasAttributeModifier("AuraBuff"));
 
-        // Two independent "0.5" bonuses compose to "0.75", never the additive-sum "1.0".
-        Assert.Equal(expectedFix, result);
+        // A second, independent grant of the identically-named modifier: GameObject's registry
+        // is a flat name-keyed dictionary, so this is a plain no-op against the live entry --
+        // there is no magnitude composition anywhere on this path.
+        ally.AddAttributeModifier("AuraBuff", new AttributeModifier(game.AssetStore.ModifierLists.GetByName("AuraBuff")));
+
+        Assert.True(ally.HasAttributeModifier("AuraBuff"));
+        _ = sourceA;
     }
 
     [Fact]
-    public void ComposeAuraStrength_ThreeStackedBonuses_IsNotTheAdditiveSum()
+    public void RevokeThenBackInRange_RegrantsTheBonus()
     {
-        var half = Fix64.FromDecimalLiteral("0.5");
+        // R13 finding: GameObject.RemoveAttributeModifier only flags the entry Invalid; the
+        // dictionary key is evicted by the legacy Scene3D LogicTick loop, which does not run
+        // under the headless/deterministic sim. Before the fix, AddAttributeModifier's
+        // ContainsKey guard treated that still-present Invalid entry as live and silently
+        // no-op'd every later re-grant, permanently desyncing the module's _grantedTargets book-
+        // keeping from the registry's actual state. Round-trip an ally out of range and back in.
+        var game = NewGame();
+        game.SpawnObject("AuraSource", game.CivilianPlayer, new Vector3(0, 0, 0));
+        var ally = game.SpawnObject("Grunt", game.CivilianPlayer, new Vector3(10, 0, 0));
 
-        var folded = AttributeModifierAuraUpdate.ComposeAuraStrength(
-            AttributeModifierAuraUpdate.ComposeAuraStrength(Fix64.Zero, half), half);
-        folded = AttributeModifierAuraUpdate.ComposeAuraStrength(folded, half);
+        StepFrames(game, 3);
+        Assert.True(ally.HasAttributeModifier("AuraBuff"));
 
-        // 1 - (1-0.5)^3 = 0.875, not the additive sum 1.5.
-        Assert.Equal(Fix64.FromDecimalLiteral("0.875"), folded);
-        Assert.NotEqual(Fix64.FromDecimalLiteral("1.5"), folded);
+        // Move out of range and let a refresh window (5 frames) revoke it.
+        ally.UpdateTransform(new Vector3(500, 0, 0));
+        ally.UpdateColliders();
+        StepFrames(game, 5);
+        Assert.False(ally.HasAttributeModifier("AuraBuff"));
+
+        // Move back into range and let another refresh window re-grant it.
+        ally.UpdateTransform(new Vector3(10, 0, 0));
+        ally.UpdateColliders();
+        StepFrames(game, 5);
+        Assert.True(ally.HasAttributeModifier("AuraBuff"));
     }
 
     [Fact]
