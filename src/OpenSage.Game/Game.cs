@@ -25,11 +25,13 @@ using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
 using OpenSage.Logic.Map;
+using OpenSage.Logic.Orders;
 using OpenSage.Logic.Sim;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
+using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 using OpenSage.Utilities;
 using Veldrid;
@@ -391,8 +393,26 @@ public sealed class Game : DisposableBase, IGame
         {
             _networkMessageBuffer?.Dispose();
             _networkMessageBuffer = value;
+
+            // R15 packet BR-P4B: the submitter is defined over (loop, buffer), so it is
+            // rebuilt with the buffer - created at StartGame, dropped at EndGame. There is
+            // never a moment where a game has a buffer but no way to submit into it.
+            _orderSubmitter = value == null
+                ? null
+                : new HeadedOrderSubmitter(_simLoop, value, OrderProcessor);
         }
     }
+
+    private HeadedOrderSubmitter _orderSubmitter;
+
+    /// <summary>See <see cref="IGame.OrderSubmitter"/>.</summary>
+    public IOrderSubmitter OrderSubmitter => _orderSubmitter;
+
+    /// <summary>See <see cref="IGame.Orders"/>: the loop's own scheduled-order pipe.</summary>
+    public OrderIngest Orders => _simLoop.Orders;
+
+    /// <summary>See <see cref="IGame.OrderProcessor"/>.</summary>
+    public IOrderProcessor OrderProcessor { get; }
 
     public Texture LauncherImage { get; }
 
@@ -584,6 +604,11 @@ public sealed class Game : DisposableBase, IGame
             {
                 CrcCheckpointIntervalInFrames = 0,
             };
+
+            // R15 packet BR-P4B: one dispatcher for the whole game, shared by the
+            // DispatchOrders phase and by HeadedOrderSubmitter's unmapped-order fallback.
+            // Stateless apart from its game reference, so it outlives individual matches.
+            OrderProcessor = new OrderProcessor(this);
         }
     }
 

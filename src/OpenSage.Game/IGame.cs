@@ -13,9 +13,11 @@ using OpenSage.Input;
 using OpenSage.Input.Cursors;
 using OpenSage.IO;
 using OpenSage.Logic;
+using OpenSage.Logic.Orders;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Scripting;
+using OpenSage.SimCore.Orders;
 using Veldrid;
 
 namespace OpenSage;
@@ -133,6 +135,34 @@ public interface IGame
     IScene3D Scene3D { get; set; }
 
     NetworkMessageBuffer NetworkMessageBuffer { get; set; }
+
+    /// <summary>
+    /// The scheduled-order buffer between the transport and the tick loop - the same
+    /// <see cref="OpenSage.SimCore.Orders.OrderIngest"/> instance the game's
+    /// <see cref="OpenSage.SimCore.Ticking.SimLoop"/> drains every frame (R15 packet BR-P4B).
+    /// <para>
+    /// Exposed on the interface because the buffer that fills it holds an <see cref="IGame"/>,
+    /// and because the loop is constructed after the systems that reach it, so nobody can be
+    /// handed the pipe at construction time. Null on a host with no loop attached.
+    /// </para>
+    /// </summary>
+    OrderIngest Orders { get; }
+
+    /// <summary>
+    /// The legacy order dispatcher - the pre-SimCore path that actually moves units
+    /// (A2-uiflow #2). Orders reach it two ways and no others: out of the DispatchOrders phase
+    /// at their scheduled frame, and through <see cref="HeadedOrderSubmitter"/>'s fallback for
+    /// order types with no verified SimCore translation.
+    /// </summary>
+    IOrderProcessor OrderProcessor { get; }
+
+    /// <summary>
+    /// The one place a locally-issued order enters the pipe (R15 packet BR-P4A's contract,
+    /// implemented by <see cref="HeadedOrderSubmitter"/>). Rebuilt whenever
+    /// <see cref="NetworkMessageBuffer"/> changes, and null while there is no buffer - i.e.
+    /// whenever there is no game to give an order to.
+    /// </summary>
+    IOrderSubmitter OrderSubmitter { get; }
 
     Texture LauncherImage { get; }
     internal GameLogic GameLogic { get; }

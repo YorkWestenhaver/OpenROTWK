@@ -13,6 +13,23 @@ public sealed class ReplayChunk
     public ReplayChunkHeader Header { get; private set; }
     public Order Order { get; private set; }
 
+    /// <summary>
+    /// Builds a chunk directly from an order and a timecode. Test visibility only (internal,
+    /// per <c>InternalsVisibleTo</c>) - see <see cref="ReplayChunkHeader.CreateForTests"/>.
+    /// The header's Number mirrors Parse's own convention (player index + 1).
+    /// </summary>
+    internal static ReplayChunk CreateForTests(uint timecode, Order order)
+    {
+        return new ReplayChunk
+        {
+            Header = ReplayChunkHeader.CreateForTests(
+                timecode,
+                order.OrderType,
+                (uint)(order.PlayerIndex + 1)),
+            Order = order
+        };
+    }
+
     internal static ReplayChunk Parse(BinaryReader reader)
     {
         var result = new ReplayChunk
