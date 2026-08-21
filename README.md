@@ -85,9 +85,9 @@ current work is the behavior-module long tail, skirmish AI, and netcode completi
 
 ### Behavior modules
 
-* [x] 100 / 169 runtime behavior modules implemented
-* [ ] 69 remaining (11 gated on behavioral specifications, 39 have a written
-      port-ready spec awaiting implementation, 19 blocked on other work)
+* [x] 134 / 169 runtime behavior modules implemented
+* [ ] 35 remaining (11 gated on behavioral specifications, the rest have a
+      written port-ready spec and are being implemented in waves)
 
 ### Conformance oracle
 
