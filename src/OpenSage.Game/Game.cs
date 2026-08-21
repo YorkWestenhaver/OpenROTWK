@@ -608,7 +608,7 @@ public sealed class Game : DisposableBase, IGame
             // R15 packet BR-P4B: one dispatcher for the whole game, shared by the
             // DispatchOrders phase and by HeadedOrderSubmitter's unmapped-order fallback.
             // Stateless apart from its game reference, so it outlives individual matches.
-            OrderProcessor = new OrderProcessor(this);
+            OrderProcessor = new OpenSage.Logic.Orders.OrderProcessor(this);
         }
     }
 
