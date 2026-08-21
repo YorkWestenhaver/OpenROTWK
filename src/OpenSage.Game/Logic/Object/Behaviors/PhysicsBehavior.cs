@@ -869,14 +869,14 @@ public class PhysicsBehavior : UpdateModule, ICollideModule
 
     private void DoBounceSound(in Vector3 prevPos)
     {
-        // TODO(Port): Implement this.
+        // TODO(Port): Implement this (bounce audio only - no sim-state effect).
+        // The original early-returns when no bounce sound is configured; until the
+        // audio side is ported this is a no-op rather than a NotImplementedException
+        // that would kill the sim tick for any bouncing object.
         //if (_bounceSound == null)
         //{
         //    return;
         //}
-
-        // TODO(Port): Implement this.
-        throw new NotImplementedException();
     }
 
     private UpdateSleepTime CalculateSleepTime()
