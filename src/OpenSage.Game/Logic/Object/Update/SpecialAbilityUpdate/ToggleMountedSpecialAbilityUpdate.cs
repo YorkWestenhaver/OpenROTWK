@@ -65,6 +65,7 @@
 // conformance class at its declaration site (§4).
 
 using System.Linq;
+using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;

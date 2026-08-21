@@ -375,7 +375,7 @@ End
         var game = NewGame();
         var hero = game.SpawnObject("NoTemplateHero", game.CivilianPlayer, Vector3.Zero);
         var module = ModuleOf(hero);
-        var objectCountBefore = game.GameLogic.Objects.Count;
+        var objectCountBefore = game.GameLogic.Objects.Count();
 
         Assert.True(module.InitiateIntentToDoSpecialPower("TestToggleMounted", null));
 
@@ -393,7 +393,7 @@ End
         }
 
         Assert.False(hero.IsDestroyed);
-        Assert.Equal(objectCountBefore, game.GameLogic.Objects.Count);
+        Assert.Equal(objectCountBefore, game.GameLogic.Objects.Count());
         Assert.Equal(ToggleMountedSpecialAbilityUpdate.ToggleMountedPhase.Swapped, module.Phase);
     }
 
