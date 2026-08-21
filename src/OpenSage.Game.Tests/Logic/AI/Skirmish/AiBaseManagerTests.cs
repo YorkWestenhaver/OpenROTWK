@@ -394,7 +394,13 @@ public class AiBaseManagerTests
     public void AConfirmedConstruct_MakesTheMatchReportPassMb()
     {
         // The end-to-end shape the R1 gate actually reads: manager -> AiTrace counter ->
-        // AiMatchReport.PlayerSnapshot.FoundationConstructed.
+        // AiMatchReport.PlayerSnapshot -> the frozen FoundationConstructCounter key.
+        // (S9-07/INT-R1B integrate fix: S9-02's real API is
+        // AiMatchReport.PlayerSnapshot.Capture(brain), not AiMatchReport.Capture(brain), and
+        // "FoundationConstructed" is a PlayerResult (start/end pair) property, not a
+        // PlayerSnapshot one -- a single snapshot can only be asked for the raw counter, which
+        // is the same check PlayerResult.FoundationConstructed performs against its End
+        // snapshot. This was a real cross-branch compile break, not a rename.)
         var f = NewFixture();
         f.World.PlotList.Add(Plot(4));
         f.World.Buildable.Add(Farm());
@@ -404,8 +410,8 @@ public class AiBaseManagerTests
         f.World.PlotList[0] = Plot(4, occupied: true, occupantId: 80);
         f.TickThrough(2);
 
-        var snapshot = AiMatchReport.Capture(f.Brain);
-        Assert.True(snapshot.FoundationConstructed);
+        var snapshot = AiMatchReport.PlayerSnapshot.Capture(f.Brain);
+        Assert.True(snapshot.GetCount(AiMatchReport.FoundationConstructCounter) > 0);
     }
 
     [Fact]
