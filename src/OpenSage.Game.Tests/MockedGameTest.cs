@@ -76,6 +76,8 @@ public abstract class MockedGameTest : IDisposable
         public TimeInterval CurrentGameTime { get; }
         public TimeInterval RenderTime { get; }
         public TimeSpan CumulativeLogicUpdateError { get; }
+        public uint CurrentLogicFrameNumber { get; }
+        public ulong RenderFrameCount { get; }
         public OrderGeneratorSystem OrderGenerator { get; }
         public AudioSystem Audio { get; }
         public SelectionSystem Selection { get; }
