@@ -31,14 +31,6 @@ public class TurretAIUpdate : UpdateModule
     private LogicFrame _waitUntil;
     private TurretAIStates _turretAIstate;
 
-    private float _unknownFloat1;
-    private float _unknownFloat2;
-    private uint _unknownFrame1;
-    private uint _unknownInt1;
-    private uint _unknownFrame2;
-    private readonly bool[] _unknownBools = new bool[7];
-    private uint _unknownFrame3;
-
     public enum TurretAIStates
     {
         Disabled,
@@ -49,10 +41,10 @@ public class TurretAIUpdate : UpdateModule
         Recentering
     }
 
-    /// <summary>Test/inspector-only view of the state machine; not part of the save contract.</summary>
+    /// <summary>Test/inspector-only view of the state machine (backed by <see cref="_turretAIstate"/>, which is persisted -- see <see cref="Load"/>).</summary>
     internal TurretAIStates State => _turretAIstate;
 
-    /// <summary>Test/inspector-only view of the pending wake frame; not part of the save contract.</summary>
+    /// <summary>Test/inspector-only view of the pending wake frame (backed by <see cref="_waitUntil"/>, which is persisted -- see <see cref="Load"/>).</summary>
     internal LogicFrame WaitUntil => _waitUntil;
 
     internal TurretAIUpdate(GameObject gameObject, IGameEngine gameEngine, TurretAIUpdateModuleData moduleData)
@@ -179,7 +171,11 @@ public class TurretAIUpdate : UpdateModule
     {
         var deltaYaw = MathUtility.CalculateAngleDelta(GameObject.TurretYaw, targetYaw);
 
-        if (MathF.Abs(deltaYaw) > 0.15f)
+        // GPL friend_turnTowardsAngle (TurretAI.cpp:392-429): only snap once the remaining
+        // angle is smaller than a single frame's turn-rate step, otherwise advance by exactly
+        // TurretTurnRate. This keeps per-frame overshoot bounded by the configured turn rate
+        // instead of instantaneously snapping the last stretch of any turn.
+        if (MathF.Abs(deltaYaw) > _moduleData.TurretTurnRate)
         {
             GameObject.TurretYaw -= MathF.Sign(deltaYaw) * _moduleData.TurretTurnRate;
             return true;
@@ -231,31 +227,29 @@ public class TurretAIUpdate : UpdateModule
 
     internal override void Load(StatePersister reader)
     {
-        reader.PersistVersion(2);
+        // Version 1-2 persisted seven fields shaped after retail's TurretAI::xfer
+        // (TurretAI.cpp:343-378), a different (state-machine) class than this file's own
+        // _currentTarget/_waitUntil/_turretAIstate state -- none of the module's real mutable
+        // state was ever round-tripped, so a save/load lost the live turret state entirely.
+        // The module was [ParseOnly] (never instantiated) until this R12 landing, so no real
+        // save data in that shape exists to stay compatible with; version 3 persists the
+        // module's actual state instead.
+        reader.PersistVersion(3);
 
-        var unknownBool1 = true;
-        reader.PersistBoolean(ref unknownBool1);
-        if (!unknownBool1)
-        {
-            throw new InvalidStateException();
-        }
+        reader.PersistEnum(ref _turretAIstate);
+        reader.PersistLogicFrame(ref _waitUntil);
 
-        // Angles maybe.
-        reader.PersistSingle(ref _unknownFloat1);
-        reader.PersistSingle(ref _unknownFloat2);
-
-        reader.PersistFrame(ref _unknownFrame1);
-        reader.PersistUInt32(ref _unknownInt1); // 0, 1
-        reader.PersistFrame(ref _unknownFrame2);
-
-        reader.PersistArray(
-            _unknownBools,
-            static (StatePersister persister, ref bool item) =>
-            {
-                persister.PersistBooleanValue(ref item);
-            });
-
-        reader.PersistFrame(ref _unknownFrame3);
+        // _currentTarget only ever needs to survive a round trip as an object reference here:
+        // every live caller feeds this state machine an object-type WeaponTarget (the current
+        // weapon's CurrentTarget, acquired via targeting/scripted-attack orders). A
+        // position-type WeaponTarget has no persistable identity of its own, so one round-trips
+        // as "no target" (matching the Attacking/Turning "target == null" path) rather than
+        // being silently kept stale.
+        var targetObjectId = _currentTarget?.TargetObjectId ?? ObjectId.Invalid;
+        reader.PersistObjectId(ref targetObjectId);
+        _currentTarget = targetObjectId.IsValid
+            ? new WeaponTarget(GameEngine.GameLogic, targetObjectId)
+            : null;
     }
 }
 
