@@ -90,6 +90,12 @@ End
         var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
         MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
 
+        // GPL requires the saboteur to have been explicitly AI-ordered onto THIS specific
+        // object (ai->getGoalObject() != other rejects otherwise, including the default
+        // no-order case) - "prevent an unintentional conversion simply by having the
+        // terrorist walk too close to it."
+        saboteur.AIUpdate.SetCurrentVictim(plant.Id);
+
         Assert.False(game.CivilianPlayer.HasInsufficientPower);
 
         ModuleOf(saboteur).OnCollide(plant, Vector3.Zero, Vector3.Zero);
@@ -105,6 +111,28 @@ End
         }
         FullStep(game);
         Assert.False(game.CivilianPlayer.HasInsufficientPower);
+    }
+
+    [Fact]
+    public void UnorderedContact_NoGoalObjectSet_Rejected()
+    {
+        // GPL's ai->getGoalObject() != other rejects whenever the AI's goal object is not
+        // exactly `other` - including (and especially) the default/common case where no
+        // goal object has ever been set, i.e. a saboteur that merely collides with an enemy
+        // power plant without ever being explicitly ordered to sabotage it (attack-move,
+        // patrol, wandering into it, ...) must NOT trigger the outage.
+        var game = NewGame();
+        var saboteur = game.SpawnObject("Saboteur", game.PlayerManager.NeutralPlayer, Vector3.Zero);
+        var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
+        MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
+
+        // Deliberately no SetCurrentVictim call: CurrentVictimId stays at its default
+        // (Invalid), matching a fresh/un-ordered AIUpdate's null goal object in GPL.
+
+        ModuleOf(saboteur).OnCollide(plant, Vector3.Zero, Vector3.Zero);
+
+        Assert.False(game.CivilianPlayer.HasInsufficientPower);
+        Assert.False(saboteur.IsDestroyed);
     }
 
     [Fact]
@@ -179,6 +207,7 @@ End
         var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
         MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
         game.LocalPlayer = game.CivilianPlayer;
+        saboteur.AIUpdate.SetCurrentVictim(plant.Id); // explicit sabotage order, required to succeed
 
         ModuleOf(saboteur).OnCollide(plant, Vector3.Zero, Vector3.Zero);
 
@@ -193,6 +222,7 @@ End
         var plant = game.SpawnObject("PowerPlant", game.CivilianPlayer, Vector3.Zero);
         MakeEnemies(game.PlayerManager.NeutralPlayer, game.CivilianPlayer);
         game.LocalPlayer = game.PlayerManager.NeutralPlayer; // the attacker, not the victim
+        saboteur.AIUpdate.SetCurrentVictim(plant.Id); // explicit sabotage order, required to succeed
 
         ModuleOf(saboteur).OnCollide(plant, Vector3.Zero, Vector3.Zero);
 

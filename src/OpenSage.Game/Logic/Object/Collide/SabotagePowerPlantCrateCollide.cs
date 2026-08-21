@@ -166,7 +166,7 @@ public sealed class SabotagePowerPlantCrateCollide : CrateCollide
         // the terrorist walk too close to it." See the AIUpdate.CurrentVictimId deviation
         // note at the top of this file.
         var ai = GameObject.AIUpdate;
-        if (ai is not null && ai.CurrentVictimId.IsValid && ai.CurrentVictimId != other.Id)
+        if (ai is not null && ai.CurrentVictimId != other.Id)
         {
             return false;
         }
