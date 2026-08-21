@@ -348,7 +348,7 @@ End
         }
 
         Assert.True(pulses >= 3, $"expected several pulses over 9 frames at a 2-frame cadence, got {pulses}");
-        Assert.Equal(Fix(20) * pulses, startingHealth - body.DamageCore.CurrentHealth);
+        Assert.Equal(Fix(20) * Fix(pulses), startingHealth - body.DamageCore.CurrentHealth);
     }
 
     // ------------------------------------------------------------------ 8. all matching candidates damaged per pulse
