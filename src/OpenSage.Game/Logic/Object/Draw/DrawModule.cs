@@ -58,6 +58,20 @@ public abstract class DrawModule : ModuleBase
 
     internal abstract (ModelInstance, ModelBone) FindBone(string boneName);
 
+    /// <summary>
+    /// Enumerates this draw module's bones whose name starts with <paramref name="prefix"/>
+    /// (ordinal, case-sensitive - the same <c>StartsWith</c> idiom <see cref="W3dSupplyDraw"/>
+    /// already uses for its own bone-prefix matching), in the model's authored
+    /// bone-hierarchy order, together with each bone's current world transform. Used by
+    /// <see cref="BaseUpgrade"/>'s prefix-matched placement-bone lookup (BaseUpgradeModuleData
+    /// spec §5.3 step 3). Base implementation yields nothing - only draw modules backed by a
+    /// W3D bone hierarchy (<see cref="W3dModelDraw"/>) can have matching bones.
+    /// </summary>
+    internal virtual IEnumerable<(ModelBone Bone, Matrix4x4 WorldTransform)> FindBonesWithPrefix(string prefix)
+    {
+        yield break;
+    }
+
     internal override void Load(StatePersister reader)
     {
         reader.PersistVersion(1);

@@ -305,6 +305,17 @@ public class W3dModelDraw : DrawModule
         return (ActiveModelInstance, ActiveModelInstance.Model.BoneHierarchy.Bones.FirstOrDefault(x => string.Equals(x.Name, boneName, StringComparison.OrdinalIgnoreCase)));
     }
 
+    internal override IEnumerable<(ModelBone Bone, Matrix4x4 WorldTransform)> FindBonesWithPrefix(string prefix)
+    {
+        foreach (var bone in ActiveModelInstance.Model.BoneHierarchy.Bones)
+        {
+            if (bone.Name.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                yield return (bone, ActiveModelInstance.AbsoluteBoneTransforms[bone.Index]);
+            }
+        }
+    }
+
     internal ModelBoneInstance FindBoneInstance(string name)
     {
         foreach (var bone in ActiveModelInstance.Model.BoneHierarchy.Bones)

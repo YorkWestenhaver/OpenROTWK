@@ -335,6 +335,27 @@ public sealed class Drawable : Entity, IPersistableObject
         return (null, null);
     }
 
+    /// <summary>
+    /// Enumerates bones whose name starts with <paramref name="prefix"/> across every draw
+    /// module on this drawable, in draw-module order then bone-hierarchy order - mirroring
+    /// retail's walk over the object's Draw-module sub-object list (BaseUpgradeModuleData
+    /// spec §5.3 step 3), which accumulates matches across sub-objects rather than looking at
+    /// only the active draw module.
+    /// </summary>
+    public List<(ModelBone Bone, Matrix4x4 WorldTransform)> FindBonesWithPrefix(string prefix)
+    {
+        // Not an iterator method: DrawModules is a ReadOnlySpan<DrawModule> (a ref struct),
+        // which cannot be captured across a yield boundary.
+        var matches = new List<(ModelBone Bone, Matrix4x4 WorldTransform)>();
+
+        foreach (var drawModule in DrawModules)
+        {
+            matches.AddRange(drawModule.FindBonesWithPrefix(prefix));
+        }
+
+        return matches;
+    }
+
     // TODO: Cache this.
     public T? FindClientUpdateModule<T>()
         where T : ClientUpdateModule
