@@ -11,12 +11,26 @@
 // InitiateIntentToDoSpecialPower succeeds; before that, Update() never runs at all. After a
 // successful Initiate call, the module wakes UpdateSleepTime.None-style (every following
 // frame) for as long as any active phase persists.
+//
+// Frame-vs-Step arithmetic (the trap spec §3 flags, and the one these tests originally fell
+// into): one game.Step() runs the update pass for the CURRENT frame and THEN increments the
+// frame counter (GameLogic.Update: `var now = _currentFrame; ...; _currentFrame++`). A test
+// calls Initiate outside any update pass, i.e. while frame N is still pending, and Initiate's
+// SetWakeFrame(UpdateSleepTime.None) schedules the module for frame N+1 - so the first Step
+// (which runs frame N) does not tick the module at all, and a D-frame phase started at frame N
+// ends on the update pass for frame N+D, which is the (D+1)'th Step. Counting Steps instead of
+// frames therefore under-runs every first phase by exactly one. These tests count FRAMES:
+// StepThroughFrame(game, start + D) below runs the game up to and including the update pass for
+// frame start+D, whatever the Step bookkeeping happens to be. The module itself is unchanged by
+// this - GPL's own countdown (startUnpacking sets m_animFrames = unpackTime, each update()
+// decrements, complete at zero) puts the boundary on exactly that frame.
 
 using System.Linq;
 using System.Numerics;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
+using OpenSage.SimCore.Ticking;
 using Xunit;
 
 namespace OpenSage.Tests.Logic.Object.Update;
@@ -178,6 +192,20 @@ End
         }
     }
 
+    /// <summary>
+    /// Runs the game up to and including the update pass for <paramref name="frame"/> - the
+    /// frame-counted alternative to counting Steps (see the file-header note).
+    /// </summary>
+    private static void StepThroughFrame(HeadlessSimGame game, LogicFrame frame)
+    {
+        while (game.GameLogic.CurrentFrame <= frame)
+        {
+            game.Step();
+        }
+    }
+
+    private static LogicFrameSpan Frames(uint count) => new(count);
+
     [Fact]
     public void InitiateIntentToDoSpecialPower_WrongTemplateName_NoOp()
     {
@@ -204,20 +232,29 @@ End
         var module = ModuleOf(watcher);
         var recorder = RecordingSimEvents.InstallOn(game);
 
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", hero));
 
         // Unpacking flag is set synchronously - no Step needed to observe it.
         Assert.True(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
 
-        Step(game, 5); // UnpackTime = 5 frames: unpack completes.
-        Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
+        // UnpackTime = 5 frames: still Unpacking on the last frame of the window...
+        StepThroughFrame(game, start + Frames(4));
+        Assert.True(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
 
-        Step(game, 5); // PreparationTime = 5 frames: preparation completes, effect auto-fires.
+        // ...and Prepared on the frame the countdown reaches zero.
+        StepThroughFrame(game, start + Frames(5));
+        Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Unpacking));
+        Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
+
+        // PreparationTime = 5 more frames: preparation completes, effect auto-fires.
+        StepThroughFrame(game, start + Frames(10));
         Assert.Equal(50, hero.ExperienceTracker.CurrentExperience);
         Assert.Contains(("Sound_Trigger", watcher.Id), recorder.AudioEvents);
         Assert.True(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        Step(game, 5); // PackTime = 5 frames: pack completes, back to Packed.
+        // PackTime = 5 more frames: pack completes, back to Packed.
+        StepThroughFrame(game, start + Frames(15));
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
         // Fully cycled: a fresh Initiate call succeeds again.
@@ -232,9 +269,12 @@ End
         var hero = game.SpawnObject("TestHero", game.CivilianPlayer, Vector3.Zero);
         var module = ModuleOf(watcher);
 
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", hero));
 
-        Step(game, 5); // First 5-frame Prepared window completes: effect fires.
+        // UnpackTime = 0, so Prepared starts on the Initiate call itself; the first 5-frame
+        // Prepared window completes on frame start+5 and the effect fires.
+        StepThroughFrame(game, start + Frames(5));
         Assert.Equal(10, hero.ExperienceTracker.CurrentExperience);
 
         // Looped back to Prepared per the GPL repeating-loop reading - did NOT proceed to
@@ -242,8 +282,20 @@ End
         // ToggleHidden's one-shot-extension reading.
         Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
 
-        Step(game, 5); // Second 5-frame Prepared window completes: effect fires again.
+        // Second PersistentPrepTime window: fires again, still without packing.
+        StepThroughFrame(game, start + Frames(10));
         Assert.Equal(20, hero.ExperienceTracker.CurrentExperience);
+        Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
+
+        // Third window: "repeat forever" is a loop, not a single extra pass - a one-shot or
+        // twice-only reading of PersistentPrepTime dies here.
+        StepThroughFrame(game, start + Frames(15));
+        Assert.Equal(30, hero.ExperienceTracker.CurrentExperience);
+        Assert.False(watcher.ModelConditionFlags.Get(ModelConditionFlag.Packing));
+
+        // ...and the cycle is genuinely never returning to Packed: a fresh Initiate is
+        // rejected because the module is still mid-cycle (spec §1.8's Packed-only gate).
+        Assert.False(module.InitiateIntentToDoSpecialPower("TestAbilityPower", hero));
     }
 
     [Fact]
@@ -275,7 +327,10 @@ End
 
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
 
-        Step(game, 2); // Still mid-Unpack: 3 of 5 UnpackTime frames remain, above the 2-frame threshold.
+        // Still mid-Unpack: the module's own first tick lands one frame after the Initiate call
+        // (file-header note), so 4 of the 5 UnpackTime frames remain here - above the 2-frame
+        // threshold.
+        Step(game, 2);
         Assert.False(watcher.TestStatus(ObjectStatus.Detected));
 
         // 1 (then 0) frames remain, below the 2-frame threshold: MarkAsDetected fires. One
@@ -309,8 +364,9 @@ End
 
         Step(game, 5);
 
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
-        Step(game, 15); // Full unpack -> prepare -> pack cycle.
+        StepThroughFrame(game, start + Frames(15)); // Full unpack -> prepare -> pack cycle.
 
         Assert.True(module.GenerateTerror);
         Assert.True(module.GenerateUncontrollableFear);
@@ -336,9 +392,11 @@ End
         Assert.Equal(3, module.UnpackingVariation);
         Assert.True(module.MustFinishAbility);
 
-        // None of the four gates or blocks a full trigger cycle.
+        // None of the four gates or blocks a full trigger cycle: unpack (5) + prepare (5) +
+        // pack (5) frames, and the module is back at Packed on frame start+15.
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
-        Step(game, 15);
+        StepThroughFrame(game, start + Frames(15));
         Assert.True(module.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
     }
 
@@ -350,10 +408,14 @@ End
         var hero = game.SpawnObject("TestHero", game.CivilianPlayer, Vector3.Zero);
         var live = ModuleOf(watcher);
 
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(live.InitiateIntentToDoSpecialPower("TestAbilityPower", hero));
 
-        // UnpackTime = 0: Prepared starts immediately. Tick 2 of the 5-frame Prepared window.
-        Step(game, 2);
+        // UnpackTime = 0: Prepared starts on the Initiate call, and the effect is due on frame
+        // start+5 (PreparationTime = 5 frames). Save mid-window, with frames left to run.
+        var triggerFrame = start + Frames(5);
+        StepThroughFrame(game, start + Frames(1));
+        Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
 
         var saved = PortedModuleTestKit.Save(live);
         var liveCrc = PortedModuleTestKit.LiveCrc(live);
@@ -372,16 +434,25 @@ End
         // reproduces the effect from its loaded state).
         game.GameLogic.DestroyObject(watcher);
 
-        // Drive the loaded shadow instance directly through its remaining 3 frames (module
-        // scheduling itself is engine-owned and outside this lightweight Xfer walk - see the
-        // file-header note on ModelConditionSpecialAbilityUpdate.cs's own Xfer scope).
-        for (var i = 0; i < 3; i++)
+        // Drive the loaded shadow instance directly through the frames remaining in the window
+        // it was saved mid-way through (module scheduling itself is engine-owned and outside
+        // this lightweight Xfer walk - see the file-header note on
+        // ModelConditionSpecialAbilityUpdate.cs's own Xfer scope). The loaded _phaseEndFrame is
+        // an absolute frame, so the shadow must fire on exactly triggerFrame: neither early
+        // (the in-loop assertion below) nor late (the assertion after it).
+        while (game.GameLogic.CurrentFrame < triggerFrame)
         {
+            Assert.Equal(0, hero.ExperienceTracker.CurrentExperience);
             game.Step();
             shadow.Update();
         }
 
         Assert.Equal(25, hero.ExperienceTracker.CurrentExperience);
+
+        // PackTime = 0 on XferWatcher, so the loaded instance also collapsed straight back to
+        // Packed: it accepts a fresh Initiate, proving the whole phase machine (not just the
+        // one pending timer) survived the round trip.
+        Assert.True(shadow.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
     }
 
     [Fact]
@@ -390,8 +461,12 @@ End
         var game = NewLoadedGame();
         var watcher = game.SpawnObject("Watcher", game.CivilianPlayer, Vector3.Zero);
         var live = ModuleOf(watcher);
+        var start = game.GameLogic.CurrentFrame;
         Assert.True(live.InitiateIntentToDoSpecialPower("TestAbilityPower", null));
-        game.Step();
+
+        // Genuinely mid-behavior: the module's own Update() has run at least once (the first
+        // Step only runs the frame the Initiate call pre-dated - file-header note).
+        StepThroughFrame(game, start + Frames(1));
 
         var shadowHost = game.SpawnObject("Watcher", game.CivilianPlayer, new Vector3(200, 0, 0));
         var shadow = ModuleOf(shadowHost);
