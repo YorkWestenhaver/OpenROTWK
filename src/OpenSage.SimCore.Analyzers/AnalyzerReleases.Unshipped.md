@@ -13,3 +13,4 @@ SIMCORE005 | SimCore.Determinism | Error | Hash or enum ordering is not stable a
 SIMCORE006 | SimCore.Determinism | Error | Mutable static state in simulation code
 SIMCORE007 | SimCore.Determinism | Error | Asynchrony or threading in simulation code
 SIMCORE010 | SimCore.Determinism | Warning | Squared-magnitude multiply outside FixMath
+SIMCORE011 | SimCore.Determinism | Info | Mutable module state is not persisted in the Xfer/Load/Save walk

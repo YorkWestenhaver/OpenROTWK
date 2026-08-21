@@ -17,6 +17,7 @@ renumbered or reused.
 | SIMCORE006 | error | mutable `static` fields (not `const`, not `readonly`) |
 | SIMCORE007 | error | `async`, `Task`, `ValueTask`, `Parallel`, `Thread`, `ThreadPool` |
 | SIMCORE010 | warning | a `Fix64` product of two squared magnitudes outside `FixMath` — Q31.32 saturates at ~2.1e9, so fourth powers must go through the 128-bit wide compare |
+| SIMCORE011 | info (opt-in) | a module field that is mutated as live sim state but never touched by the `Load`/`Save`/`Persist`/`Xfer` walk — save-load and lockstep diverge on it |
 
 `System.Math` is banned wholesale, with no carve-out for the integer overloads: `FixMath` carries
 `Min`/`Max`/`Clamp` for `int`, `long` and `Fix64`, which keeps the rule zero-exception and keeps
@@ -26,6 +27,48 @@ renumbered or reused.
 SIMCORE005 removes is the per-process seed: `System.HashCode` and string hashing differ between two
 runs of the same binary, so anything derived from them diverges silently. SimCore's own value types
 fold their raw Q31.32 words through `DeterministicHash` instead.
+
+## SIMCORE011 — Xfer completeness
+
+Every module serializes its state through one `Load(StatePersister)` / `Xfer(IXfer)` walk
+(`ModuleBase.Load`, api-freeze-v1 S4). If a field drives the simulation but is missing from that
+walk, a save-then-load — and, worse, a cross-machine lockstep resync — starts the module from a
+different state and the game desyncs. The R12 review swarm hit this repeatedly; the canonical case
+is `TurretAIUpdate`, whose `Load()` persists a run of scratch fields but never `_turretAIstate`,
+`_waitUntil` or `_currentTarget` — the actual turret state machine.
+
+The rule fires on a field only when **all** of these hold, which is what keeps it from becoming
+noise the fixer wave would just disable:
+
+- the declaring class is a module (its base chain reaches `ModuleBase`, or it implements
+  `IPersistableObject` — matched by name, like `[SimState]`);
+- the field is instance, non-`readonly`, non-`const`, non-`static` (a `readonly` template handle or
+  a `const` is not live state);
+- it is **actually mutated** outside the constructor and `OnCreate`/`OnObjectCreated` — a field only
+  assigned during construction is reconstructed on load, so it need not be persisted;
+- it is **not** referenced anywhere inside a `Load`/`Save`/`Persist`/`Xfer` method of the class;
+- it is not a template/engine handle (`*ModuleData`, `GameEngine`, `IGameEngine`, `ISimContext`,
+  `SimContext`, `GameObject`) and is not annotated `[NotXfered]`.
+
+Unlike SIMCORE001–010, this rule is **not** gated on the Fix64 scope: the desync backlog lives in
+the legacy AIUpdate directories that scoped mode deliberately does not cover, and persistence
+completeness has nothing to do with float math. It runs on every module the analyzer sees.
+
+**Opt-out — `[NotXfered]`.** A field that is deterministically rebuilt after load (a cache, a
+memoised lookup, a frame-local scratch value) is legitimately absent from the walk. Mark it
+`OpenSage.SimCore.NotXfered` (matched by name, so no SimCore reference is needed) and the rule stays
+quiet. Do not use it to silence genuine sim state — that is the exact bug the rule exists to catch;
+persist the field instead.
+
+**Severity — info, deliberately.** It ships at `info` so it never fails a build (info is immune to
+`TreatWarningsAsErrors`) and can ride along on `OpenSage.Game` today while a backlog of unmigrated
+modules still trips it. The R13 fixer wave turns it up per-directory as modules are cleaned, via
+`.editorconfig`:
+
+```ini
+[src/OpenSage.Game/Logic/Object/Update/AIUpdate/**.cs]
+dotnet_diagnostic.SIMCORE011.severity = warning
+```
 
 ## Attachment modes
 
