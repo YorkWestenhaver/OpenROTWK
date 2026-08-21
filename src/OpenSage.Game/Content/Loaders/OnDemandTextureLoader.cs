@@ -6,6 +6,7 @@ using OpenSage.Graphics;
 using OpenSage.IO;
 using OpenSage.Utilities.Extensions;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
 using Veldrid;
 using Veldrid.ImageSharp;
@@ -14,6 +15,8 @@ namespace OpenSage.Content.Loaders;
 
 internal sealed class OnDemandTextureLoader : IOnDemandAssetLoader<TextureAsset>
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private static readonly string[] PossibleFileExtensions = new[]
     {
         ".dds",
@@ -59,7 +62,24 @@ internal sealed class OnDemandTextureLoader : IOnDemandAssetLoader<TextureAsset>
             return null;
         }
 
-        var texture = LoadImpl(entry, context.FileSystem, context.GraphicsDevice);
+        // STANDING RULE: one bad asset never aborts the frame. A texture that fails to
+        // decode or upload is logged (once — ScopedAssetCollection caches the result per
+        // asset name) and replaced with the shared placeholder texture, mirroring the
+        // shadow-pass AptContext.GetTexture fallback.
+        Texture texture;
+        try
+        {
+            texture = LoadImpl(entry, context.FileSystem, context.GraphicsDevice);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, $"Failed to load texture '{entry.FilePath}' (asset '{name}'); substituting placeholder texture.");
+            return new TextureAsset(
+                context.StandardGraphicsResources.PlaceholderTexture,
+                name,
+                ownsTexture: false);
+        }
+
         texture.Name = entry.FilePath;
         return new TextureAsset(texture, name);
     }
@@ -135,19 +155,26 @@ internal sealed class OnDemandTextureLoader : IOnDemandAssetLoader<TextureAsset>
 
                 var alphaTexture = new ImageSharpTexture(pngStream);
 
-                if (!colorTexture.Images[0].DangerousTryGetSinglePixelMemory(out var colorPixelSpan))
-                {
-                    throw new InvalidOperationException("Unable to get image pixelspan.");
-                }
+                // Per-row access: large images are backed by discontiguous pooled
+                // buffers, so a single whole-image pixelspan is not always available.
+                var colorImage = colorTexture.Images[0];
+                var alphaImage = alphaTexture.Images[0];
 
-                if (!alphaTexture.Images[0].DangerousTryGetSinglePixelMemory(out var alphaPixelSpan))
+                if (colorImage.Width != alphaImage.Width || colorImage.Height != alphaImage.Height)
                 {
-                    throw new InvalidOperationException("Unable to get image pixelspan.");
+                    Logger.Warn($"Alpha sidecar '{pngEntry.FilePath}' is {alphaImage.Width}x{alphaImage.Height} but color image '{entry.FilePath}' is {colorImage.Width}x{colorImage.Height}; ignoring alpha channel.");
                 }
-
-                for (var i = 0; i < colorPixelSpan.Length; i++)
+                else
                 {
-                    colorPixelSpan.Span[i].A = alphaPixelSpan.Span[i].A;
+                    for (var y = 0; y < colorImage.Height; y++)
+                    {
+                        var colorRow = colorImage.DangerousGetPixelRowMemory(y).Span;
+                        var alphaRow = alphaImage.DangerousGetPixelRowMemory(y).Span;
+                        for (var x = 0; x < colorRow.Length; x++)
+                        {
+                            colorRow[x].A = alphaRow[x].A;
+                        }
+                    }
                 }
             }
         }

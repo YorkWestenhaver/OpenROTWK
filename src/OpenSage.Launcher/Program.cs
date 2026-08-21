@@ -237,8 +237,16 @@ public static class Program
                     var mapCache = game.AssetStore.MapCaches.GetByName(opts.Map);
                     if (mapCache == null)
                     {
-                        Logger.Warn("Could not find MapCache entry for map " + opts.Map);
-                        game.ShowMainMenu();
+                        // A --map key that resolves to no MapCache entry is a fatal argument
+                        // error: abort with a clear message instead of falling into the main
+                        // menu / game loop, which NREs in Game.GameEngine with no game loaded.
+                        var message =
+                            $"--map '{opts.Map}' does not match any MapCache entry. " +
+                            "Maps are looked up by their MapCache key (the map's registered name, " +
+                            "e.g. 'maps\\mymap\\mymap.map'), not by file path. Aborting.";
+                        Logger.Error(message);
+                        Console.Error.WriteLine(message);
+                        Environment.Exit(2);
                     }
                     else if (mapCache.IsMultiplayer)
                     {

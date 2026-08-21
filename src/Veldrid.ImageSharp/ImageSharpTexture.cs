@@ -80,35 +80,34 @@ public class ImageSharpTexture
         for (uint level = 0; level < MipLevels; level++)
         {
             Image<Rgba32> image = Images[level];
-            if (!image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> pixelSpan))
+            MappedResource map = gd.Map(staging, MapMode.Write, level);
+            uint rowWidth = (uint)(image.Width * 4);
+            ForEachPixelRegion(image, (pixels, startRow, rowCount) =>
             {
-                throw new VeldridException("Unable to get image pixelspan.");
-            }
-            using (var pin = pixelSpan.Pin())
-            {
-                MappedResource map = gd.Map(staging, MapMode.Write, level);
-                uint rowWidth = (uint)(image.Width * 4);
-                if (rowWidth == map.RowPitch)
+                using (var pin = pixels.Pin())
                 {
-                    Unsafe.CopyBlock(map.Data.ToPointer(), pin.Pointer, (uint)(image.Width * image.Height * 4));
-                }
-                else
-                {
-                    for (uint y = 0; y < image.Height; y++)
+                    if (rowWidth == map.RowPitch)
                     {
-                        byte* dstStart = (byte*)map.Data.ToPointer() + y * map.RowPitch;
-                        byte* srcStart = (byte*)pin.Pointer + y * rowWidth;
-                        Unsafe.CopyBlock(dstStart, srcStart, rowWidth);
+                        byte* dstStart = (byte*)map.Data.ToPointer() + startRow * map.RowPitch;
+                        Unsafe.CopyBlock(dstStart, pin.Pointer, (uint)(image.Width * rowCount * 4));
+                    }
+                    else
+                    {
+                        for (uint y = 0; y < rowCount; y++)
+                        {
+                            byte* dstStart = (byte*)map.Data.ToPointer() + (startRow + y) * map.RowPitch;
+                            byte* srcStart = (byte*)pin.Pointer + y * rowWidth;
+                            Unsafe.CopyBlock(dstStart, srcStart, rowWidth);
+                        }
                     }
                 }
-                gd.Unmap(staging, level);
+            });
+            gd.Unmap(staging, level);
 
-                cl.CopyTexture(
-                    staging, 0, 0, 0, level, 0,
-                    ret, 0, 0, 0, level, 0,
-                    (uint)image.Width, (uint)image.Height, 1, 1);
-
-            }
+            cl.CopyTexture(
+                staging, 0, 0, 0, level, 0,
+                ret, 0, 0, 0, level, 0,
+                (uint)image.Width, (uint)image.Height, 1, 1);
         }
         cl.End();
 
@@ -126,27 +125,48 @@ public class ImageSharpTexture
         for (int level = 0; level < MipLevels; level++)
         {
             Image<Rgba32> image = Images[level];
-            if (!image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> pixelSpan))
+            uint levelCopy = (uint)level;
+            ForEachPixelRegion(image, (pixels, y, rowCount) =>
             {
-                throw new VeldridException("Unable to get image pixelspan.");
-            }
-            using (var pin = pixelSpan.Pin())
-            {
-                gd.UpdateTexture(
-                    tex,
-                    (IntPtr)pin.Pointer,
-                    (uint)(PixelSizeInBytes * image.Width * image.Height),
-                    0,
-                    0,
-                    0,
-                    (uint)image.Width,
-                    (uint)image.Height,
-                    1,
-                    (uint)level,
-                    0);
-            }
+                using (var pin = pixels.Pin())
+                {
+                    gd.UpdateTexture(
+                        tex,
+                        (IntPtr)pin.Pointer,
+                        (uint)(PixelSizeInBytes * image.Width * rowCount),
+                        0,
+                        (uint)y,
+                        0,
+                        (uint)image.Width,
+                        (uint)rowCount,
+                        1,
+                        levelCopy,
+                        0);
+                }
+            });
         }
 
         return tex;
+    }
+
+    /// <summary>
+    /// Invokes <paramref name="action"/> for each contiguous run of pixel rows in
+    /// <paramref name="image"/>. For images backed by a single contiguous buffer this is one
+    /// call covering the whole image; for large images, whose backing memory ImageSharp
+    /// splits into multiple pooled buffers (so DangerousTryGetSinglePixelMemory fails),
+    /// this falls back to one call per row. The action receives (pixels, startRow, rowCount).
+    /// </summary>
+    public static void ForEachPixelRegion(Image<Rgba32> image, Action<Memory<Rgba32>, int, int> action)
+    {
+        if (image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> wholeImage))
+        {
+            action(wholeImage, 0, image.Height);
+            return;
+        }
+
+        for (int y = 0; y < image.Height; y++)
+        {
+            action(image.DangerousGetPixelRowMemory(y), y, 1);
+        }
     }
 }

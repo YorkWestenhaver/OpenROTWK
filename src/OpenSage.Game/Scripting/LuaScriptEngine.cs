@@ -54,11 +54,28 @@ public sealed class LuaScriptEngine : GameSystem
     }
 
     private W3dModelDraw _currentDrawModule;
+    private readonly System.Collections.Generic.HashSet<string> _failedDrawModuleLuaSnippets = new();
+
     public void ExecuteDrawModuleLuaCode(W3dModelDraw drawModule, string luaCode)
     {
         _currentDrawModule = drawModule;
         Logger.Info($"Executing ini code {luaCode}");
-        MainScript.DoString(luaCode);
+
+        // STANDING RULE: one bad asset never aborts the frame. AnimationState/ConditionState
+        // LuaEvent snippets from mod INI can reference script functions this engine does not
+        // implement yet (MoonSharp: "attempt to call a nil value"); that must degrade to a
+        // logged no-op per snippet, not an unhandled exception that kills map load.
+        try
+        {
+            MainScript.DoString(luaCode);
+        }
+        catch (Exception ex) when (ex is InterpreterException or InvalidOperationException)
+        {
+            if (_failedDrawModuleLuaSnippets.Add(luaCode))
+            {
+                Logger.Error(ex, $"Draw-module Lua snippet failed; ignoring further failures of this snippet. Code: {luaCode}");
+            }
+        }
     }
 
     public void FunctionInit()

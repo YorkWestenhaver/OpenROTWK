@@ -699,6 +699,14 @@ public sealed class Locomotor : IPersistableObject
                 }
                 break;
 
+            case LocomotorBehaviorZ.FloatingZ:
+            case LocomotorBehaviorZ.ScalingWalls:
+                // BFME/BFME2 INI additions whose z-behavior is not implemented yet
+                // (e.g. ScalingWalls on GoblinSpiderRider). Degrade to no z-motive
+                // force instead of throwing and killing the whole sim tick.
+                requiresConstantCalling = false;
+                break;
+
             default:
                 throw new InvalidOperationException();
         }
