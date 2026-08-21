@@ -8,6 +8,8 @@ namespace OpenSage.Logic.Object;
 
 public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     /// <summary>
     /// The next frame when this special power can be used
     /// </summary>
@@ -27,18 +29,39 @@ public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
     public bool Ready => ReadyProgress() >= 1;
     private bool _ready;
 
-    private readonly SpecialPowerModuleData _moduleData;
+    /// <summary>
+    /// The resolved <see cref="SpecialPower"/> asset for <see cref="SpecialPowerModuleData.SpecialPower"/>,
+    /// resolved once here (instead of re-dereferencing the lazy reference on every access) so a data set
+    /// missing/renaming the referenced SpecialPowerTemplate is diagnosed exactly once. Null when the
+    /// reference is absent or fails to resolve; see <see cref="_disabled"/>.
+    /// </summary>
+    private readonly SpecialPower _specialPower;
+
+    /// <summary>
+    /// True when <see cref="_specialPower"/> failed to resolve. Every public/internal surface below
+    /// short-circuits to a safe no-op or default value while this is set, mirroring the guard
+    /// <see cref="SpawnBehavior"/> uses for its own unresolved SpawnTemplateName reference.
+    /// </summary>
+    private readonly bool _disabled;
 
     private bool _unlocked;
 
-    public SpecialPowerType SpecialPowerType => _moduleData.SpecialPower.Value.Type;
+    public SpecialPowerType SpecialPowerType => _disabled ? default : _specialPower.Type;
 
     internal SpecialPowerModule(GameObject gameObject, IGameEngine gameEngine, SpecialPowerModuleData moduleData) : base(gameObject, gameEngine)
     {
-        _moduleData = moduleData;
-        _reloadFrames = _moduleData.SpecialPower.Value.ReloadTime;
+        _specialPower = moduleData.SpecialPower?.Value;
+
+        if (_specialPower == null)
+        {
+            _disabled = true;
+            Logger.Warn($"SpecialPowerModule on '{GameObject.Definition.Name}' could not resolve its SpecialPowerTemplate; special power disabled.");
+            return;
+        }
+
+        _reloadFrames = _specialPower.ReloadTime;
         _paused = moduleData.StartsPaused;
-        if (!moduleData.SpecialPower.Value.SharedSyncedTimer)
+        if (!_specialPower.SharedSyncedTimer)
         {
             // items with a sharedsyncedtimer have their countdown set to 0 when not unlocked
             ResetCountdown();
@@ -50,6 +73,11 @@ public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
     /// </summary>
     public float ReadyProgress()
     {
+        if (_disabled)
+        {
+            return 0;
+        }
+
         if (_paused)
         {
             return 0;
@@ -67,9 +95,9 @@ public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
         }
 
         var availableAtFrame = _availableAtFrame;
-        if (_moduleData.SpecialPower.Value.SharedSyncedTimer)
+        if (_specialPower.SharedSyncedTimer)
         {
-            if (GameObject.Owner.SyncedSpecialPowerTimers.TryGetValue(_moduleData.SpecialPower.Value.Type, out var frame))
+            if (GameObject.Owner.SyncedSpecialPowerTimers.TryGetValue(_specialPower.Type, out var frame))
             {
                 availableAtFrame = frame;
             }
@@ -86,15 +114,20 @@ public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
 
     public virtual void TryUpgrade(Science purchasedScience)
     {
+        if (_disabled)
+        {
+            return;
+        }
+
         if (!_unlocked)
         {
             // the GLA cash bounty is actually awarded immediately upon a CC scaffold being placed - I suspect this is due to the reload time being zero
-            if (GameObject.IsBeingConstructed() && _moduleData.SpecialPower.Value.ReloadTime != LogicFrameSpan.Zero)
+            if (GameObject.IsBeingConstructed() && _specialPower.ReloadTime != LogicFrameSpan.Zero)
             {
                 return; // nothing for us to do if we're not even built yet
             }
 
-            foreach (var requiredScience in _moduleData.SpecialPower.Value.RequiredSciences)
+            foreach (var requiredScience in _specialPower.RequiredSciences)
             {
                 if (!GameObject.Owner.HasScience(requiredScience.Value))
                 {
@@ -110,47 +143,66 @@ public class SpecialPowerModule : BehaviorModule, IUpgradableScienceModule
     {
         _unlocked = true;
 
-        if (_moduleData.SpecialPower.Value.PublicTimer)
+        if (_specialPower.PublicTimer)
         {
             return; // this is handled by SpecialPowerCreate
         }
 
         _availableAtFrame = GameEngine.GameLogic.CurrentFrame;
-        if (_moduleData.SpecialPower.Value.SharedSyncedTimer)
+        if (_specialPower.SharedSyncedTimer)
         {
             var player = GameObject.Owner;
-            player.SyncedSpecialPowerTimers.TryAdd(_moduleData.SpecialPower.Value.Type, _availableAtFrame); // it shouldn't already be added, but this way we don't worry about it
+            player.SyncedSpecialPowerTimers.TryAdd(_specialPower.Type, _availableAtFrame); // it shouldn't already be added, but this way we don't worry about it
         }
     }
 
     public void Unpause()
     {
+        if (_disabled)
+        {
+            return;
+        }
+
         _paused = false;
         ResetCountdown();
     }
 
     public void ResetCountdown()
     {
-        _availableAtFrame = GameEngine.GameLogic.CurrentFrame + _moduleData.SpecialPower.Value.ReloadTime;
+        if (_disabled)
+        {
+            return;
+        }
+
+        _availableAtFrame = GameEngine.GameLogic.CurrentFrame + _specialPower.ReloadTime;
         _ready = false;
 
-        if (_moduleData.SpecialPower.Value.SharedSyncedTimer)
+        if (_specialPower.SharedSyncedTimer)
         {
-            GameObject.Owner.SyncedSpecialPowerTimers[_moduleData.SpecialPower.Value.Type] = _availableAtFrame;
+            GameObject.Owner.SyncedSpecialPowerTimers[_specialPower.Type] = _availableAtFrame;
         }
     }
 
     internal virtual void Activate(Vector3 position)
     {
-        var specialPower = _moduleData.SpecialPower.Value;
-        GameEngine.AudioSystem.PlayAudioEvent(specialPower.InitiateSound?.Value);
-        GameEngine.AudioSystem.PlayAudioEvent(position, specialPower.InitiateAtLocationSound?.Value);
+        if (_disabled)
+        {
+            return;
+        }
+
+        GameEngine.AudioSystem.PlayAudioEvent(_specialPower.InitiateSound?.Value);
+        GameEngine.AudioSystem.PlayAudioEvent(position, _specialPower.InitiateAtLocationSound?.Value);
         ResetCountdown();
     }
 
     public bool Matches(SpecialPower specialPower)
     {
-        return _moduleData.SpecialPower.Value == specialPower;
+        if (_disabled)
+        {
+            return false;
+        }
+
+        return _specialPower == specialPower;
     }
 
     internal override void Load(StatePersister reader)
