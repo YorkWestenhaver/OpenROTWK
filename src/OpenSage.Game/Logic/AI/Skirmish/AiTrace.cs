@@ -60,12 +60,11 @@ public sealed class AiTrace
     {
         PlayerIndex = playerIndex;
         _sink = sink ?? LoggingAiTraceSink.Instance;
+        Prefix = string.Create(CultureInfo.InvariantCulture, $"[AI p{playerIndex}] ");
     }
 
-    /// <summary>The "[AI p3] " prefix every line of this trace carries.</summary>
-    public string Prefix => string.Create(
-        CultureInfo.InvariantCulture,
-        $"[AI p{PlayerIndex}] ");
+    /// <summary>The "[AI p3] " prefix every line of this trace carries. Built once.</summary>
+    public string Prefix { get; }
 
     /// <summary>
     /// Writes the per-brain heartbeat. FORMAT IS A CONTRACT (report schema v1):
