@@ -1,4 +1,4 @@
-// Contract tests for R13's oracle exp-001 finding #1 fix: HeadlessSimGame.SpawnObject snaps
+﻿// Contract tests for R13's oracle exp-001 finding #1 fix: HeadlessSimGame.SpawnObject snaps
 // a map-spawned object's z to authored-z-plus-terrain-height at (x,y), instead of leaving z at
 // the raw authored value. This mirrors GameLogic.cpp's non-bridge/non-road MapObject load loop
 // (GPL): `pos.z += TheTerrainLogic->getGroundHeight(pos.x, pos.y)` runs unconditionally for
