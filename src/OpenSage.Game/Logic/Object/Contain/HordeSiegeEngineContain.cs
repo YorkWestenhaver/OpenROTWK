@@ -30,6 +30,22 @@
 // tracked/Xfered state, exactly as FadeAndDieOrnamentUpdate's CurrentOpacity is derived rather
 // than stored.
 //
+// R13 fix (blocker): a per-member PassengerFade record, once written by StartFade, is NEVER
+// deleted by frame-advance (Update() no longer purges completed records - see below). This is
+// load-bearing, not incidental: OpacityAtFrame's per-fade math (Frac, clamped) already yields
+// the correct FROZEN terminal value forever once elapsed >= span (One for a completed ENTER
+// fade, Zero for a completed EXIT fade, and the FadeReverse-flipped equivalents) - exactly
+// FadeAndDieOrnamentUpdate's "stateless function of a fixed anchor, no deletion" posture the
+// rest of this header already (correctly) claims. Deleting the record once it aged out (the
+// R12 bug) collapsed that per-direction terminal value down to a single hardcoded
+// Fix64.One fallback in OpacityAtFrame - wrong for every EXIT fade and every FadeReverse-
+// flipped ENTRY fade, and reachable within a single game tick for a zero-duration fade (a
+// normal INI value - see SiegeEngineHostInstant in the contract tests). StartFade still calls
+// RemoveFade before adding, so a member's fade record is replaced (not accumulated) each time
+// NotifyMemberEntered/Exited starts a new fade for them; the fallback Fix64.One in
+// OpacityAtFrame is now reached only for a member that has never had any fade started, which is
+// the one case it was always correct for.
+//
 // Audio: EnterSound/ExitSound are literal AudioEvent asset references (parser.ParseAssetReference,
 // same as TransportContain's identically-named fields), not UnitSpecificSounds keys, so they
 // go through the new ISimEvents.FireAudioEventAtObject seam (grown for this port, mirroring
@@ -96,8 +112,10 @@ public sealed class HordeSiegeEngineContain : UpdateModule
 
     /// <summary>
     /// The passenger's fade opacity right now (Fix64 in [Zero, One]). Fix64.One (fully
-    /// visible) when the member has no fade tracked - no fade ever started, or a started fade
-    /// has already completed and been purged. Render-only output (S8), same posture as
+    /// visible) only when the member has NEVER had a fade started - a completed fade's record
+    /// is never purged (R13 fix), so its correct frozen terminal value (One for a completed
+    /// ENTER fade, Zero for a completed EXIT fade, and the FadeReverse-flipped equivalents) is
+    /// what OpacityAtFrame keeps returning, forever. Render-only output (S8), same posture as
     /// FadeAndDieOrnamentUpdate.CurrentOpacity.
     /// </summary>
     public Fix64 GetPassengerOpacity(ObjectId member) => OpacityAtFrame(member, Context.CurrentFrame);
@@ -121,7 +139,9 @@ public sealed class HordeSiegeEngineContain : UpdateModule
     /// fully elapsed regardless of <paramref name="now"/> (S5 default, matching
     /// FadeAndDieOrnamentUpdate's Frac - this is what makes EnterFadeTime/ExitFadeTime = 0
     /// apply instantly, with no animation frames). Otherwise a not-yet-started fade reads as
-    /// zero and a finished-but-not-yet-purged one clamps to fully elapsed.
+    /// zero and a finished fade (whose record is never purged - R13 fix) clamps to fully
+    /// elapsed forever, which is what freezes GetPassengerOpacity at the correct terminal
+    /// value.
     /// </summary>
     private static Fix64 Frac(LogicFrame now, LogicFrame start, LogicFrame end)
     {
@@ -245,17 +265,17 @@ public sealed class HordeSiegeEngineContain : UpdateModule
         }
     }
 
+    /// <summary>
+    /// R13 fix: this used to purge each PassengerFade record once its timeline finished
+    /// (`now >= StartFrame + Duration`), which collapsed OpacityAtFrame's per-direction frozen
+    /// terminal value down to a single wrong constant (see the header's "R13 fix" note and
+    /// finding 1 in review/horde-siege-engine-contain.md). OpacityAtFrame's own math already
+    /// freezes correctly at the terminal value once a fade completes, so there is nothing left
+    /// for Update() to do here; it still ticks every frame (SetWakeFrame(UpdateSleepTime.None))
+    /// in case a future crew-seating port needs a per-frame hook on this module.
+    /// </summary>
     public override UpdateSleepTime Update()
     {
-        var now = Context.CurrentFrame;
-        for (var i = _fades.Count - 1; i >= 0; i--)
-        {
-            var fade = _fades[i];
-            if (now >= fade.StartFrame + fade.Duration)
-            {
-                _fades.RemoveAt(i);
-            }
-        }
         return UpdateSleepTime.None;
     }
 
