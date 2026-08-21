@@ -50,7 +50,11 @@ public sealed class WeaponSet : IPersistableObject
 
         for (var i = 0; i < _weapons.Length; i++)
         {
-            var weaponTemplate = _currentWeaponTemplateSet.Slots[i]?.Weapon.Value;
+            // A slot exists as soon as ANY of the per-slot properties names it, so a WeaponSet that
+            // writes e.g. `PreferredAgainst = SECONDARY ...` with no matching `Weapon = SECONDARY`
+            // leaves a slot whose Weapon reference is null (Age of the Ring's object INI does this).
+            // Such a slot is simply empty, as in retail - it must not fault the object's creation.
+            var weaponTemplate = _currentWeaponTemplateSet.Slots[i]?.Weapon?.Value;
             if (weaponTemplate != null)
             {
                 _weapons[i] = new Weapon(_gameObject, weaponTemplate, (WeaponSlot)i, _gameEngine);

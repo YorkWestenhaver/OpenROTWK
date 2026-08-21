@@ -12,6 +12,14 @@ namespace OpenSage.Content;
 
 public sealed class ContentManager : DisposableBase
 {
+    static ContentManager()
+    {
+        // The ANSI code pages the game's data uses (1252 and friends) are not built into .NET; the
+        // constructor below asks for one by number, and on a headed boot nothing has touched
+        // GameEngine or BinaryUtility - the two other types that register this - by that point.
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     private readonly IGame _game;
 
     public SubsystemLoader SubsystemLoader { get; }

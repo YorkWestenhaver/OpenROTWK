@@ -38,8 +38,17 @@ public sealed class AudioSystem : GameSystem
 
     public AudioSystem(IGame game) : base(game)
     {
-        _engine = AddDisposable(AudioEngine.CreateDefault());
-        _3dengine = _engine.Create3DEngine();
+        // AudioEngine.CreateDefault() returns null when no backend can be opened. SharpAudio's
+        // OpenAL binding looks for a bare libopenal.dylib, which macOS does not ship (its OpenAL
+        // is a deprecated framework, and openal-soft is an optional Homebrew install), so a stock
+        // Mac has no audio backend at all. Run silently rather than refusing to boot.
+        var engine = AudioEngine.CreateDefault();
+        if (engine is null)
+        {
+            Logger.Warn("No audio backend is available; the game will run without sound.");
+        }
+        _engine = engine is not null ? AddDisposable(engine) : null;
+        _3dengine = _engine?.Create3DEngine();
         _sources = new List<AudioSource>();
         _cached = new Dictionary<string, AudioBuffer>();
         _mixers = new Dictionary<AudioVolumeSlider, Submixer>();
@@ -76,6 +85,11 @@ public sealed class AudioSystem : GameSystem
 
     private void CreateSubmixers()
     {
+        if (_engine is null)
+        {
+            return;
+        }
+
         // Create all available mixers
         _mixers[AudioVolumeSlider.SoundFX] = _engine.CreateSubmixer();
         _mixers[AudioVolumeSlider.SoundFX].Volume = (float)_settings.DefaultSoundVolume;
@@ -107,6 +121,11 @@ public sealed class AudioSystem : GameSystem
     public AudioSource GetSound(FileSystemEntry entry,
         AudioVolumeSlider? vslider = AudioVolumeSlider.None, bool loop = false)
     {
+        if (_engine is null)
+        {
+            return null;
+        }
+
         AudioBuffer buffer;
 
         if (!_cached.ContainsKey(entry.FilePath))
@@ -159,6 +178,11 @@ public sealed class AudioSystem : GameSystem
     /// </summary>
     public SoundStream GetStream(FileSystemEntry entry)
     {
+        if (_engine is null)
+        {
+            return null;
+        }
+
         // TODO: Use submixer (currently not possible)
         return AddDisposable(new SoundStream(entry.Open(), _engine));
     }
@@ -210,13 +234,25 @@ public sealed class AudioSystem : GameSystem
             return null;
         }
 
+        // Resolving the entry above draws from the audio random stream whether or not there is a
+        // backend, so a silent run stays draw-for-draw identical to one with sound.
         var source = GetSound(entry, audioEvent.SubmixSlider, looping || audioEvent.Control.HasFlag(AudioControlFlags.Loop));
+        if (source is null)
+        {
+            return null;
+        }
+
         source.Volume = (float)audioEvent.Volume;
         return source;
     }
 
     private void UpdateListener(Camera camera)
     {
+        if (_3dengine is null)
+        {
+            return;
+        }
+
         _3dengine.SetListenerPosition(camera.Position);
         var front = Vector3.Normalize(camera.Target - camera.Position);
         _3dengine.SetListenerOrientation(camera.Up, front);
@@ -268,6 +304,12 @@ public sealed class AudioSystem : GameSystem
 
         _currentTrackName = musicTrack.Name;
         _currentTrack = GetStream(musicTrack.File.Value.Entry);
+        if (_currentTrack is null)
+        {
+            _currentTrackName = null;
+            return;
+        }
+
         _currentTrack.Volume = (float)musicTrack.Volume;
         _currentTrack.Play();
     }
