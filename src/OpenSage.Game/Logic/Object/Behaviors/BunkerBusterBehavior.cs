@@ -195,7 +195,17 @@ public sealed class BunkerBusterBehavior : UpdateModule, IDieModule
         base.Load(reader);
         reader.EndObject();
 
-        reader.PersistObjectId(ref _victimId);
+        // GPL's xfer() (BunkerBusterBehavior.cpp) delegates to UpdateModule::xfer(xfer) only -
+        // m_victimID is never read or written by retail's xfer contract, so a real save/load
+        // resets any in-flight bomb's cached victim back to INVALID_ID (the ctor default); the
+        // object re-adopts whatever ai->getCurrentVictim() happens to be at the next update()
+        // after load. Do not persist _victimId - reset it to Invalid on load to match retail,
+        // rather than faithfully round-tripping the cached victim (which would diverge from a
+        // retail peer that forgets it).
+        if (reader.Mode == StatePersistMode.Read)
+        {
+            _victimId = ObjectId.Invalid;
+        }
 
         var upgradeName = _upgradeRequired?.Name;
         reader.PersistAsciiString(ref upgradeName);
