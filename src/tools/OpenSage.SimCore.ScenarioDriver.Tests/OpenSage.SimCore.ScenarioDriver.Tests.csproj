@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Program.Main is internal (InternalsVisibleTo grants this project access); driving it
+         directly in-process is how these tests exercise the real CLI arg parsing instead of a
+         subprocess. -->
+    <ProjectReference Include="..\OpenSage.SimCore.ScenarioDriver\OpenSage.SimCore.ScenarioDriver.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- job005_spawn_fight.map: the retail-lobby-wipe fixture SimMapRunTests already proved
+         (Job005Map_RetailLobbyWipe_AuthoredScenarioScriptsDoNotRun). Linked, not duplicated -
+         one map, one copy of truth. -->
+    <None Include="..\..\OpenSage.Game.Tests\Logic\Script\Assets\job005_spawn_fight.map"
+          Link="Assets\job005_spawn_fight.map">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

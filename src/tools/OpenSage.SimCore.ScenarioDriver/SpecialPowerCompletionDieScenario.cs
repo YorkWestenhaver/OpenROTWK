@@ -36,6 +36,7 @@
 // Run: harness.py selfdiff data/schedules/spcd-v1.sched.json --driver-scenario spcd-v1
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using OpenSage;
 using OpenSage.Logic.Object;
@@ -155,6 +156,14 @@ End
     }
 
     public void AttachWriter(DeepCrcWriter writer) => _writer = writer;
+
+    public void SetChannelExclusions(IReadOnlyList<CrcChannel> excluded)
+    {
+        foreach (var channel in excluded)
+        {
+            _checker.SetExcluded(channel, true);
+        }
+    }
 
     public void IngestOrders(LogicFrame frame)
     {

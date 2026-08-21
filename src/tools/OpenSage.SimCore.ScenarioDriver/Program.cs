@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using OpenSage.SimCore.Numerics;
@@ -27,9 +28,11 @@ using OpenSage.SimCore.Rng;
 using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("OpenSage.SimCore.ScenarioDriver.Tests")]
+
 internal static class Program
 {
-    private static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         string? schedulePath = null;
         string? outPath = null;
@@ -46,6 +49,14 @@ internal static class Program
         // exit request; the exit frame is still reported. Default OFF - every
         // existing run keeps stopping exactly where it stopped before.
         var ignoreMapExit = false;
+        var excludeNames = new List<string>();
+        var streamOnly = false;
+        var archStamp = false;
+        // Opt-in retail-lobby conformance (SCRIPT-O2). Default OFF: every existing map-v1
+        // run keeps compiling the full authored script list, byte-identical to before this
+        // flag existed. See MapScenario's ctor doc comment for the "does NOT make shipped
+        // AotR maps runnable" scope note - it applies equally to this switch.
+        var retailLobbyWipe = false;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -60,6 +71,10 @@ internal static class Program
                 case "--scenario": scenarioName = args[++i]; break;
                 case "--map": mapPath = args[++i]; break;
                 case "--ini": iniPaths.Add(args[++i]); break;
+                case "--exclude": excludeNames.Add(args[++i]); break;
+                case "--stream-only": streamOnly = true; break;
+                case "--arch-stamp": archStamp = true; break;
+                case "--retail-lobby-wipe": retailLobbyWipe = true; break;
                 default:
                     Console.Error.WriteLine($"unknown argument: {args[i]}");
                     return 2;
@@ -71,8 +86,26 @@ internal static class Program
             Console.Error.WriteLine(
                 "usage: scenariodriver --schedule <injection-schedule.json> --out <dump> " +
                 "[--until-frame N] [--checkpoint-interval K] [--seed S] [--ignore-map-exit] " +
-                "[--scenario NAME] [--map <file.map> [--ini <file.ini>]...]");
+                "[--scenario NAME] [--map <file.map> [--ini <file.ini>]...] " +
+                "[--exclude CHANNEL]... [--stream-only] [--arch-stamp] [--retail-lobby-wipe]");
             return 2;
+        }
+
+        var excludedChannels = new List<CrcChannel>();
+        foreach (var name in excludeNames)
+        {
+            if (!TryResolveChannel(name, out var channel))
+            {
+                var valid = new List<string>();
+                for (var c = 0; c < CrcChannels.Count; c++)
+                {
+                    valid.Add(CrcChannels.NameOf((CrcChannel)c));
+                }
+                Console.Error.WriteLine(
+                    $"unknown --exclude channel: {name} (valid: {string.Join(", ", valid)})");
+                return 2;
+            }
+            excludedChannels.Add(channel);
         }
 
         List<InjectedOrder> orders;
@@ -122,7 +155,7 @@ internal static class Program
                 }
                 try
                 {
-                    scenario = new MapScenario(seed, mapPath, iniPaths);
+                    scenario = new MapScenario(seed, mapPath, iniPaths, retailLobbyWipe);
                 }
                 catch (Exception e) when (e is IOException or InvalidDataException or InvalidOperationException)
                 {
@@ -134,6 +167,8 @@ internal static class Program
                 Console.Error.WriteLine($"unknown scenario: {scenarioName}");
                 return 2;
         }
+        scenario.SetChannelExclusions(excludedChannels);
+
         var loop = new SimLoop(scenario)
         {
             CrcCheckpointIntervalInFrames = SyncChecker.EffectiveInterval(checkpointInterval),
@@ -147,7 +182,16 @@ internal static class Program
         var mapScenario = scenario as MapScenario;
         using (var stream = new StreamWriter(outPath, append: false, new UTF8Encoding(false)) { NewLine = "\n" })
         {
-            scenario.AttachWriter(new DeepCrcWriter(stream, leaveOpen: true));
+            var writer = new DeepCrcWriter(stream, leaveOpen: true, streamOnly: streamOnly);
+            if (archStamp)
+            {
+                writer.Comment($"arch {RuntimeInformation.ProcessArchitecture} {RuntimeInformation.RuntimeIdentifier}");
+            }
+            foreach (var channel in excludedChannels)
+            {
+                writer.Comment($"exclude {CrcChannels.NameOf(channel)}");
+            }
+            scenario.AttachWriter(writer);
             while (loop.CurrentFrame.Value <= stopAfter
                    && (ignoreMapExit || mapScenario is not { MapExitRequested: true }))
             {
@@ -155,16 +199,21 @@ internal static class Program
             }
         }
 
+        var excludedSummary = excludedChannels.Count == 0
+            ? "none"
+            : string.Join(",", excludedChannels.ConvertAll(CrcChannels.NameOf));
         Console.WriteLine(
             $"{scenarioName}: frames=0..{stopAfter} orders={orders.Count} dispatched={scenario.Dispatched} " +
             $"checkpoints={scenario.Checkpoints} objects={scenario.ObjectCount} " +
-            $"finalCombined={scenario.FinalCombined:X8} seed=0x{seed:X8} interval={loop.CrcCheckpointIntervalInFrames}");
+            $"finalCombined={scenario.FinalCombined:X8} seed=0x{seed:X8} interval={loop.CrcCheckpointIntervalInFrames} " +
+            $"excluded={excludedSummary}");
         if (mapScenario is not null)
         {
             var exitFrame = mapScenario.MapExitFrame;
             Console.WriteLine(
                 $"map-v1: MapExitFrame={(exitFrame is null ? "none" : exitFrame.Value.ToString(CultureInfo.InvariantCulture))} " +
-                $"mapObjectsSpawned={mapScenario.MapObjectsSpawned} mapObjectsSkipped={mapScenario.MapObjectsSkipped}");
+                $"mapObjectsSpawned={mapScenario.MapObjectsSpawned} mapObjectsSkipped={mapScenario.MapObjectsSkipped} " +
+                $"retailLobbyWipe={retailLobbyWipe}");
         }
         return 0;
     }
@@ -173,6 +222,23 @@ internal static class Program
         s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
             ? uint.Parse(s.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture)
             : uint.Parse(s, CultureInfo.InvariantCulture);
+
+    /// <summary>Resolves a --exclude channel name against the frozen walk (CrcChannels.NameOf
+    /// over ordinals 0..Count-1). Deliberately not Enum.Parse/Enum.GetValues - CrcChannel.cs's
+    /// own header flags those as banned surface (unstable ordering).</summary>
+    private static bool TryResolveChannel(string name, out CrcChannel channel)
+    {
+        for (var i = 0; i < CrcChannels.Count; i++)
+        {
+            if (string.Equals(CrcChannels.NameOf((CrcChannel)i), name, StringComparison.Ordinal))
+            {
+                channel = (CrcChannel)i;
+                return true;
+            }
+        }
+        channel = default;
+        return false;
+    }
 
     // -----------------------------------------------------------------------
     // Schedule loading: bfme2-harness/injection-schedule/v1 -> SimOrders
@@ -278,6 +344,13 @@ internal static class Program
 internal interface IDriverScenario : ISimSystems
 {
     void AttachWriter(DeepCrcWriter writer);
+
+    /// <summary>The F11 migration seam: quarantines the named channels out of the graded
+    /// stream (SyncChecker.SetExcluded), a post-construction call since SyncChecker's ctor
+    /// enforces ascending-ordinal registration without duplicates and cannot itself filter
+    /// the source list. Called once, before the tick loop starts.</summary>
+    void SetChannelExclusions(IReadOnlyList<CrcChannel> excluded);
+
     int Dispatched { get; }
     int Checkpoints { get; }
     int ObjectCount { get; }
@@ -432,6 +505,14 @@ internal sealed class ScriptedScenario : IDriverScenario
     }
 
     public void AttachWriter(DeepCrcWriter writer) => _writer = writer;
+
+    public void SetChannelExclusions(IReadOnlyList<CrcChannel> excluded)
+    {
+        foreach (var channel in excluded)
+        {
+            _checker.SetExcluded(channel, true);
+        }
+    }
 
     public void IngestOrders(LogicFrame frame)
     {

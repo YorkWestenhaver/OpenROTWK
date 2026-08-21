@@ -45,7 +45,17 @@ internal sealed class MapScenario : IDriverScenario
         }
     }
 
-    public MapScenario(uint seed, string mapPath, IReadOnlyList<string> iniPaths)
+    /// <param name="retailLobbyWipe">Threads SimMapRun's retailLobbyWipe (SCRIPT-O2
+    /// conformance): only well-known Player_&lt;n&gt;/Skirmish*/civilian/neutral SidesList
+    /// entries reach the script compiler. Default OFF - every existing map-v1 run keeps
+    /// compiling the full authored script list, byte-identical to before this flag existed.
+    /// This flag is NOT a route to running shipped AotR maps: a map like Helm's Deep author
+    /// its SidesList entirely from names the wipe already lets survive (PlyrCivilian,
+    /// PlyrCreeps, PlyrNeutral, Skirmish*, Player_1..4), so the wipe leaves its full,
+    /// uncompiled-subset script list intact and SimScriptCompiler still throws on it -
+    /// reaching a shipped map requires replacing its PlayerScriptsList by map surgery, not
+    /// this switch (oracle-convergence finding, R14).</param>
+    public MapScenario(uint seed, string mapPath, IReadOnlyList<string> iniPaths, bool retailLobbyWipe = false)
     {
         MapFile mapFile;
         using (var stream = File.OpenRead(mapPath))
@@ -59,7 +69,7 @@ internal sealed class MapScenario : IDriverScenario
             iniTexts.Add(File.ReadAllText(iniPath));
         }
 
-        _run = new SimMapRun(SageGame.Bfme2, seed, mapFile, iniTexts);
+        _run = new SimMapRun(SageGame.Bfme2, seed, mapFile, iniTexts, retailLobbyWipe);
 
         var context = (SimContext)_run.Game.GameEngine.SimContext;
         var random = ((CountingSimRandom)context.GameLogicRandom).Random;
@@ -82,6 +92,14 @@ internal sealed class MapScenario : IDriverScenario
     public int MapObjectsSkipped => _run.MapObjectsSkipped;
 
     public void AttachWriter(DeepCrcWriter writer) => _writer = writer;
+
+    public void SetChannelExclusions(IReadOnlyList<CrcChannel> excluded)
+    {
+        foreach (var channel in excluded)
+        {
+            _checker.SetExcluded(channel, true);
+        }
+    }
 
     public void IngestOrders(LogicFrame frame)
     {

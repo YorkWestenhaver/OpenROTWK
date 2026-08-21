@@ -5,6 +5,7 @@
 //
 // Format "opensage-deepdump v2", line-oriented, ASCII, invariant, deterministic:
 //   # opensage-deepdump v2        header
+//   # <text>                      provenance comment (arch stamp, exclusion echo, ...)
 //   F <frame>                     begin checkpoint frame
 //   C <ordinal> <channelName>     begin channel
 //   R <objectId> <moduleIndex> <tag> <class> <field> <tolLetter> <type> <hexBytes>
@@ -15,6 +16,11 @@
 // deep-dump schema (bfme2-harness/ddump/v1) types every field record so the comparator's
 // tolerance arithmetic knows signedness and component count -- and the V vector line, which
 // carries the CrcCheckpointMessage's channel vector for the harness's crcVector record.
+// N14a (driver CLI) adds two additive, backward-compatible pieces: Comment() emits a `#` line
+// (an existing consumer that already tolerates a header comment tolerates any `#` line, and one
+// that strips comments before comparing is unaffected either way), and a stream-only mode that
+// omits every F/C/R/E line, leaving header + comments + V lines only -- a byte-subset of the
+// full dump's own output, never a divergent encoding of it.
 
 using System;
 using System.IO;
@@ -28,19 +34,45 @@ public sealed class DeepCrcWriter : IDisposable
 
     private readonly TextWriter _writer;
     private readonly bool _leaveOpen;
+    private readonly bool _streamOnly;
     private readonly StringBuilder _line = new();
 
-    public DeepCrcWriter(TextWriter writer, bool leaveOpen = false)
+    /// <param name="streamOnly">When true, suppresses the F/C/R/E record lines - only the
+    /// header, any <see cref="Comment"/> lines, and the checkpoint <see cref="CrcVector"/>
+    /// lines are written. The channel walk still runs underneath (callers still get correct
+    /// CRCs back), so this is a pure output-size trim: the resulting file is exactly the
+    /// dr-0005 stream-equality artifact, a subset of the full dump's own V lines.</param>
+    public DeepCrcWriter(TextWriter writer, bool leaveOpen = false, bool streamOnly = false)
     {
         ArgumentNullException.ThrowIfNull(writer);
         _writer = writer;
         _leaveOpen = leaveOpen;
+        _streamOnly = streamOnly;
         _writer.Write(HeaderLine);
+        _writer.Write('\n');
+    }
+
+    /// <summary>Writes one `# &lt;text&gt;` provenance line (arch stamp, exclusion echo, ...).
+    /// Not gated by stream-only: comments are metadata, not per-field content, and a
+    /// comment-stripping comparator still byte-compares the V lines cleanly either way.</summary>
+    public void Comment(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (text.Contains('\n') || text.Contains('\r'))
+        {
+            throw new ArgumentException("Comment text must not contain embedded newlines.", nameof(text));
+        }
+        _writer.Write("# ");
+        _writer.Write(text);
         _writer.Write('\n');
     }
 
     public void BeginFrame(uint frame)
     {
+        if (_streamOnly)
+        {
+            return;
+        }
         _writer.Write("F ");
         WriteUInt(frame);
         _writer.Write('\n');
@@ -48,6 +80,10 @@ public sealed class DeepCrcWriter : IDisposable
 
     public void BeginChannel(CrcChannel channel)
     {
+        if (_streamOnly)
+        {
+            return;
+        }
         _writer.Write("C ");
         WriteUInt((byte)channel);
         _writer.Write(' ');
@@ -57,6 +93,10 @@ public sealed class DeepCrcWriter : IDisposable
 
     public void EndChannel(CrcChannel channel, uint channelCrc)
     {
+        if (_streamOnly)
+        {
+            return;
+        }
         _writer.Write("E ");
         WriteUInt((byte)channel);
         _writer.Write(' ');
@@ -66,6 +106,10 @@ public sealed class DeepCrcWriter : IDisposable
 
     public void Record(in XferModuleId module, string fieldName, Tolerance tol, XferValueKind kind, ReadOnlySpan<byte> rawBytes)
     {
+        if (_streamOnly)
+        {
+            return;
+        }
         _line.Clear();
         _line.Append("R ");
         AppendUInt(module.ObjectId);

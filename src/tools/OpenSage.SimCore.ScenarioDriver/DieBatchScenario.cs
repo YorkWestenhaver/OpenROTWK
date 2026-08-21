@@ -52,6 +52,7 @@
 //          whose argument ORDER is significant: [victim, crusher], never "the first id".
 
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using OpenSage;
 using OpenSage.Logic.Object;
@@ -540,6 +541,14 @@ End
     }
 
     public void AttachWriter(DeepCrcWriter writer) => _writer = writer;
+
+    public void SetChannelExclusions(IReadOnlyList<CrcChannel> excluded)
+    {
+        foreach (var channel in excluded)
+        {
+            _checker.SetExcluded(channel, true);
+        }
+    }
 
     public void IngestOrders(LogicFrame frame)
     {
