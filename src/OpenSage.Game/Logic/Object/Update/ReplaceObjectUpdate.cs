@@ -233,6 +233,11 @@ public sealed class ReplaceObjectUpdate : UpdateModule
         // stays a valid position/team donor for the CreateObjectAt call below.
         Context.GameLogic.DestroyObject(me);
 
+        // R13 fix (finding #1): team-aware CreateObjectAt overloads stamp `team` onto the
+        // replacement BEFORE its ICreateModule.OnCreate() pass runs, matching GPL's
+        // TheThingFactory->newObject(replacementTemplate, myTeam) construction-time team
+        // assignment - every onCreate handler now observes the correct team from its first
+        // instruction, same as GPL, instead of seeing it only after a post-hoc assignment.
         GameObject replacement;
         if (_data.Scatter && _data.ReplaceRadius > Fix64.Zero)
         {
@@ -240,13 +245,13 @@ public sealed class ReplaceObjectUpdate : UpdateModule
             var radius = Context.GameLogicRandom.NextFix64(Fix64.Zero, _data.ReplaceRadius);
             var offset = new FixVector3(radius * FixTrig.Cos(angle), radius * FixTrig.Sin(angle), Fix64.Zero);
 
-            replacement = Context.GameLogic.CreateObjectAt(replacementDefinition, owner, me, offset, Fix64.Zero);
+            replacement = Context.GameLogic.CreateObjectAt(replacementDefinition, owner, team, me, offset, Fix64.Zero);
         }
         else
         {
             // Donor-matrix overload: exact position AND rotation copy, matching GPL's own
             // myMatrix = *me->getTransformMatrix(); replacementObject->setTransformMatrix(...).
-            replacement = Context.GameLogic.CreateObjectAt(replacementDefinition, owner, me);
+            replacement = Context.GameLogic.CreateObjectAt(replacementDefinition, owner, team, me);
         }
 
         if (replacement == null)
@@ -254,9 +259,8 @@ public sealed class ReplaceObjectUpdate : UpdateModule
             return;
         }
 
-        replacement.Team = team;
-
-        // GPL: onCreates already ran in the constructor; this loop is the "consider it Built"
+        // GPL: onCreates already ran in the constructor (with team already set - see the
+        // team-aware CreateObjectAt call above); this loop is the "consider it Built"
         // pass every CreateModule needs to see once.
         foreach (var createModule in replacement.FindBehaviors<ICreateModule>())
         {

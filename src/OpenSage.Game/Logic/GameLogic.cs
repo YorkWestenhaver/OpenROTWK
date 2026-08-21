@@ -98,6 +98,19 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
     }
 
     public GameObject CreateObject(ObjectDefinition objectDefinition, Player player)
+        => CreateObject(objectDefinition, player, null);
+
+    /// <summary>
+    /// R13 fix (replace-object-update finding #1): team-aware overload. GPL's
+    /// <c>TheThingFactory-&gt;newObject(replacementTemplate, myTeam)</c> constructs the object
+    /// with its team already assigned, so every <c>onCreate</c> handler observes the correct
+    /// team from its very first instruction. This overload stamps <paramref name="team"/> onto
+    /// the new object BEFORE the <see cref="ICreateModule.OnCreate"/> pass below runs, matching
+    /// that order. The team-less overload above preserves the pre-existing behavior (Team left
+    /// null through OnCreate, assigned afterward by the caller) for every other call site, so
+    /// this change has no effect outside callers that opt into the new overload.
+    /// </summary>
+    public GameObject CreateObject(ObjectDefinition objectDefinition, Player player, Team team)
     {
         if (objectDefinition == null)
         {
@@ -108,6 +121,11 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         var gameObject = AddDisposable(new GameObject(objectDefinition, _game.GameEngine, player));
 
         gameObject.Id = new ObjectId(NextObjectId++);
+
+        if (team != null)
+        {
+            gameObject.Team = team;
+        }
 
         var now = CurrentFrame;
         if (now == LogicFrame.Zero)

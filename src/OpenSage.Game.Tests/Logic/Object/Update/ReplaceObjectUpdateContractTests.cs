@@ -12,6 +12,7 @@
 
 using System.Linq;
 using System.Numerics;
+using OpenSage;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
@@ -325,6 +326,72 @@ End
 
         Assert.True(module.InitiateIntentToDoSpecialPower("TestReplacePower", nearby));
         StepUntilDestroyed(game, widget);
+    }
+
+    /// <summary>
+    /// R13 regression test (finding #1, "Replacement's Team is set after OnCreate() already
+    /// ran"): GPL's <c>TheThingFactory-&gt;newObject(replacementTemplate, myTeam)</c> constructs
+    /// the replacement WITH its team, so every <c>onCreate</c> handler observes the correct team
+    /// from its first instruction - not null, not the previous replacement's team. No landed
+    /// <see cref="ICreateModule"/> reads <c>GameObject.Team</c> today (that is exactly why the
+    /// bug was latent), so this test injects a minimal test-only create module directly into
+    /// "ReplacedWidget"'s <see cref="ObjectDefinition.Behaviors"/> - the same
+    /// inject-a-test-double-module technique BunkerBusterBehaviorContractTests uses for a
+    /// category with no landed implementation - to make the OnCreate-time team observable.
+    /// Before the R13 fix this asserted null (Team was assigned only after CreateObjectAt
+    /// returned); after the fix it asserts the donor's team, matching GPL's ordering.
+    /// </summary>
+    [Fact]
+    public void Team_IsVisibleDuringOnCreate_NotOnlyAfterConstruction()
+    {
+        var game = NewGame();
+
+        var replacedWidgetDefinition = game.AssetStore.ObjectDefinitions.GetByName("ReplacedWidget");
+        replacedWidgetDefinition.Behaviors["ModuleTag_TeamObserver"] =
+            new ModuleDataContainer("ModuleTag_TeamObserver", new TeamObserverCreateModuleData(), ModuleInheritanceMode.Default, false);
+
+        var owner = game.CivilianPlayer;
+        var widget = game.SpawnObject("Widget", owner, Vector3.Zero);
+        var team = AssignSingletonTeam(game, widget, owner);
+        var module = ModuleOf(widget);
+
+        Assert.True(module.InitiateIntentToDoSpecialPower("TestReplacePower", null));
+        StepUntilDestroyed(game, widget);
+
+        var replacement = game.GameLogic.Objects.Single(o => o.Definition.Name == "ReplacedWidget");
+        var observer = replacement.BehaviorModules.OfType<TeamObserverCreateModule>().Single();
+
+        Assert.True(observer.OnCreateWasCalled);
+        Assert.Same(team, observer.TeamObservedDuringOnCreate);
+        Assert.Same(team, replacement.Team);
+    }
+
+    /// <summary>Test-only data for <see cref="TeamObserverCreateModule"/>; see the test above.</summary>
+    private sealed class TeamObserverCreateModuleData : CreateModuleData
+    {
+        internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
+            => new TeamObserverCreateModule(gameObject, gameEngine);
+    }
+
+    /// <summary>
+    /// Captures GameObject.Team at the moment ICreateModule.OnCreate() runs - the one-time
+    /// observation the R13 fix corrects the ordering of. See
+    /// <see cref="Team_IsVisibleDuringOnCreate_NotOnlyAfterConstruction"/>.
+    /// </summary>
+    private sealed class TeamObserverCreateModule : CreateModule
+    {
+        public bool OnCreateWasCalled { get; private set; }
+        public Team TeamObservedDuringOnCreate { get; private set; }
+
+        public TeamObserverCreateModule(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+        {
+        }
+
+        public override void OnCreate()
+        {
+            OnCreateWasCalled = true;
+            TeamObservedDuringOnCreate = GameObject.Team;
+        }
     }
 
     [Fact]
