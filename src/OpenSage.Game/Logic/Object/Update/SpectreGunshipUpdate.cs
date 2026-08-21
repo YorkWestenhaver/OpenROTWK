@@ -37,6 +37,16 @@
 //     (client-presentation-adjacent, same shape as PointDefenseLaserUpdate's unmodeled
 //     FX/OCL chain), not delivered here. Howitzer volleys ARE delivered (below): they carry
 //     a real WeaponTemplate/DamageNugget and go through DamagePipeline.
+//     IMPORTANT (R13 fix): the aim-point wind and its howitzer-lag counter are NOT
+//     unconditional in GPL - the whole "GATTLING TARGETING LOGIC" block is gated by
+//     `tmp && gattling && gattling->testStatus(OBJECT_STATUS_IS_FIRING_WEAPON)`
+//     (SpectreGunshipUpdate.cpp:622), where `tmp` is the configured
+//     GattlingStrafeFXParticleSystem template and `gattling` is the contained unit. That gate
+//     protects real sim state (the counter that fires the damage-dealing howitzer volley), not
+//     just client FX, so this port reproduces it via GattlingIsActivelyFiring(). Because the
+//     gattling's own firing is unmodeled (previous bullet), that gate is almost always false
+//     today - the howitzer will rarely/never fire until the gattling-firing seam lands, which
+//     is the GPL-faithful behavior, not a regression.
 //   - GameObject.IsOffMap is a pre-existing engine gap, not one this port introduces
 //     (GameObject.cs:1490 "TODO(Port): Actually set _privateStatus." - the flag is declared
 //     but nothing sets it yet). Departure -> destroy-self is wired to it faithfully (GPL-exact
@@ -340,7 +350,12 @@ public sealed class SpectreGunshipUpdate : UpdateModule
     }
 
     /// <summary>GPL's ORBITING body: orbit-expiry check, the periodic (HowitzerFiringRate)
-    /// target re-acquisition + howitzer volley gate, and the every-tick gattling aim wind.</summary>
+    /// target re-acquisition + howitzer volley gate, and the gattling aim wind - which GPL
+    /// only advances (and only then increments/resets the howitzer-lag counter) while
+    /// `tmp && gattling && gattling->testStatus(OBJECT_STATUS_IS_FIRING_WEAPON)`
+    /// (SpectreGunshipUpdate.cpp:622) - i.e. a GattlingStrafeFXParticleSystem is configured,
+    /// the contained gattling unit is alive, and that unit itself is actively firing its own
+    /// weapon. See GattlingIsActivelyFiring().</summary>
     private void UpdateOrbiting()
     {
         if (Context.CurrentFrame >= _orbitEscapeFrame)
@@ -354,7 +369,35 @@ public sealed class SpectreGunshipUpdate : UpdateModule
             ReacquireTargetAndMaybeFireHowitzer();
         }
 
-        UpdateGattlingAimWind();
+        if (GattlingIsActivelyFiring())
+        {
+            UpdateGattlingAimWind();
+        }
+    }
+
+    /// <summary>GPL's gate for the gattling-winding block: `tmp && gattling &&
+    /// gattling->testStatus(OBJECT_STATUS_IS_FIRING_WEAPON)` (SpectreGunshipUpdate.cpp:622),
+    /// where `tmp` is `data->m_gattlingStrafeFXParticleSystem` (a configured template, not a
+    /// target object) and `gattling` is the contained unit resolved by <see cref="_gattlingId"/>.
+    /// Because this port has no SimState AI-attack dispatch to command the gattling to fire
+    /// (see file header), the contained unit can currently never report
+    /// <see cref="ObjectStatus.IsFiringWeapon"/>, so this gate is almost always false - matching
+    /// GPL's real behavior once the missing gattling-firing seam is filled in, rather than the
+    /// always-on shortcut this port previously took.</summary>
+    private bool GattlingIsActivelyFiring()
+    {
+        if (string.IsNullOrEmpty(_data.GattlingStrafeFXParticleSystem))
+        {
+            return false;
+        }
+
+        if (_gattlingId.IsInvalid)
+        {
+            return false;
+        }
+
+        var gattling = Context.GameLogic.GetObjectById(_gattlingId);
+        return gattling != null && !gattling.IsDestroyed && gattling.TestStatus(ObjectStatus.IsFiringWeapon);
     }
 
     /// <summary>GPL's frame-modulator block: re-derive the aim point, try the reticle-radius
@@ -492,8 +535,8 @@ public sealed class SpectreGunshipUpdate : UpdateModule
     /// persists the temp weapon's aim, only the state that drives it).</summary>
     internal FixVector3 HowitzerImpactPosition { get; private set; }
 
-    /// <summary>GPL's gattling-winding block (the OBJECT_STATUS_IS_FIRING_WEAPON client gate is
-    /// unmodeled - see file header - so this runs every ORBITING tick): step
+    /// <summary>GPL's gattling-winding block (SpectreGunshipUpdate.cpp:622-655), reached only
+    /// when GattlingIsActivelyFiring() gates true (see UpdateOrbiting): step
     /// m_gattlingTargetPosition toward m_positionToShootAt by StrafingIncrement, or snap to it
     /// and grow the howitzer-lag counter once within one increment.</summary>
     private void UpdateGattlingAimWind()
