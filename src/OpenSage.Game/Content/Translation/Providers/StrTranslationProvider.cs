@@ -22,7 +22,6 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
             CommentPreValue,
             Value,
             String,
-            CommentPreEnd,
             End1,
             End2,
             End3
@@ -52,6 +51,9 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
             char c;
             var reader = new BinaryReader(stream, Encoding.ASCII);
             var isEscaped = false;
+            // Whether the next character in the End states is the first non-blank one on its line.
+            // END is only recognised there, as in the retail parser.
+            var atLineStart = false;
             while (stream.Position < stream.Length)
             {
                 c = reader.ReadChar();
@@ -67,12 +69,6 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                         if (c == '\n' || c == '\r')
                         {
                             state = State.PreValue;
-                        }
-                        break;
-                    case State.CommentPreEnd:
-                        if (c == '\n' || c == '\r')
-                        {
-                            state = State.End1;
                         }
                         break;
                     case State.Begin:
@@ -104,15 +100,27 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                         }
                         break;
                     case State.Category:
-                        if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
-                        {
-                            sb.Append(c);
-                        }
-                        else if (c == ':')
+                        if (c == ':')
                         {
                             category = sb.ToString();
                             sb.Clear();
                             state = State.Label;
+                        }
+                        else if (c == '\n' || c == '\r')
+                        {
+                            // A label line with no `CATEGORY:` prefix. Age of the Ring's lotr.str
+                            // contains one (`TooltipRisenCarrionDebuff`, where every neighbour is
+                            // `CONTROLBAR:...`). The retail parser keeps the whole line as the
+                            // label, so the entry exists but no `CATEGORY:LABEL` lookup can reach
+                            // it; do the same instead of failing the entire string table.
+                            category = string.Empty;
+                            label = sb.ToString().TrimEnd();
+                            sb.Clear();
+                            state = State.PreValue;
+                        }
+                        else if (c == ' ' || c == '\t' || (c >= '!' && c <= 'z'))
+                        {
+                            sb.Append(c);
                         }
                         else
                         {
@@ -120,15 +128,30 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                         }
                         break;
                     case State.Label:
-                        if (c >= '!' && c <= 'z')
+                        // A label runs to the end of its line, spaces included. The retail parser
+                        // is line-based (GameTextManager::parseStringFile takes the whole trimmed
+                        // line as the label), and content relies on it: Age of the Ring's
+                        // lotr.str names campaign maps as `Map:MAP GOOD REDHORN`, and its map.str
+                        // files carry script labels like `SCRIPT:Hint_HelmsDeep_Start Fight`.
+                        // Ending the label at the first space instead made the rest of the line
+                        // parse as a value, and the leftovers then desynced the state machine
+                        // (`REDHORN` -> `E` `D` -> "Unexpected token D." while looking for END).
+                        if (c == '\n' || c == '\r')
                         {
-                            sb.Append(c);
-                        }
-                        else if (char.IsWhiteSpace(c))
-                        {
-                            label = sb.ToString();
+                            label = sb.ToString().TrimEnd();
                             sb.Clear();
                             state = State.PreValue;
+                        }
+                        else if (c == '"')
+                        {
+                            // Tolerated non-retail shape: value quoted on the label's own line.
+                            label = sb.ToString().TrimEnd();
+                            sb.Clear();
+                            state = State.String;
+                        }
+                        else if (c == ' ' || c == '\t' || (c >= '!' && c <= 'z'))
+                        {
+                            sb.Append(c);
                         }
                         else
                         {
@@ -177,6 +200,7 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                             value = sb.ToString();
                             sb.Clear();
                             state = State.End1;
+                            atLineStart = c == '\n' || c == '\r';
                         }
                         else
                         {
@@ -222,38 +246,38 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                             value = sb.ToString();
                             sb.Clear();
                             state = State.End1;
+                            atLineStart = false;
                         }
                         else
                         {
                             sb.Append(c);
                         }
                         break;
+                    // Everything between the value and the terminating END is skipped, a line at a
+                    // time, and END is only recognised as the first word on a line. This mirrors
+                    // the retail parser, whose inner loop reads whole lines and compares each one
+                    // against "END" (GameTextManager::parseStringFile), ignoring every other line.
+                    // It is also what makes the tolerated malformations parse: BFME2's stock typo
+                    // (a value ending in two '"'), and Age of the Ring values that contain an
+                    // unescaped '"' - the value ends early at that quote, exactly as retail's
+                    // readToEndOfQuote does, and the remaining prose is discarded instead of being
+                    // scanned for an E-N-D triple wherever it happens to fall.
                     case State.End1:
-                        if (char.IsWhiteSpace(c))
+                        if (c == '\n' || c == '\r')
                         {
-                            continue;
+                            atLineStart = true;
                         }
-                        else if (c == '/')
+                        else if (atLineStart && char.IsWhiteSpace(c))
                         {
-                            c = reader.ReadChar();
-                            if (c == '/')
-                            {
-                                state = State.CommentPreEnd;
-                            }
+                            // Leading blanks don't end the line start.
                         }
-                        else if (c == ';')
-                        {
-                            state = State.CommentPreEnd;
-                        }
-                        // TODO: multiline comments
-                        else if (c == 'E' || c == 'e')
+                        else if (atLineStart && (c == 'E' || c == 'e'))
                         {
                             state = State.End2;
                         }
                         else
                         {
-                            // throw new InvalidDataException($"Unexpected token {c}.");
-                            // There is a typo in BFME2's str which seems to be just ignored (string ends with two '"')
+                            atLineStart = false;
                         }
                         break;
                     case State.End2:
@@ -263,7 +287,9 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                         }
                         else
                         {
-                            throw new InvalidDataException($"Unexpected token {c}.");
+                            // Not END after all - skip the rest of this line.
+                            state = State.End1;
+                            atLineStart = c == '\n' || c == '\r';
                         }
                         break;
                     case State.End3:
@@ -287,7 +313,9 @@ public sealed class StrTranslationProvider : ATranslationProviderBase
                         }
                         else
                         {
-                            throw new InvalidDataException($"Unexpected token {c}.");
+                            // Not END after all - skip the rest of this line.
+                            state = State.End1;
+                            atLineStart = c == '\n' || c == '\r';
                         }
                         break;
                 }
