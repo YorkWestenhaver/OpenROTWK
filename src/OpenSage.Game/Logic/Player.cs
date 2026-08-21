@@ -124,9 +124,11 @@ public partial class Player : IPersistableObject
     /// <summary>
     /// Logic frame at which an active power sabotage (SabotagePowerPlantCrateCollide) ends
     /// and the brownout it caused is lifted. <see cref="LogicFrame.Zero"/> means none is
-    /// pending. Runtime-only: deliberately NOT added to the legacy positional Persist walk
-    /// below (F9) - inserting a field there would shift every field that follows it and
-    /// break compatibility with existing retail-format saves.
+    /// pending. Persisted in the "Energy" block of <see cref="Persist"/> (GPL
+    /// <c>Energy::xfer</c>'s version-3 <c>xferUnsignedInt(&amp;m_powerSabotagedTillFrame)</c>),
+    /// alongside <see cref="_hasInsufficientPower"/> - both halves of the same invariant must
+    /// round-trip together, or a save/load mid-sabotage leaves the brownout flag stuck on
+    /// forever (<see cref="LogicTick"/>'s guard never re-fires).
     /// </summary>
     private LogicFrame _powerSabotagedTillFrame;
 
@@ -603,9 +605,16 @@ public partial class Player : IPersistableObject
         reader.PersistObject(UpgradesCompleted);
 
         {
-            reader.BeginObject("UnknownThing");
+            // GPL Energy::xfer (xferSnapshot(&m_energy) in Player::xfer): version, then the
+            // owning player index (sanity-checked against this player's own Id below), then
+            // (version >= 3) m_powerSabotagedTillFrame. This block was previously read as an
+            // "UnknownThing" with the sabotage-end frame discarded via SkipUnknownBytes(4);
+            // that made _hasInsufficientPower (persisted above) and _powerSabotagedTillFrame
+            // (the frame that clears it, in LogicTick) desync on save/load - see
+            // _powerSabotagedTillFrame's doc comment.
+            reader.BeginObject("Energy");
 
-            var unknownThingVersion = reader.PersistVersion(3);
+            var energyVersion = reader.PersistVersion(3);
 
             var playerId = Id;
             reader.PersistUInt32(ref playerId);
@@ -614,9 +623,9 @@ public partial class Player : IPersistableObject
                 throw new InvalidStateException();
             }
 
-            if (unknownThingVersion >= 3)
+            if (energyVersion >= 3)
             {
-                reader.SkipUnknownBytes(4);
+                reader.PersistLogicFrame(ref _powerSabotagedTillFrame);
             }
 
             reader.EndObject();
