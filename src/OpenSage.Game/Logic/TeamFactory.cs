@@ -5,6 +5,8 @@ namespace OpenSage.Logic;
 
 public sealed class TeamFactory : IPersistableObject
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly IGame _game;
 
     private readonly List<TeamTemplate> _teamTemplates;
@@ -45,6 +47,12 @@ public sealed class TeamFactory : IPersistableObject
 
     private void AddTeamTemplate(string name, Player owner, bool isSingleton)
     {
+        // id assignment is intentionally always driven by _teamTemplatesById.Count, and every
+        // template (duplicate-named or not) is unconditionally added to _teamTemplates and
+        // _teamTemplatesById below. Only the by-name registration is conditional (first-wins,
+        // see below), so this counter stays monotonic and collision-free regardless of
+        // duplicate names -- the id-counter invariant that Persist()/FindTeamTemplateById()/
+        // FindTeamById() rely on is preserved for every template that gets constructed.
         var id = (uint)(_teamTemplatesById.Count + 1);
 
         var teamTemplate = new TeamTemplate(
@@ -56,7 +64,31 @@ public sealed class TeamFactory : IPersistableObject
 
         _teamTemplates.Add(teamTemplate);
         _teamTemplatesById.Add(id, teamTemplate);
-        _teamTemplatesByName.Add(name, teamTemplate);
+
+        // Retail first-wins semantics for duplicate team template names. GPL
+        // TeamFactory::addTeamPrototypeToList (generals-gpl/Generals/Code/GameEngine/Source/Common/RTS/Team.cpp:255-266)
+        // looks up the new TeamPrototype's name-derived key in m_prototypes and, if an entry is
+        // already registered under that key, returns WITHOUT adding the new one -- only a
+        // DEBUG_ASSERTCRASH-gated diagnostic fires (debug builds only; never a crash/throw in
+        // retail). The first-registered prototype for a given name is the one every later
+        // name-based lookup (findTeamPrototype, and findTeamPrototypeByID which also walks
+        // m_prototypes) resolves to; the TeamPrototype object for a later duplicate still
+        // exists (its constructor at Team.cpp:804-830 runs unconditionally and always adds it
+        // to its owning player's team list), it just never becomes reachable by name.
+        // AotR ships duplicate team template names on several maps (teamPlyrNeutral x6,
+        // teamPlayer_1, teamPlyrAngmar, Frodo) which previously hard-crashed map load via
+        // Dictionary.Add's duplicate-key exception; replicate first-wins + warn instead.
+        if (_teamTemplatesByName.TryGetValue(name, out var existingTemplate))
+        {
+            Logger.Warn(
+                $"TeamFactory.AddTeamTemplate: duplicate team template name '{name}' " +
+                $"(existing id {existingTemplate.ID} kept for name lookup, new id {id} created but not name-addressable); " +
+                "matches retail first-wins semantics (Team.cpp TeamFactory::addTeamPrototypeToList).");
+        }
+        else
+        {
+            _teamTemplatesByName.Add(name, teamTemplate);
+        }
 
         if (isSingleton)
         {
