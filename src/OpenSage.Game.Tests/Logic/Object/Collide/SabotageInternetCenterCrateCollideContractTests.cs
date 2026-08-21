@@ -31,7 +31,7 @@ Object SaboteurCrate
     MaxHealth = 1.0
   End
   Behavior = SabotageInternetCenterCrateCollide ModuleTag_Sabotage
-    RequiredKindOf = INFANTRY
+    RequiredKindOf = INFANTRY VEHICLE
     SabotageDuration = 900
   End
 End
@@ -60,7 +60,13 @@ End
         // stored 900 verbatim, ~30x too long once executeCrateBehavior is wired to read this as
         // a frame count).
         Assert.Equal(new LogicFrameSpan(5), data.SabotageDuration);
-        Assert.Equal(ObjectKinds.Infantry, data.RequiredKindOf);
+        // R13.5: RequiredKindOf is a MASK (GPL isKindOfMulti), not a single ObjectKinds.
+        // The old single-value parse kept only the LAST token of a multi-kind line, so this
+        // authored "INFANTRY VEHICLE" would have collapsed to Vehicle alone.
+        Assert.NotNull(data.RequiredKindOf);
+        Assert.Equal(2, data.RequiredKindOf.NumBitsSet);
+        Assert.True(data.RequiredKindOf.Get(ObjectKinds.Infantry));
+        Assert.True(data.RequiredKindOf.Get(ObjectKinds.Vehicle));
     }
 
     [Fact]

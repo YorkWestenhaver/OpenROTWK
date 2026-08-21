@@ -25,9 +25,11 @@
 // (if content ever adds one) gets a live module instead of a ModuleNotPortedException, without
 // inventing the collision-trigger logic against engine capabilities that do not exist yet.
 //
-// TODO-spec (unverified, the whole collision-trigger behavior): wire executeCrateBehavior /
-// isValidToExecute - goal-object check, dead/kindof/relationship vetoes, spy-vision + hacker
-// disable, EVA/radar feedback - once the capabilities above land.
+// TODO-spec (unverified, the whole collision-trigger behavior): wire executeCrateBehavior and
+// this leaf's isValidToExecute extension - goal-object check, dead/kindof/relationship vetoes,
+// spy-vision + hacker disable, EVA/radar feedback - once the capabilities above land. R13.5
+// (crate-gate): the SHARED CrateCollide::isValidToExecute gate is inherited from the base class
+// already, so only the leaf extension is still missing.
 
 using OpenSage.Data.Ini;
 
@@ -35,7 +37,8 @@ namespace OpenSage.Logic.Object;
 
 public sealed class SabotageInternetCenterCrateCollide : CrateCollide
 {
-    public SabotageInternetCenterCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public SabotageInternetCenterCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageInternetCenterCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -65,6 +68,6 @@ public sealed class SabotageInternetCenterCrateCollideModuleData : CrateCollideM
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new SabotageInternetCenterCrateCollide(gameObject, gameEngine);
+        return new SabotageInternetCenterCrateCollide(gameObject, gameEngine, this);
     }
 }

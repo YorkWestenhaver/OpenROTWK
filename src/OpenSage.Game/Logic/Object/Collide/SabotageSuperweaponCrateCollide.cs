@@ -7,11 +7,11 @@
 // SpecialPowerModule's ResetCountdown(), and GPL's onCollide "successful execute destroys the
 // crate" is GameLogic.DestroyObject(GameObject) here.
 //
-// R13: the base CrateCollide::isValidToExecute gate (neutral-owner rejection, AIUpdate-or-
-// building-pickup requirement, ForbiddenKindOf, IsEffectivelyDead, IsAboveTerrain,
-// ForbidOwnerPlayer, HumanOnly, parachute rejection) is now translated inline, mirroring the
-// sibling SabotagePowerPlantCrateCollide (landed in the same R12 batch) rather than being
-// reduced to `other != null` - see CrateCollideModuleData.cs for the field set this reads.
+// R13.5 (crate-gate): the base CrateCollide::isValidToExecute gate (neutral-owner rejection,
+// AIUpdate-or-building-pickup requirement, RequiredKindOf/ForbiddenKindOf isKindOfMulti,
+// IsEffectivelyDead, IsAboveTerrain, ForbidOwnerPlayer, HumanOnly, PickupScience, parachute
+// rejection) now lives once on the shared CrateCollide base instead of being translated inline
+// in every leaf; this file calls `base.IsValidToExecute(other)` and adds its own three checks.
 // The AIUpdateInterface goal-object gate ("is `other` still the saboteur's current AI goal
 // object") is now translated via AIUpdate.GoalObject, the real 1:1 port of GPL's
 // getGoalObject() that AIUpdate already exposes (see AIUpdate.cs) and that the
@@ -41,11 +41,10 @@ namespace OpenSage.Logic.Object;
 
 public sealed class SabotageSuperweaponCrateCollide : CrateCollide
 {
-    private readonly SabotageSuperweaponCrateCollideModuleData _moduleData;
-
-    public SabotageSuperweaponCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageSuperweaponCrateCollideModuleData moduleData) : base(gameObject, gameEngine)
+    // This leaf has no fields of its own; every knob it reads (BuildingPickup, the kindof
+    // masks, ForbidOwnerPlayer, HumanOnly, PickupScience) is consumed by the shared base gate.
+    public SabotageSuperweaponCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageSuperweaponCrateCollideModuleData moduleData) : base(gameObject, gameEngine, moduleData)
     {
-        _moduleData = moduleData;
     }
 
     public override void OnCollide(GameObject other, in Vector3 location, in Vector3 normal)
@@ -68,7 +67,7 @@ public sealed class SabotageSuperweaponCrateCollide : CrateCollide
     /// GPL CrateCollide::isValidToExecute (the generic pickup gate) followed by
     /// SabotageSuperweaponCrateCollide::isValidToExecute's own three checks.
     /// </summary>
-    internal bool IsValidToExecute(GameObject other)
+    public override bool IsValidToExecute(GameObject other)
     {
         return IsValidToExecute(other, other != null ? GameObject.GetRelationship(other) : RelationshipType.Neutral);
     }
@@ -83,54 +82,9 @@ public sealed class SabotageSuperweaponCrateCollide : CrateCollide
     /// </summary>
     internal bool IsValidToExecute(GameObject other, RelationshipType relationship)
     {
-        // ---- CrateCollide::isValidToExecute (base gate) ----
+        // ---- CrateCollide::isValidToExecute (the shared base gate) ----
 
-        if (other is null)
-        {
-            // "The ground never picks up a crate."
-            return false;
-        }
-
-        var neutralPlayer = GameEngine.Game.PlayerManager.NeutralPlayer;
-        if (other.Owner == neutralPlayer)
-        {
-            return false;
-        }
-
-        var validBuildingAttempt = _moduleData.BuildingPickup && other.IsKindOf(ObjectKinds.Structure);
-
-        if (other.AIUpdate is null && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbiddenKindOf is { AnyBitSet: true } forbidden
-            && other.Definition.KindOf.Intersects(forbidden))
-        {
-            return false;
-        }
-
-        if (other.IsEffectivelyDead)
-        {
-            return false;
-        }
-
-        if (GameObject.IsAboveTerrain && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbidOwnerPlayer && GameObject.Owner == other.Owner)
-        {
-            return false;
-        }
-
-        if (_moduleData.HumanOnly && other.Owner is { IsHuman: false })
-        {
-            return false;
-        }
-
-        if (other.IsKindOf(ObjectKinds.Parachute))
+        if (!base.IsValidToExecute(other))
         {
             return false;
         }

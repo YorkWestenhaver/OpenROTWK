@@ -8,18 +8,13 @@
 // through the pre-existing legacy OnCollide dispatch (PartitionCellManager -> GameObject ->
 // ICollideModule.OnCollide), which none of those siblings has occupied yet.
 //
-// Because no sibling CrateCollide has ever overridden OnCollide, the base pipeline
-// (CrateCollide::onCollide + CrateCollide::isValidToExecute) does not exist anywhere in
-// OpenSAGE either. Rather than grow the shared CrateCollide base for one module, both layers
-// are translated here, reading straight off this module's own (inherited) CrateCollideModuleData
-// fields, faithfully to the GPL - this file stays self-contained and CrateCollide.cs is
-// untouched.
+// R13.5 (crate-gate): the generic CrateCollide::isValidToExecute layer that used to be
+// translated inline here now lives once on the shared CrateCollide base (see
+// CrateCollideModuleData.cs); IsValidToExecute below is this leaf's own three checks on top of
+// `base.IsValidToExecute(other)`. That also retires this file's old RequiredKindOf deviation:
+// the field is a real isKindOfMulti mask now, and PickupScience is parsed and enforced too.
 //
 // DELIBERATE DEVIATIONS (translate, don't invent - recorded rather than guessed):
-//   - RequiredKindOf is a MASK in GPL (isKindOfMulti); the existing ported
-//     CrateCollideModuleData.RequiredKindOf field is a single ObjectKinds value (a
-//     pre-existing simplification predating this port, out of scope to change here), so the
-//     generic base gate enforces ForbiddenKindOf only and leaves RequiredKindOf unenforced.
 //   - TheRadar->tryInfiltrationEvent(other): Radar.AddRadarEvent exists but takes map-tile
 //     coordinates that nothing in the engine currently computes from a world position; no
 //     radar ping is fired rather than guessing that math.
@@ -54,7 +49,7 @@ public sealed class SabotagePowerPlantCrateCollide : CrateCollide
     private readonly SabotagePowerPlantCrateCollideModuleData _moduleData;
 
     public SabotagePowerPlantCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotagePowerPlantCrateCollideModuleData moduleData)
-        : base(gameObject, gameEngine)
+        : base(gameObject, gameEngine, moduleData)
     {
         _moduleData = moduleData;
     }
@@ -79,54 +74,10 @@ public sealed class SabotagePowerPlantCrateCollide : CrateCollide
     /// CrateCollide::isValidToExecute (the generic pickup gate) followed by
     /// SabotagePowerPlantCrateCollide::isValidToExecute's own three checks.
     /// </summary>
-    private bool IsValidToExecute(GameObject other)
+    public override bool IsValidToExecute(GameObject other)
     {
-        if (other is null)
-        {
-            // "The ground never picks up a crate."
-            return false;
-        }
-
-        var neutralPlayer = GameEngine.Game.PlayerManager.NeutralPlayer;
-        if (other.Owner == neutralPlayer)
-        {
-            return false;
-        }
-
-        var validBuildingAttempt = _moduleData.BuildingPickup && other.IsKindOf(ObjectKinds.Structure);
-
-        if (other.AIUpdate is null && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbiddenKindOf is { AnyBitSet: true } forbidden
-            && other.Definition.KindOf.Intersects(forbidden))
-        {
-            return false;
-        }
-
-        if (other.IsEffectivelyDead)
-        {
-            return false;
-        }
-
-        if (GameObject.IsAboveTerrain && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbidOwnerPlayer && GameObject.Owner == other.Owner)
-        {
-            return false;
-        }
-
-        if (_moduleData.HumanOnly && other.Owner is { IsHuman: false })
-        {
-            return false;
-        }
-
-        if (other.IsKindOf(ObjectKinds.Parachute))
+        // GPL: `if (!CrateCollide::isValidToExecute(other)) return false;`
+        if (!base.IsValidToExecute(other))
         {
             return false;
         }

@@ -2,9 +2,13 @@
 
 namespace OpenSage.Logic.Object;
 
+// R13.5 (crate-gate): the shared CrateCollide::isValidToExecute gate now lives on the
+// CrateCollide base and this module inherits it; it has no OnCollide dispatch of its own
+// yet, so the gate takes effect the moment the leaf's executeCrateBehavior is wired.
 public sealed class ConvertToHijackedVehicleCrateCollide : CrateCollide
 {
-    public ConvertToHijackedVehicleCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public ConvertToHijackedVehicleCrateCollide(GameObject gameObject, IGameEngine gameEngine, ConvertToHijackedVehicleCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -31,6 +35,6 @@ public sealed class ConvertToHijackedVehicleCrateCollideModuleData : CrateCollid
 
     internal override ConvertToHijackedVehicleCrateCollide CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new ConvertToHijackedVehicleCrateCollide(gameObject, gameEngine);
+        return new ConvertToHijackedVehicleCrateCollide(gameObject, gameEngine, this);
     }
 }

@@ -29,6 +29,7 @@ using OpenSage.Audio;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.Graphics.ParticleSystems;
+using OpenSage.Mathematics;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
@@ -142,6 +143,16 @@ public sealed class StealthDetectorUpdate : UpdateModule
                     continue;
                 }
 
+                // GPL PartitionFilterAcceptByKindOf(m_extraDetectKindof,
+                // m_extraDetectKindofNot) - isKindOfMulti: EVERY ExtraRequiredKindOf bit
+                // present, NO ExtraForbiddenKindOf bit present. R13.5: the required side was
+                // parsed as a single ObjectKinds and never consulted, so a detector authored
+                // with ExtraRequiredKindOf revealed everything stealthed in range.
+                if (!MatchesExtraKindOf(candidate))
+                {
+                    continue;
+                }
+
                 // THE sim effect (GPL stealth->markAsDetected): reveal the stealthed enemy.
                 // R9 integration: the target's StealthUpdate (ported in the same round) owns
                 // the Detected bit - it recomputes it from its detection timer every tick, so
@@ -161,6 +172,30 @@ public sealed class StealthDetectorUpdate : UpdateModule
         }
 
         return UpdateSleepTime.Frames(_moduleData.DetectionRate);
+    }
+
+    /// <summary>
+    /// GPL <c>Object::isKindOfMulti(mustBeSet, mustBeClear)</c> for this detector's extra
+    /// masks. An unauthored (null) mask constrains nothing, matching GPL's all-clear default.
+    /// </summary>
+    private bool MatchesExtraKindOf(GameObject candidate)
+    {
+        var kindOf = candidate.Definition.KindOf;
+
+        if (_moduleData.ExtraRequiredKindOf is { AnyBitSet: true } required
+            && (kindOf is null || kindOf.CountIntersectionBits(required) != required.NumBitsSet))
+        {
+            return false;
+        }
+
+        if (_moduleData.ExtraForbiddenKindOf is { AnyBitSet: true } forbidden
+            && kindOf is not null
+            && kindOf.Intersects(forbidden))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     // ---- the single contract walk (§3/§4). The revealed-enemy DETECTED bits ride each
@@ -203,7 +238,8 @@ public sealed class StealthDetectorUpdateModuleData : UpdateModuleData
         { "DetectionRange", (parser, x) => x.DetectionRange = parser.ParseFix64() },
         { "CanDetectWhileGarrisoned", (parser, x) => x.CanDetectWhileGarrisoned = parser.ParseBoolean() },
         { "CanDetectWhileContained", (parser, x) => x.CanDetectWhileContained = parser.ParseBoolean() },
-        { "ExtraRequiredKindOf", (parser, x) => x.ExtraRequiredKindOf = parser.ParseEnum<ObjectKinds>() },
+        { "ExtraRequiredKindOf", (parser, x) => x.ExtraRequiredKindOf = parser.ParseEnumBitArray<ObjectKinds>() },
+        { "ExtraForbiddenKindOf", (parser, x) => x.ExtraForbiddenKindOf = parser.ParseEnumBitArray<ObjectKinds>() },
         { "PingSound", (parser, x) => x.PingSound = parser.ParseAudioEventReference() },
         { "LoudPingSound", (parser, x) => x.LoudPingSound = parser.ParseAudioEventReference() },
         { "IRParticleSysName", (parser, x) => x.IRParticleSysName = parser.ParseFXParticleSystemTemplateReference() },
@@ -232,7 +268,20 @@ public sealed class StealthDetectorUpdateModuleData : UpdateModuleData
 
     public bool CanDetectWhileContained { get; private set; }
 
-    public ObjectKinds ExtraRequiredKindOf { get; private set; }
+    /// <summary>
+    /// GPL <c>m_extraDetectKindof</c>: a MASK, applied together with
+    /// <see cref="ExtraForbiddenKindOf"/> through PartitionFilterAcceptByKindOf, i.e.
+    /// isKindOfMulti - EVERY set bit must be present on the candidate. It was parsed as a
+    /// single ObjectKinds until R13.5, so a multi-kind authored line silently kept only the
+    /// last token; nothing consulted it at all either.
+    /// </summary>
+    public BitArray<ObjectKinds> ExtraRequiredKindOf { get; private set; } = new();
+
+    /// <summary>
+    /// GPL <c>m_extraDetectKindofNot</c>, the other half of the same
+    /// PartitionFilterAcceptByKindOf pair: any set bit present on the candidate rejects it.
+    /// </summary>
+    public BitArray<ObjectKinds> ExtraForbiddenKindOf { get; private set; } = new();
 
     public LazyAssetReference<BaseAudioEventInfo> PingSound { get; private set; }
     public LazyAssetReference<BaseAudioEventInfo> LoudPingSound { get; private set; }

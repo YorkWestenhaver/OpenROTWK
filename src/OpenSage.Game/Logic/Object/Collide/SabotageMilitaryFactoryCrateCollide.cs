@@ -10,9 +10,10 @@
 // (module indexing/counts) instead of a parse hole, matching the landed shell shape of
 // every other CrateCollide sibling in this file (MoneyCrateCollide, SalvageCrateCollide,
 // ConvertToCarBombCrateCollide, ConvertToHijackedVehicleCrateCollide): none of them override
-// OnCollide yet, because the shared CrateCollide base has never had its onCollide dispatch
-// (isValidToExecute/executeCrateBehavior/FX/self-destroy) ported here, and this module's own
-// execute step additionally needs subsystems that don't exist in this engine yet - a Radar
+// OnCollide yet. R13.5 (crate-gate) landed the shared CrateCollide::isValidToExecute GATE on
+// the base class - this module inherits it and it applies the instant executeCrateBehavior is
+// wired - but the onCollide DISPATCH (gate/execute/FX/self-destroy) is still per-leaf, and
+// this module's own execute step additionally needs subsystems that don't exist yet - a Radar
 // service (tryInfiltrationEvent), an EVA message queue, and a DISABLED_HACKED DisabledType
 // value. Porting any of those is a shared-surface change outside this module's scope
 // (reservedNames is empty for this task), so the gameplay effect is parked here pending that
@@ -29,7 +30,8 @@ namespace OpenSage.Logic.Object;
 
 public sealed class SabotageMilitaryFactoryCrateCollide : CrateCollide
 {
-    public SabotageMilitaryFactoryCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public SabotageMilitaryFactoryCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageMilitaryFactoryCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -56,6 +58,6 @@ public sealed class SabotageMilitaryFactoryCrateCollideModuleData : CrateCollide
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new SabotageMilitaryFactoryCrateCollide(gameObject, gameEngine);
+        return new SabotageMilitaryFactoryCrateCollide(gameObject, gameEngine, this);
     }
 }

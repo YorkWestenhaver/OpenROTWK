@@ -10,6 +10,7 @@
 
 using System.Collections.Generic;
 using System.Numerics;
+using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
 using Xunit;
@@ -30,6 +31,35 @@ Object Collector
   KindOf = INFANTRY
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
+  End
+  ; GPL's base gate requires a collector that is a real 'Unit' type thing
+  ; (other->getAIUpdateInterface() != NULL), which every retail crate collector is.
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+End
+
+Object CollectorNoAi
+  KindOf = INFANTRY
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+End
+
+Object CollectorVehicle
+  KindOf = VEHICLE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
+End
+
+Object CollectorParachute
+  KindOf = INFANTRY PARACHUTE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 100
+  End
+  Behavior = AIUpdateInterface ModuleTag_AI
   End
 End
 
@@ -66,6 +96,66 @@ Object CrateInvalidUnit
   End
 End
 
+Object CrateForbidInfantry
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = UnitCrateCollide ModuleTag_Collide
+    UnitCount = 1
+    UnitName = SpawnedUnit
+    ForbiddenKindOf = INFANTRY
+  End
+End
+
+Object CrateRequireInfantryAndVehicle
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = UnitCrateCollide ModuleTag_Collide
+    UnitCount = 1
+    UnitName = SpawnedUnit
+    RequiredKindOf = INFANTRY VEHICLE
+  End
+End
+
+Object CrateRequireInfantry
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = UnitCrateCollide ModuleTag_Collide
+    UnitCount = 1
+    UnitName = SpawnedUnit
+    RequiredKindOf = INFANTRY
+  End
+End
+
+Object CrateForbidOwner
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = UnitCrateCollide ModuleTag_Collide
+    UnitCount = 1
+    UnitName = SpawnedUnit
+    ForbidOwnerPlayer = Yes
+  End
+End
+
+Object CrateHumanOnly
+  KindOf = CRATE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 1
+  End
+  Behavior = UnitCrateCollide ModuleTag_Collide
+    UnitCount = 1
+    UnitName = SpawnedUnit
+    HumanOnly = Yes
+  End
+End
+
 Object CrateZeroCount
   KindOf = CRATE
   Body = ActiveBody ModuleTag_Body
@@ -81,9 +171,25 @@ End
     private static HeadlessSimGame NewGame(uint seed = 0xC24E)
     {
         var game = new HeadlessSimGame(SageGame.Bfme2, seed);
+
+        // Two extra, distinct, HUMAN players so the gate cases that need a non-neutral,
+        // non-civilian owner (ForbidOwnerPlayer, HumanOnly) have something real to compare.
+        game.PlayerManager.OnNewGame(
+            new[]
+            {
+                OpenSage.Data.Map.Player.CreateNeutralPlayer(),
+                OpenSage.Data.Map.Player.CreateCivilianPlayer(),
+                new OpenSage.Data.Map.Player { Name = "plyrAlpha", Faction = "FactionAlpha", IsHuman = true },
+                new OpenSage.Data.Map.Player { Name = "plyrBravo", Faction = "FactionBravo", IsHuman = true },
+            },
+            GameType.Skirmish);
+
         game.LoadIniText(Definitions);
         return game;
     }
+
+    private static Player PlayerAlpha(HeadlessSimGame game) => game.PlayerManager.GetPlayerByName("plyrAlpha");
+    private static Player PlayerBravo(HeadlessSimGame game) => game.PlayerManager.GetPlayerByName("plyrBravo");
 
     private static readonly Vector3 CratePosition = new(100, 100, 0);
     private const float CollectorYaw = 0.7f;
@@ -305,5 +411,184 @@ End
         crate.OnCollide(collector);
 
         Assert.Equal(0, recorder.CrateFreeUnitPickupSoundCount);
+    }
+
+    // ---- Shared CrateCollide::isValidToExecute base gate (R13.5, crate-gate) ----
+    //
+    // Every case below uses CrateOne-shaped data (UnitCount = 1, a resolvable UnitName), so a
+    // "nothing spawned, crate still alive" outcome can only come from the gate.
+
+    private static (HeadlessSimGame Game, GameObject Crate, GameObject Collector) SpawnGateCase(
+        string crateTemplate,
+        string collectorTemplate,
+        Player cratePlayerOverride = null,
+        Player collectorPlayerOverride = null)
+    {
+        var game = NewGame();
+        var cratePlayer = cratePlayerOverride ?? PlayerAlpha(game);
+        var collectorPlayer = collectorPlayerOverride ?? PlayerBravo(game);
+
+        var crate = game.SpawnObject(crateTemplate, cratePlayer, CratePosition);
+        var collector = game.SpawnObject(
+            collectorTemplate,
+            collectorPlayer,
+            new Vector3(CratePosition.X + 3, CratePosition.Y, CratePosition.Z));
+        return (game, crate, collector);
+    }
+
+    private static void AssertRejected(HeadlessSimGame game, GameObject crate, GameObject collector)
+    {
+        var before = SnapshotIds(game);
+
+        crate.OnCollide(collector);
+
+        Assert.Empty(NewSpawnedUnits(game, before));
+        Assert.False(crate.IsDestroyed);
+    }
+
+    private static void AssertAccepted(HeadlessSimGame game, GameObject crate, GameObject collector)
+    {
+        var before = SnapshotIds(game);
+
+        crate.OnCollide(collector);
+
+        Assert.Single(NewSpawnedUnits(game, before));
+        Assert.True(crate.IsDestroyed);
+    }
+
+    // "Nothing Neutral can pick up any type of crate."
+    [Fact]
+    public void NeutralControlledCollector_IsRejected()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("CrateOne", PlayerAlpha(game), CratePosition);
+        var collector = game.SpawnObject(
+            "Collector",
+            game.PlayerManager.NeutralPlayer,
+            new Vector3(CratePosition.X + 3, CratePosition.Y, CratePosition.Z));
+
+        AssertRejected(game, crate, collector);
+    }
+
+    // "Must be a 'Unit' type thing. Real Game Object, not just Object." - no AIUpdate and the
+    // crate does not set BuildingPickup, so the collector cannot take it.
+    [Fact]
+    public void CollectorWithoutAIUpdate_IsRejected()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateOne", "CollectorNoAi");
+
+        AssertRejected(game, crate, collector);
+    }
+
+    // ForbiddenKindOf: any set bit present on the collector rejects it.
+    [Fact]
+    public void ForbiddenKindOf_RejectsMatchingCollector()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateForbidInfantry", "Collector");
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void ForbiddenKindOf_AcceptsNonMatchingCollector()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateForbidInfantry", "CollectorVehicle");
+
+        AssertAccepted(game, crate, collector);
+    }
+
+    // RequiredKindOf is a MASK (GPL isKindOfMulti): EVERY set bit must be present. Authored
+    // "INFANTRY VEHICLE" used to collapse to the single last token (VEHICLE) and was never
+    // enforced at all, so an INFANTRY collector took the crate.
+    [Fact]
+    public void RequiredKindOfMultiBitMask_RejectsCollectorMissingOneBit()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateRequireInfantryAndVehicle", "Collector");
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void RequiredKindOfMultiBitMask_RejectsCollectorCarryingOnlyTheOtherBit()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateRequireInfantryAndVehicle", "CollectorVehicle");
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void RequiredKindOf_AcceptsCollectorCarryingEveryRequiredBit()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateRequireInfantry", "Collector");
+
+        AssertAccepted(game, crate, collector);
+    }
+
+    [Fact]
+    public void RequiredKindOf_RejectsCollectorWithoutTheRequiredBit()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateRequireInfantry", "CollectorVehicle");
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void EffectivelyDeadCollector_IsRejected()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateOne", "Collector");
+        collector.IsEffectivelyDead = true;
+
+        AssertRejected(game, crate, collector);
+    }
+
+    // "Design has decreed this to not be picked up by the dead guy's team."
+    [Fact]
+    public void ForbidOwnerPlayer_RejectsPickupByTheCratesOwnController()
+    {
+        var game = NewGame();
+        var alpha = PlayerAlpha(game);
+        var crate = game.SpawnObject("CrateForbidOwner", alpha, CratePosition);
+        var collector = game.SpawnObject(
+            "Collector", alpha, new Vector3(CratePosition.X + 3, CratePosition.Y, CratePosition.Z));
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void ForbidOwnerPlayer_AcceptsPickupByADifferentController()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateForbidOwner", "Collector");
+
+        AssertAccepted(game, crate, collector);
+    }
+
+    // "Human only mission crate."
+    [Fact]
+    public void HumanOnly_RejectsNonHumanController()
+    {
+        var game = NewGame();
+        var crate = game.SpawnObject("CrateHumanOnly", PlayerAlpha(game), CratePosition);
+        // CivilianPlayer is not human (Data.Map.Player.CreateCivilianPlayer sets IsHuman = false).
+        var collector = game.SpawnObject(
+            "Collector", game.CivilianPlayer, new Vector3(CratePosition.X + 3, CratePosition.Y, CratePosition.Z));
+
+        AssertRejected(game, crate, collector);
+    }
+
+    [Fact]
+    public void HumanOnly_AcceptsHumanController()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateHumanOnly", "Collector");
+
+        AssertAccepted(game, crate, collector);
+    }
+
+    // "other->isKindOf(KINDOF_PARACHUTE)" exclusion.
+    [Fact]
+    public void ParachuteKindOfCollector_IsRejected()
+    {
+        var (game, crate, collector) = SpawnGateCase("CrateOne", "CollectorParachute");
+
+        AssertRejected(game, crate, collector);
     }
 }

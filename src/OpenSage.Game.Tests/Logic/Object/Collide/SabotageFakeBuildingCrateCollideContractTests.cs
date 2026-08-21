@@ -28,6 +28,10 @@ Object TestSaboteur
   Behavior = AIUpdateInterface ModuleTag_AI
   End
   Behavior = SabotageFakeBuildingCrateCollide ModuleTag_Sabotage
+    ; R13.5: the shared CrateCollide::isValidToExecute gate this module now runs first
+    ; rejects an AI-less target unless BuildingPickup is set - the real GPL requirement for
+    ; a building-kinded victim, matching the SabotageSuperweapon/SabotagePowerPlant fixtures.
+    BuildingPickup = Yes
   End
 End
 

@@ -19,14 +19,13 @@
 //
 // Deviations from the reference, deliberate and recorded:
 //   - The base CrateCollide::onCollide dispatch loop (isValidToExecute -> executeCrateBehavior
-//     -> destroy-crate-on-success -> world animation) is not ported in OpenSAGE yet: the whole
-//     Collide category (CollideModule.OnCollide, CrateCollide) is still the pre-existing
-//     "TODO: Make this abstract" stub with no collision-trigger call site (see
-//     Logic/Object/Collide/CollideModule.cs and every sibling CrateCollide in this folder -
-//     none of them implement OnCollide). Reaching in to build that shared dispatcher is out of
-//     scope for a single-module port, so this class exposes its two real decision points as
-//     public methods - IsValidToExecute and ExecuteCrateBehavior - exactly like the GPL split,
-//     ready for that dispatcher to call once it exists.
+//     -> destroy-crate-on-success -> world animation) is still not ported as a shared
+//     dispatcher, so this class exposes its two real decision points as public methods -
+//     IsValidToExecute and ExecuteCrateBehavior - exactly like the GPL split, ready for that
+//     dispatcher to call once it exists. R13.5 (crate-gate): the shared
+//     CrateCollide::isValidToExecute GATE (as opposed to the dispatch loop) does now exist on
+//     the base class, and IsValidToExecute below runs it before this leaf's own three checks -
+//     previously this module skipped the base gate entirely.
 //   - the AI goal-object gate (ai->getGoalObject() != other) has no OpenSAGE analogue yet:
 //     AIUpdate does not expose a "current goal object" accessor anywhere in this codebase.
 //     Rather than invent one on the shared AIUpdate class (out of scope, and not in
@@ -61,20 +60,21 @@ namespace OpenSage.Logic.Object;
 /// </summary>
 public sealed class SabotageCommandCenterCrateCollide : CrateCollide
 {
-    internal SabotageCommandCenterCrateCollide(GameObject gameObject, IGameEngine gameEngine)
-        : base(gameObject, gameEngine)
+    internal SabotageCommandCenterCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageCommandCenterCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
     /// <summary>
-    /// GPL SabotageCommandCenterCrateCollide::isValidToExecute. The base CrateCollide gate
-    /// (kindof mask, neutral-controlled, above-terrain, etc.) is not ported yet (see the file
-    /// header), so this is this class's own extension only: not dead, a command center, and
-    /// an enemy of the saboteur.
+    /// GPL SabotageCommandCenterCrateCollide::isValidToExecute: the shared CrateCollide gate
+    /// (kindof masks, neutral-controlled, AIUpdate-or-BuildingPickup, above-terrain,
+    /// ForbidOwnerPlayer, HumanOnly, PickupScience, parachute) followed by this class's own
+    /// three checks - not dead, a command center, and an enemy of the saboteur.
     /// </summary>
-    public bool IsValidToExecute(GameObject other)
+    public override bool IsValidToExecute(GameObject other)
     {
-        if (other == null)
+        // GPL: `if (!CrateCollide::isValidToExecute(other)) return false;`
+        if (!base.IsValidToExecute(other))
         {
             return false;
         }
@@ -173,6 +173,6 @@ public sealed class SabotageCommandCenterCrateCollideModuleData : CrateCollideMo
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new SabotageCommandCenterCrateCollide(gameObject, gameEngine);
+        return new SabotageCommandCenterCrateCollide(gameObject, gameEngine, this);
     }
 }

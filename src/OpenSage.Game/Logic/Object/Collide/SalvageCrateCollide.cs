@@ -3,9 +3,13 @@ using OpenSage.Mathematics;
 
 namespace OpenSage.Logic.Object;
 
+// R13.5 (crate-gate): the shared CrateCollide::isValidToExecute gate now lives on the
+// CrateCollide base and this module inherits it; it has no OnCollide dispatch of its own
+// yet, so the gate takes effect the moment the leaf's executeCrateBehavior is wired.
 public sealed class SalvageCrateCollide : CrateCollide
 {
-    public SalvageCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public SalvageCrateCollide(GameObject gameObject, IGameEngine gameEngine, SalvageCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -24,14 +28,19 @@ public sealed class SalvageCrateCollideModuleData : CrateCollideModuleData
     private static new readonly IniParseTable<SalvageCrateCollideModuleData> FieldParseTable = CrateCollideModuleData.FieldParseTable
         .Concat(new IniParseTable<SalvageCrateCollideModuleData>
         {
-            { "PickupScience", (parser, x) => x.PickupScience = parser.ParseAssetReference() },
+            // PickupScience is a BASE CrateCollide field (GPL m_pickupScience), landed on
+            // CrateCollideModuleData in R13.5 and enforced by the shared gate; the leaf copy
+            // that used to shadow it here (parsed as a bare asset name and never consulted)
+            // is gone.
             { "WeaponChance", (parser, x) => x.WeaponChance = parser.ParsePercentage() },
             { "LevelChance", (parser, x) => x.LevelChance = parser.ParsePercentage() },
             { "MoneyChance", (parser, x) => x.MoneyChance = parser.ParsePercentage() },
             { "MinMoney", (parser, x) => x.MinMoney = parser.ParseInteger() },
             { "MaxMoney", (parser, x) => x.MaxMoney = parser.ParseInteger() },
 
-            { "ExecuteFX", (parser, x) => x.PickupScience = parser.ParseAssetReference() },
+            // Was bound to PickupScience - a copy/paste slip that both dropped ExecuteFX and
+            // clobbered the science field with an FXList name.
+            { "ExecuteFX", (parser, x) => x.ExecuteFX = parser.ParseAssetReference() },
             { "PorterChance", (parser, x) => x.PorterChance = parser.ParsePercentage() },
             { "BannerChance", (parser, x) => x.BannerChance = parser.ParsePercentage() },
             { "LevelUpChance", (parser, x) => x.LevelUpChance = parser.ParsePercentage() },
@@ -42,7 +51,6 @@ public sealed class SalvageCrateCollideModuleData : CrateCollideModuleData
             { "AllowAIPickup", (parser, x) => x.AllowAIPickup = parser.ParseBoolean() },
         });
 
-    public string PickupScience { get; private set; }
     public Percentage WeaponChance { get; private set; }
     public Percentage LevelChance { get; private set; }
     public Percentage MoneyChance { get; private set; }
@@ -78,6 +86,6 @@ public sealed class SalvageCrateCollideModuleData : CrateCollideModuleData
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new SalvageCrateCollide(gameObject, gameEngine);
+        return new SalvageCrateCollide(gameObject, gameEngine, this);
     }
 }

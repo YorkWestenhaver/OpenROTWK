@@ -4,6 +4,7 @@ using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.FX;
 using OpenSage.Graphics.ParticleSystems;
+using OpenSage.Mathematics;
 
 namespace OpenSage.Logic.Object;
 
@@ -167,8 +168,8 @@ public sealed class MissileAIUpdateModuleData : AIUpdateModuleData
         { "DistanceToTravelBeforeTurning", (parser, x) => x.DistanceToTravelBeforeTurning = parser.ParseInteger() },
         { "DistanceToTargetBeforeDiving", (parser, x) => x.DistanceToTargetBeforeDiving = parser.ParseInteger() },
         { "DistanceToTargetForLock", (parser, x) => x.DistanceToTargetForLock = parser.ParseInteger() },
-        { "GarrisonHitKillRequiredKindOf", (parser, x) => x.GarrisonHitKillRequiredKindOf = parser.ParseEnum<ObjectKinds>() },
-        { "GarrisonHitKillForbiddenKindOf", (parser, x) => x.GarrisonHitKillForbiddenKindOf = parser.ParseEnum<ObjectKinds>() },
+        { "GarrisonHitKillRequiredKindOf", (parser, x) => x.GarrisonHitKillRequiredKindOf = parser.ParseEnumBitArray<ObjectKinds>() },
+        { "GarrisonHitKillForbiddenKindOf", (parser, x) => x.GarrisonHitKillForbiddenKindOf = parser.ParseEnumBitArray<ObjectKinds>() },
         { "GarrisonHitKillCount", (parser, x) => x.GarrisonHitKillCount = parser.ParseInteger() },
         { "GarrisonHitKillFX", (parser, x) => x.GarrisonHitKillFX = parser.ParseFXListReference() },
         { "DetonateCallsKill", (parser, x) => x.DetonateCallsKill = parser.ParseBoolean() },
@@ -185,8 +186,26 @@ public sealed class MissileAIUpdateModuleData : AIUpdateModuleData
     public int DistanceToTravelBeforeTurning { get; private set; }
     public int DistanceToTargetBeforeDiving { get; private set; }
     public int DistanceToTargetForLock { get; private set; }
-    public ObjectKinds GarrisonHitKillRequiredKindOf { get; private set; }
-    public ObjectKinds GarrisonHitKillForbiddenKindOf { get; private set; }
+
+    /// <summary>
+    /// GPL <c>m_garrisonHitKillKindof</c>: a MASK, applied together with
+    /// <see cref="GarrisonHitKillForbiddenKindOf"/> through
+    /// <c>isKindOfMulti(m_garrisonHitKillKindof, m_garrisonHitKillKindofNot)</c> in the
+    /// garrison-hit-kill loop - EVERY set bit must be present on the rider being killed.
+    /// Parsed as a single ObjectKinds until R13.5, which silently kept only the last token of
+    /// a multi-kind authored line. NOTE: the consuming loop itself (GPL
+    /// "kill up to GarrisonHitKillCount riders of the struck garrison") is not ported on this
+    /// engine yet, so nothing reads these masks today - the parse is now at least lossless and
+    /// mask-shaped for the port that will.
+    /// </summary>
+    public BitArray<ObjectKinds> GarrisonHitKillRequiredKindOf { get; private set; }
+
+    /// <summary>
+    /// GPL <c>m_garrisonHitKillKindofNot</c>, the other half of the same isKindOfMulti pair:
+    /// any set bit present on the rider spares it. Same unported-consumer note as above.
+    /// </summary>
+    public BitArray<ObjectKinds> GarrisonHitKillForbiddenKindOf { get; private set; }
+
     public int GarrisonHitKillCount { get; private set; }
     public LazyAssetReference<FXList> GarrisonHitKillFX { get; private set; }
 

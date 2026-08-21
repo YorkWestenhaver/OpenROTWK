@@ -2,13 +2,11 @@
 // GeneralsMD/Code/GameEngine/Source/GameLogic/Object/Collide/CrateCollide/SabotageSupplyCenterCrateCollide.cpp,
 // plus the shared CrateCollide::onCollide / CrateCollide::isValidToExecute base (CrateCollide.cpp)
 // - this category's SimCore host does not exist yet (no [SimState] CollideModule lineage), so
-// this stays a legacy (GameObject, IGameEngine) module. Because no sibling CrateCollide grows a
-// shared base pipeline (see sibling SabotagePowerPlantCrateCollide.cs, which established this
-// same pattern in the same R12/R13 wave), both the generic CrateCollide::isValidToExecute gate
-// and this class's own SabotageSupplyCenterCrateCollide::isValidToExecute extension are
-// translated here, reading straight off this module's own (inherited) CrateCollideModuleData
-// fields, faithfully to the GPL - this file stays self-contained and CrateCollide.cs is
-// untouched.
+// this stays a legacy (GameObject, IGameEngine) module. R13.5 (crate-gate): the generic
+// CrateCollide::isValidToExecute gate now lives once on the shared CrateCollide base
+// (CrateCollideModuleData.cs) instead of being translated inline in every leaf; this class
+// keeps only its own SabotageSupplyCenterCrateCollide::isValidToExecute extension on top of
+// `base.IsValidToExecute(other)`.
 //
 // R13 fix: OnCollide is the live PartitionCellManager.Update() dispatch target, called
 // unconditionally on every simulation frame the pair is detected as still colliding (level-
@@ -19,22 +17,15 @@
 // StealCashAmount N times. OnCollide now destroys the saboteur's GameObject on a successful
 // steal, exactly like SabotagePowerPlantCrateCollide.cs's OnCollide.
 //
-// Ported here: the full base CrateCollide::isValidToExecute chain (neutral-controlled owner,
-// AI-less non-building targets gated by BuildingPickup, above-terrain gated by the same flag,
-// ForbiddenKindOf mask, ForbidOwnerPlayer, HumanOnly, Parachute exclusion) followed by this
-// class's own dead/kind-of/relationship checks, the goal-object guard at the top of
+// Ported here: this class's own dead/kind-of/relationship checks, the goal-object guard at the top of
 // executeCrateBehavior, and the cash transfer itself (BankAccount.Withdraw/Deposit is the
 // direct analogue of Money::withdraw/Money::deposit, both already-landed runtime API - no new
 // economic surface invented here).
 //
 // DELIBERATE DEVIATIONS (translate, don't invent - recorded rather than guessed):
-//   - RequiredKindOf is a MASK in GPL (isKindOfMulti); the existing ported
-//     CrateCollideModuleData.RequiredKindOf field is a single ObjectKinds value (a
-//     pre-existing simplification predating this port, out of scope to change here), so the
-//     generic base gate enforces ForbiddenKindOf only and leaves RequiredKindOf unenforced -
-//     same documented gap as SabotagePowerPlantCrateCollide.cs.
-//   - md->m_pickupScience (PickupScience): CrateCollideModuleData has no such field ported
-//     anywhere in this codebase (pre-existing gap, not introduced here) - not consulted.
+//   - RequiredKindOf / md->m_pickupScience: BOTH of these old deviations are retired as of
+//     R13.5 - RequiredKindOf is a real isKindOfMulti mask and PickupScience is a parsed,
+//     enforced base field, both handled by the shared base gate.
 //   - TheRadar->tryInfiltrationEvent: Radar.AddRadarEvent exists, but nothing in the engine
 //     yet converts a world position to the map-tile coordinates it requires. Inventing that
 //     math would be a guess, not a port.
@@ -58,7 +49,7 @@ public sealed class SabotageSupplyCenterCrateCollide : CrateCollide
     private readonly SabotageSupplyCenterCrateCollideModuleData _moduleData;
 
     public SabotageSupplyCenterCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageSupplyCenterCrateCollideModuleData moduleData)
-        : base(gameObject, gameEngine)
+        : base(gameObject, gameEngine, moduleData)
     {
         _moduleData = moduleData;
     }
@@ -99,54 +90,10 @@ public sealed class SabotageSupplyCenterCrateCollide : CrateCollide
     /// CrateCollide::isValidToExecute (the generic pickup gate) followed by
     /// SabotageSupplyCenterCrateCollide::isValidToExecute's own three checks.
     /// </summary>
-    private bool IsValidToExecute(GameObject other)
+    public override bool IsValidToExecute(GameObject other)
     {
-        if (other is null)
-        {
-            // "The ground never picks up a crate."
-            return false;
-        }
-
-        var neutralPlayer = GameEngine.Game.PlayerManager.NeutralPlayer;
-        if (other.Owner == neutralPlayer)
-        {
-            return false;
-        }
-
-        var validBuildingAttempt = _moduleData.BuildingPickup && other.IsKindOf(ObjectKinds.Structure);
-
-        if (other.AIUpdate is null && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbiddenKindOf is { AnyBitSet: true } forbidden
-            && other.Definition.KindOf.Intersects(forbidden))
-        {
-            return false;
-        }
-
-        if (other.IsEffectivelyDead)
-        {
-            return false;
-        }
-
-        if (GameObject.IsAboveTerrain && !validBuildingAttempt)
-        {
-            return false;
-        }
-
-        if (_moduleData.ForbidOwnerPlayer && GameObject.Owner == other.Owner)
-        {
-            return false;
-        }
-
-        if (_moduleData.HumanOnly && other.Owner is { IsHuman: false })
-        {
-            return false;
-        }
-
-        if (other.IsKindOf(ObjectKinds.Parachute))
+        // GPL: `if (!CrateCollide::isValidToExecute(other)) return false;`
+        if (!base.IsValidToExecute(other))
         {
             return false;
         }

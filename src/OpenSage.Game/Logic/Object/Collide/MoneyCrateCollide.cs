@@ -5,9 +5,13 @@ using OpenSage.FileFormats;
 
 namespace OpenSage.Logic.Object;
 
+// R13.5 (crate-gate): the shared CrateCollide::isValidToExecute gate now lives on the
+// CrateCollide base and this module inherits it; it has no OnCollide dispatch of its own
+// yet, so the gate takes effect the moment the leaf's executeCrateBehavior is wired.
 public sealed class MoneyCrateCollide : CrateCollide
 {
-    public MoneyCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public MoneyCrateCollide(GameObject gameObject, IGameEngine gameEngine, MoneyCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -37,7 +41,7 @@ public sealed class MoneyCrateCollideModuleData : CrateCollideModuleData
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new MoneyCrateCollide(gameObject, gameEngine);
+        return new MoneyCrateCollide(gameObject, gameEngine, this);
     }
 }
 

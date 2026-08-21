@@ -10,7 +10,8 @@ namespace OpenSage.Logic.Object;
 /// </summary>
 public sealed class SabotageFakeBuildingCrateCollide : CrateCollide
 {
-    public SabotageFakeBuildingCrateCollide(GameObject gameObject, IGameEngine gameEngine) : base(gameObject, gameEngine)
+    public SabotageFakeBuildingCrateCollide(GameObject gameObject, IGameEngine gameEngine, SabotageFakeBuildingCrateCollideModuleData moduleData)
+        : base(gameObject, gameEngine, moduleData)
     {
     }
 
@@ -75,9 +76,16 @@ public sealed class SabotageFakeBuildingCrateCollide : CrateCollide
         return true;
     }
 
-    private bool IsValidToExecute(GameObject other)
+    /// <summary>
+    /// R13.5 (crate-gate): the shared CrateCollide::isValidToExecute gate (neutral-controlled,
+    /// AIUpdate-or-BuildingPickup, RequiredKindOf/ForbiddenKindOf isKindOfMulti, dead,
+    /// above-terrain, ForbidOwnerPlayer, HumanOnly, PickupScience, parachute) now runs first -
+    /// this module previously had only the three leaf checks below.
+    /// </summary>
+    public override bool IsValidToExecute(GameObject other)
     {
-        if (other is null)
+        // GPL: `if (!CrateCollide::isValidToExecute(other)) return false;`
+        if (!base.IsValidToExecute(other))
         {
             return false;
         }
@@ -129,6 +137,6 @@ public sealed class SabotageFakeBuildingCrateCollideModuleData : CrateCollideMod
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {
-        return new SabotageFakeBuildingCrateCollide(gameObject, gameEngine);
+        return new SabotageFakeBuildingCrateCollide(gameObject, gameEngine, this);
     }
 }

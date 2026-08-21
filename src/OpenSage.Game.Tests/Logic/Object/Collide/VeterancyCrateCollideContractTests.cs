@@ -49,6 +49,12 @@ Object VetCrateTestUnit
   End
   IsTrainable = Yes
   ExperienceRequired = 0 100 200 300
+  ; R13.5: the shared CrateCollide::isValidToExecute gate enforces GPL's "must be a 'Unit'
+  ; type thing" check (other->getAIUpdateInterface() != NULL, unless BuildingPickup covers a
+  ; STRUCTURE), which retail units always satisfy. The old fixture omitted it only because
+  ; the inlined per-leaf gate skipped that check.
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
 End
 
 Object VetCrateTestVehicleGround
@@ -144,6 +150,8 @@ Object VetCrateTestParachute
   End
   IsTrainable = Yes
   ExperienceRequired = 0 100 200 300
+  Behavior = AIUpdateInterface ModuleTag_AI
+  End
 End
 ";
 

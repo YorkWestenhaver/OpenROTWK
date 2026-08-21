@@ -42,6 +42,10 @@
 //         spawned unit, matching findPositionAround's single
 //         `GameLogicRandomValueReal(0, TWO_PI)` draw (PartitionManager.cpp:3909-3914), instead
 //         of drawing angle+radius per retry attempt.
+//   R13.5 (crate-gate): the shared CrateCollide::isValidToExecute gate now lives on the base
+//     class and is called here before anything is spawned. Previously this module had no gate
+//     whatsoever, so a neutral-controlled unit, a corpse, a ForbiddenKindOf unit, a non-Unit
+//     object or an airborne crate all produced free units.
 
 using OpenSage.Data.Ini;
 using OpenSage.Logic.Object.Locomotion;
@@ -65,7 +69,7 @@ public sealed class UnitCrateCollide : CrateCollide
     private readonly UnitCrateCollideModuleData _data;
 
     public UnitCrateCollide(GameObject gameObject, ISimContext context, UnitCrateCollideModuleData data)
-        : base(gameObject, context)
+        : base(gameObject, context, data)
     {
         _data = data;
     }
@@ -79,7 +83,18 @@ public sealed class UnitCrateCollide : CrateCollide
 
     private void Execute(GameObject collector)
     {
-        if (collector is null || _data.UnitCount <= 0)
+        // R13.5 (crate-gate): GPL's CrateCollide::onCollide never reaches
+        // UnitCrateCollide::executeCrateBehavior without isValidToExecute passing first
+        // (CrateCollide.cpp). This port used to have NO gate at all - a neutral-controlled,
+        // dead, ForbiddenKindOf, airborne-crate or non-Unit collector all collected freely.
+        // UnitCrateCollide adds no leaf checks of its own, so the shared base gate IS the
+        // whole gate here.
+        if (!IsValidToExecute(collector))
+        {
+            return;
+        }
+
+        if (_data.UnitCount <= 0)
         {
             // TC4: UnitCount <= 0 -> no spawn, no audio.
             return;
