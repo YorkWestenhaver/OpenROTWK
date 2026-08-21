@@ -133,11 +133,24 @@ public sealed class RousingSpeechUpdate : UpdateModule
             return false;
         }
 
-        if (_data.StartAbilityRange > Fix64.Zero && triggeringObject != null)
+        // The speech-giver is trivially within its own StartAbilityRange, and the partition
+        // query below deliberately excludes its own center object, so the self case has to be
+        // short-circuited here or a self-triggered speech could never start.
+        if (_data.StartAbilityRange > Fix64.Zero
+            && triggeringObject != null
+            && !ReferenceEquals(triggeringObject, GameObject))
         {
-            var inRange = Context.Partition
-                .QueryObjectsInRadius(GameObject, _data.StartAbilityRange)
-                .Contains(triggeringObject);
+            // Explicit scan rather than a LINQ Contains(): deterministic, allocation-free, and
+            // it keeps the enumeration order the partition query itself defines.
+            var inRange = false;
+            foreach (var candidate in Context.Partition.QueryObjectsInRadius(GameObject, _data.StartAbilityRange))
+            {
+                if (ReferenceEquals(candidate, triggeringObject))
+                {
+                    inRange = true;
+                    break;
+                }
+            }
 
             if (!inRange)
             {

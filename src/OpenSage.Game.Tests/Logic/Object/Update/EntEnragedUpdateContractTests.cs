@@ -6,10 +6,12 @@
 // parsed from INI text through the real parser, so the EnragedTime/TimeUntilCanRageAgain
 // quantizing S5 parse is on the tested path.
 //
-// Sleepy-update caveat (spec §3): a module that calls SetWakeFrame(UpdateSleepTime.None) in its
-// constructor has its first real Update() execute on the SECOND HeadlessSimGame.Step() call,
-// not the first. Every case below steps well past that offset plus a full ScanCadence (5
-// frames) window before asserting "triggered"/"not yet triggered".
+// Timing model (measured against the landed module, not assumed): this module wakes with
+// SetWakeFrame(UpdateSleepTime.None) in its constructor, so its first real Update() - and
+// therefore the trigger - lands on the FIRST HeadlessSimGame.Step(), and every scan after
+// that lands on the 5-frame ScanCadence. Positive cases therefore sample a couple of frames
+// in, inside the 5-frame EnragedTime window (TriggerSettleFrames); negative cases step the
+// full 8 frames, well past a whole cadence, to show nothing ever fired.
 
 using System.Linq;
 using System.Numerics;
@@ -101,8 +103,22 @@ Object Grunt
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
+  ; The dead-ally half of the trigger needs a corpse that is still IN THE WORLD after the
+  ; death: a template with no Die module falls back to DestroyDie, which removes the object
+  ; outright, so GameLogic.GetObjectById returns null and the partition scan can never see
+  ; it. KeepObjectDie is the landed ""keep the corpse"" marker (see KeepObjectDieContractTests)
+  ; and is what makes EntEnragedUpdate's FriendlyDeadFilter scan observable at all.
+  Behavior = KeepObjectDie ModuleTag_KeepCorpse
+  End
 End
 ";
+
+    /// <summary>Frames to step before asserting "now enraged". The module wakes with
+    /// UpdateSleepTime.None, so its first real Update() - and therefore the trigger - lands on
+    /// the first Step(); two frames is a safe settle that is still well inside the 5-frame
+    /// EnragedTime window. Stepping the full 8 frames used by the NEGATIVE cases would run
+    /// past EnragedTime and observe the buff already expired.</summary>
+    private const int TriggerSettleFrames = 2;
 
     private static HeadlessSimGame NewGame(uint seed = 0xE2A6E)
     {
@@ -175,7 +191,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
 
         Assert.True(EnragedFlag(enrager));
     }
@@ -217,7 +233,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
 
         // Past EnragedTime (5 frames): the buff expires and the cooldown starts.
@@ -239,15 +255,17 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
 
         StepFrames(game, 5); // past EnragedTime -> Idle, cooldown starts (10 frames)
         Assert.False(EnragedFlag(enrager));
 
-        // Step well past the 10-frame cooldown, conditions still held: the trigger is
-        // edge-checked every scan, not one-shot-forever.
-        StepFrames(game, 15);
+        // Step past the 10-frame cooldown, conditions still held: the trigger is
+        // edge-checked every scan, not one-shot-forever. The window matters - scans land on
+        // the 5-frame ScanCadence, so the re-trigger fires at frame 17 and that second rage
+        // expires again at frame 22; sample inside it, not past it.
+        StepFrames(game, 10);
         Assert.True(EnragedFlag(enrager));
     }
 
@@ -260,7 +278,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
 
         StepFrames(game, 5); // past EnragedTime -> Idle
@@ -283,7 +301,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
         Assert.Single(recorder.ParticleSystems, p => p.ParticleSystemName == "FX_EnrageOn");
 
@@ -303,7 +321,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
 
         StepFrames(game, 5); // past EnragedTime
@@ -324,7 +342,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(enrager));
 
         StepFrames(game, 5); // full trigger/expiry cycle
@@ -342,7 +360,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         var live = ModuleOf(liveHost);
         Assert.True(EnragedFlag(liveHost)); // mid-EnragedTime
 
@@ -361,7 +379,7 @@ End
         game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(-10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
-        StepFrames(game, 8);
+        StepFrames(game, TriggerSettleFrames);
         Assert.True(EnragedFlag(liveHost));
 
         StepFrames(game, 5); // past EnragedTime -> Idle, cooldown active (non-Enraged phase)

@@ -7,9 +7,10 @@
 //
 // Sleepy-update caveat (spec §3): a freshly spawned object's module does not receive its first
 // real Update() tick on the frame it is constructed (idle, SetWakeFrame(Forever) until
-// triggered). After a successful InitiateIntentToDoSpecialPower call, the module's first real
-// Update() tick lands one logic-frame-span later - every test that triggers the speech and then
-// wants to observe a scan/FX/grant effect calls game.Step() at least once before asserting.
+// triggered). After a successful InitiateIntentToDoSpecialPower call the module is armed on the
+// trigger frame, but its first real Update() - and so the first grant - is observable two
+// Step()s later; the StepToFirstScan helper below is that window, and every test that triggers
+// a speech and then asserts on a scan/FX/grant effect goes through it.
 //
 // Frame arithmetic (live Theoden data, retyped per spec §1): UpdateInterval = 100ms = 1 logic
 // frame at 5 Hz; SpeechDuration = 2500ms = 13 frames (2500 / 200 = 12.5, ceil -> 13).
@@ -123,6 +124,13 @@ End
         }
     }
 
+    /// <summary>Steps to the frame on which the FIRST scan's grants are observable.
+    /// InitiateIntentToDoSpecialPower arms the module on the trigger frame, but the module's
+    /// first real Update() - and therefore the first grant - lands two Step()s later (measured
+    /// against the landed module, not assumed). Every case that triggers a speech and then
+    /// asserts on a grant goes through here.</summary>
+    private static void StepToFirstScan(HeadlessSimGame game) => Step(game, 2);
+
     private static RousingSpeechUpdate ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<RousingSpeechUpdate>().Single();
 
@@ -198,7 +206,7 @@ End
         // LeaderFX fires immediately at the trigger call, before any scan.
         Assert.Contains(recorder.Events, e => e.FXListName == "FX_TheodenSpeechFX" && e.ObjectId == leader.Id);
 
-        Step(game); // First real Update() tick: first scan.
+        StepToFirstScan(game); // First real Update() tick: first scan.
 
         Assert.True(cavalryAlly.HasAttributeModifier("RohanCharge"));
         Assert.False(infantryAlly.HasAttributeModifier("RohanCharge"));
@@ -232,7 +240,7 @@ End
         var module = ModuleOf(leader);
         Assert.True(module.InitiateIntentToDoSpecialPower("SpecialAbilityRousingSpeech", trigger));
 
-        Step(game); // First scan: granted.
+        StepToFirstScan(game); // First scan: granted.
         Assert.True(cavalryAlly.HasAttributeModifier("RohanCharge"));
 
         cavalryAlly.UpdateTransform(new Vector3(1000, 0, 0));
@@ -260,7 +268,7 @@ End
         // The source's own MOUNTED state does not gate the trigger (Reading A, not Reading B).
         Assert.True(module.InitiateIntentToDoSpecialPower("SpecialAbilityRousingSpeech", trigger));
 
-        Step(game);
+        StepToFirstScan(game);
 
         Assert.True(mountedAlly.HasAttributeModifier("RohanCharge"));
         Assert.False(unmountedAlly.HasAttributeModifier("RohanCharge"));
@@ -285,7 +293,7 @@ End
         // The grant/revoke/FX behavior is byte-for-byte unaffected by these three fields:
         // nothing accidentally gates or blocks on them (same full-cycle shape as the case above).
         Assert.True(module.InitiateIntentToDoSpecialPower("SpecialAbilityRousingSpeech", trigger));
-        Step(game);
+        StepToFirstScan(game);
         Assert.True(cavalryAlly.HasAttributeModifier("RohanCharge"));
         Step(game, 12);
         Assert.False(cavalryAlly.HasAttributeModifier("RohanCharge"));
@@ -302,7 +310,8 @@ End
         var live = ModuleOf(leader);
         Assert.True(live.InitiateIntentToDoSpecialPower("SpecialAbilityRousingSpeech", trigger));
 
-        // Past the first scan, cavalryAlly granted, mid-speech (9 of 13 SpeechDuration frames remain).
+        // Past the first scan, cavalryAlly granted, mid-speech (10 frames still to run: the
+        // speech ends at frame 13 and the revoke lands on frame 14).
         Step(game, 4);
         Assert.True(cavalryAlly.HasAttributeModifier("RohanCharge"));
 
@@ -330,7 +339,7 @@ End
         Assert.True(loaded.IsActive);
         Assert.Contains(cavalryAlly.Id, loaded.GrantedTargets);
 
-        Step(game, 9); // Completes the remaining 9 frames on the loaded instance's own schedule.
+        Step(game, 10); // Completes the remaining frames on the loaded instance's own schedule.
 
         Assert.False(cavalryAlly.HasAttributeModifier("RohanCharge"));
         Assert.False(loaded.IsActive);

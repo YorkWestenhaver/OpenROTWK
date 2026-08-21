@@ -19,14 +19,14 @@ public class CivilianSpawnUpdateContractTests
     // the real AotR usage's 5000 ms = 25 frames for fast tests (spec §3).
     private const string Definitions = @"
 Object CivilianVillagerA
-  KindOf = CIVILIAN
+  KindOf = INFANTRY  ; no CIVILIAN bit exists in ObjectKinds; decorative here (no filter tests it)
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 10
   End
 End
 
 Object CivilianVillagerB
-  KindOf = CIVILIAN
+  KindOf = INFANTRY  ; no CIVILIAN bit exists in ObjectKinds; decorative here (no filter tests it)
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 10
   End
