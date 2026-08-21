@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>    
-    <RootNamespace>OpenSage.Tests</RootNamespace>    
+  <PropertyGroup>
+    <RootNamespace>OpenSage.Tests</RootNamespace>
   </PropertyGroup>
+
+  <!--
+    arm64 macOS native SDL2 override: this project references OpenSage.Game (-> OpenSage.Core),
+    which pulls in Veldrid.SDL2, so GPU-touching tests hit the same missing-osx-arm64-native
+    problem the headed launcher does (see OpenSageSdl2Arm64.targets for the full rationale).
+  -->
+  <Import Project="..\OpenSageSdl2Arm64.targets" />
+
   <ItemGroup>
     <None Update="Terrain\Roads\RoadAlignmentTests\*.map">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

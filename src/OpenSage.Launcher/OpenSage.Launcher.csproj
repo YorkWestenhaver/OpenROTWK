@@ -9,52 +9,11 @@
   </PropertyGroup>
 
   <!--
-    arm64 macOS native SDL2 override.
-
-    veldrid.sdl2 4.9.0 ships native SDL2 for win-x64, win-x86 and osx-x64 only. On osx-arm64 there
-    is no native asset in the package at all, so Sdl2Native's static constructor throws
-    "Could not find or load the native library from any name: [ libsdl2.dylib ]" out of
-    Platform.Start() before a window can even be created.
-
-    Veldrid.Sdl2 loads SDL through NativeLibraryLoader (dlopen by bare name), not through
-    [DllImport], so NativeLibrary.SetDllImportResolver cannot intercept it. Its
-    DefaultPathResolver probes AppContext.BaseDirectory before anything declared in deps.json,
-    so putting a correct arm64 libsdl2.dylib in the output directory is the durable override.
-
-    It has to be a SYMLINK, not a copy. Homebrew's SDL2 is sdl2-compat, which dlopens SDL3
-    through an @loader_path-relative rpath (@loader_path/../../../../opt/sdl3/lib). dyld
-    resolves @loader_path against the real path of the loaded image, so a symlink still finds
-    SDL3, while a copy sitting in bin/ does not - and sdl2-compat's failure path is a modal
-    NSAlert raised from its library initializer, which hangs the launcher forever instead of
-    failing.
-
-    Tightly guarded: only when the build's RID is osx-arm64 and a real arm64 SDL2 is present on
-    the machine. Every other platform, and an osx-arm64 machine without SDL2 installed, is
-    untouched (the build still succeeds; only the headed launcher needs the dylib).
-    Override the source with -p:OpenSageSdl2Dylib=/path/to/libSDL2.dylib.
+    arm64 macOS native SDL2 override: shared with any *.Tests project that pulls in
+    Veldrid.SDL2 (currently OpenSage.Game.Tests). See that file for the full rationale
+    (why a symlink and not a copy, why NativeLibrary.SetDllImportResolver can't help, etc).
   -->
-  <PropertyGroup>
-    <_OpenSageBuildRid>$(RuntimeIdentifier)</_OpenSageBuildRid>
-    <_OpenSageBuildRid Condition="'$(_OpenSageBuildRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_OpenSageBuildRid>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(_OpenSageBuildRid)' == 'osx-arm64' And '$(OpenSageSdl2Dylib)' == ''">
-    <OpenSageSdl2Dylib Condition="Exists('/opt/homebrew/lib/libSDL2-2.0.0.dylib')">/opt/homebrew/lib/libSDL2-2.0.0.dylib</OpenSageSdl2Dylib>
-    <OpenSageSdl2Dylib Condition="'$(OpenSageSdl2Dylib)' == '' And Exists('/usr/local/lib/libSDL2-2.0.0.dylib')">/usr/local/lib/libSDL2-2.0.0.dylib</OpenSageSdl2Dylib>
-  </PropertyGroup>
-
-  <Target Name="OpenSageLinkArm64Sdl2"
-          AfterTargets="Build"
-          Condition="'$(_OpenSageBuildRid)' == 'osx-arm64' And '$(OpenSageSdl2Dylib)' != '' And Exists('$(OpenSageSdl2Dylib)')">
-    <Exec Command="ln -sfn &quot;$(OpenSageSdl2Dylib)&quot; &quot;$(OutDir)libsdl2.dylib&quot;" />
-  </Target>
-
-  <Target Name="OpenSageReportMissingArm64Sdl2"
-          BeforeTargets="Build"
-          Condition="'$(_OpenSageBuildRid)' == 'osx-arm64' And '$(OpenSageSdl2Dylib)' == ''">
-    <Message Importance="high"
-             Text="OpenSage: no arm64 libSDL2 found on this machine, and veldrid.sdl2 4.9.0 has no osx-arm64 native. The headed launcher will fail in Platform.Start(). Install one (brew install sdl2) or build with -p:OpenSageSdl2Dylib=/path/to/libSDL2.dylib." />
-  </Target>
+  <Import Project="..\OpenSageSdl2Arm64.targets" />
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\AppIcon.ico" />
