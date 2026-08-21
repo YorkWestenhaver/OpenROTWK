@@ -22,6 +22,25 @@ namespace OpenSage.Tests.Logic.Object.Update;
 
 public class NeutronMissileUpdateContractTests
 {
+    // NeutronMissileUpdate's DoLaunch always snaps to the launch-bone transform, which in
+    // this headless host (no drawable/bone geometry loaded) falls back to Matrix4x4.Identity
+    // - i.e. the world origin - regardless of the launcher's own position (the "bone-
+    // attachment path is never exercised" coverage gap noted in the R12 review). That
+    // coincides exactly with the flat default terrain's height (0), so an unadorned launch
+    // sits precisely on the R13 ground-collision fix's boundary (HeightAboveTerrain <= 0)
+    // and would detonate on its own launch tick. A tiny synthetic vertical launch-platform
+    // "kick", captured into the missile's velocity like any other launcher velocity, clears
+    // that exact-zero boundary without perturbing any of these tests' tuned in-flight
+    // numerics - it is five-plus orders of magnitude below anything measured in this suite.
+    private const float GroundClearanceKick = 0.001f;
+
+    private static void GiveGroundClearance(GameObject launcher)
+    {
+        var physics = launcher.FindBehavior<PhysicsBehavior>();
+        Assert.NotNull(physics);
+        physics!.AddVelocityTo(new Vector3(0f, 0f, GroundClearanceKick));
+    }
+
     private const string ObjectDefinitions = @"
 Object Launcher
   KindOf = VEHICLE
@@ -106,6 +125,11 @@ End
     //    first Update tick), positioned at the launch-bone attach point (Identity fallback
     //    in this headless host, so the origin), carrying the launcher's captured velocity,
     //    armed.
+    //
+    //    Launcher velocity includes a positive Z component so the post-fall position clears
+    //    HeightAboveTerrain == 0 (see the ground-collision boundary covered by
+    //    LaunchAtOrBelowGroundHeight_DetonatesOnTheLaunchTick below) - this test is about the
+    //    normal state-machine transition, not the ground-collision gate.
     // ------------------------------------------------------------------------------------
     [Fact]
     public void Fire_TransitionsPreLaunchToLaunchToAttack_ArmedWithLauncherVelocity()
@@ -114,7 +138,7 @@ End
         var launcher = SpawnLauncher(game);
         var launcherPhysics = launcher.FindBehavior<PhysicsBehavior>();
         Assert.NotNull(launcherPhysics);
-        launcherPhysics.AddVelocityTo(new Vector3(5f, 0f, 0f));
+        launcherPhysics.AddVelocityTo(new Vector3(5f, 0f, 1f));
 
         var missileHost = SpawnMissileHost(game);
         var data = BuildModuleData();
@@ -137,8 +161,50 @@ End
 
         Assert.Equal(NeutronMissileUpdate.MissileState.Attack, missile.State);
         Assert.True(missile.IsArmed);
-        Assert.Equal(new Vector3(5f, 0f, 0f), missile.Velocity);
+        Assert.Equal(new Vector3(5f, 0f, 1f), missile.Velocity);
         Assert.Equal(launcher.Id, missile.LauncherId);
+    }
+
+    // ------------------------------------------------------------------------------------
+    // 1b. GPL (NeutronMissileUpdate.cpp:520): the ground-collision check is gated on the
+    //     POST-switch current state (`m_state != PRELAUNCH && m_state != DEAD`), not the
+    //     pre-switch oldPosValid snapshot - doLaunch() always leaves state == Attack by the
+    //     time the check runs, so GPL DOES test terrain height on the exact launch tick. And
+    //     the boundary is isAboveTerrain()'s own (`height > 0`), so its negation fires at
+    //     height == 0, not only when height has gone negative. A missile launched at a bone
+    //     position at-or-below terrain (here: the identity-fallback launch bone sits at the
+    //     world origin, i.e. HeightAboveTerrain == 0, with a purely horizontal launcher
+    //     velocity so the post-fall position stays at height 0) must therefore detonate
+    //     immediately, on the launch tick itself, landing in Dead - not survive into Attack.
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public void LaunchAtOrBelowGroundHeight_DetonatesOnTheLaunchTick()
+    {
+        var game = NewGame();
+        var launcher = SpawnLauncher(game);
+        var launcherPhysics = launcher.FindBehavior<PhysicsBehavior>();
+        Assert.NotNull(launcherPhysics);
+        launcherPhysics.AddVelocityTo(new Vector3(5f, 0f, 0f)); // purely horizontal: height stays 0 after the fall
+
+        var missileHost = SpawnMissileHost(game);
+        var data = BuildModuleData();
+        var missile = new NeutronMissileUpdate(missileHost, game.GameEngine, data);
+
+        missile.ProjectileLaunchAtObjectOrPosition(
+            victim: null,
+            victimPos: new Vector3(100f, 0f, 0f),
+            launcher: launcher,
+            wslot: WeaponSlot.Primary,
+            specificBarrelToUse: 0);
+
+        Assert.Equal(NeutronMissileUpdate.MissileState.Launch, missile.State);
+
+        SetCurrentFrame(game, 0);
+        missile.Update();
+
+        Assert.Equal(NeutronMissileUpdate.MissileState.Dead, missile.State);
+        Assert.True(missileHost.Hidden);
+        Assert.True(missileHost.TestStatus(ObjectStatus.NoCollisions));
     }
 
     // ------------------------------------------------------------------------------------
@@ -152,6 +218,7 @@ End
     {
         var game = NewGame();
         var launcher = SpawnLauncher(game);
+        GiveGroundClearance(launcher);
         var missileHost = SpawnMissileHost(game);
         var data = BuildModuleData(
             distanceToTravelBeforeTurning: 1000f,
@@ -199,6 +266,7 @@ End
     {
         var game = NewGame();
         var launcher = SpawnLauncher(game);
+        GiveGroundClearance(launcher);
         var missileHost = SpawnMissileHost(game);
         const float maxTurnRate = 0.3f; // radians/frame; well under the 45-degree full turn needed
         var data = BuildModuleData(
@@ -238,6 +306,7 @@ End
     {
         var game = NewGame();
         var launcher = SpawnLauncher(game);
+        GiveGroundClearance(launcher);
         var missileHost = SpawnMissileHost(game);
         var data = BuildModuleData(
             distanceToTravelBeforeTurning: 0f,
@@ -282,6 +351,7 @@ End
     {
         var game = NewGame();
         var launcher = SpawnLauncher(game);
+        GiveGroundClearance(launcher);
         var enemy = SpawnEnemy(game);
         var missileHost = SpawnMissileHost(game);
         var data = BuildModuleData();
@@ -321,6 +391,7 @@ End
     {
         var game = NewGame();
         var launcher = SpawnLauncher(game);
+        GiveGroundClearance(launcher);
         var missileHost = SpawnMissileHost(game);
         var data = BuildModuleData(
             distanceToTravelBeforeTurning: 0f,

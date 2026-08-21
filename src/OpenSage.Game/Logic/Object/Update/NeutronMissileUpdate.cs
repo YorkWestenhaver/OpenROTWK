@@ -229,18 +229,17 @@ public sealed class NeutronMissileUpdate : UpdateModule
             _noTurnDistLeft -= distThisTurn;
         }
 
-        // Gated on oldPosValid (state was already Attack going INTO this Update), not the
-        // post-switch state: the frame doLaunch() first lands us at the launch bone's
-        // position is not itself a ground hit - the missile hasn't started flying yet, it has
-        // only just been placed there (matches the existing oldPosValid gate just above, which
-        // draws the same before/after-launch distinction for the no-turn distance budget).
+        // GPL (NeutronMissileUpdate.cpp:520): `m_state != PRELAUNCH && m_state != DEAD &&
+        // !isAboveTerrain()`. This is gated on the POST-switch current state, NOT the
+        // pre-switch oldPosValid snapshot used above for the no-turn-distance budget - those
+        // are two different gates in GPL. DoLaunch() unconditionally transitions state to
+        // Attack within this same call, so the terrain check DOES run on the launch tick.
         //
-        // Height check is strictly-below (< 0), not GameObject.IsAboveTerrain's own boundary
-        // (height > 0, i.e. its negation triggers at height == 0 too): a missile skimming
-        // exactly along the ground plane - e.g. a level, non-TargetFromDirectlyAbove flight
-        // path with no vertical component at all - has not collided with anything, only one
-        // that has actually dipped below terrain has.
-        if (oldPosValid && GameObject.HeightAboveTerrain < 0f)
+        // GameObject.IsAboveTerrain mirrors GPL's isAboveTerrain() (`getHeightAboveTerrain()
+        // > 0.0f`, Thing.h:131), so its negation - and thus this collision check - fires at
+        // HeightAboveTerrain <= 0f, not just strictly below zero: GPL detonates the instant
+        // height reaches exactly ground level.
+        if (_state != MissileState.PreLaunch && _state != MissileState.Dead && !GameObject.IsAboveTerrain)
         {
             // The normal always points straight down (GPL comment, kept verbatim).
             HandleCollision(null);
