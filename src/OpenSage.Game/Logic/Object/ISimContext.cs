@@ -181,6 +181,22 @@ public interface IGameLogic
     /// searched).
     /// </summary>
     OpenSage.Logic.Object.Pathfind.SimPathfindGrid PathfindGrid { get; }
+
+    /// <summary>
+    /// Resolves a level-designer-placed Waypoint's position by exact name (grown for the
+    /// RunOffMapBehavior port - the first module needing a raw named-waypoint lookup
+    /// independent of a Waypoint Path/route). Float boundary (D-7 shape): waypoint
+    /// positions are unmigrated Scene3D/WaypointCollection substrate; the read quantizes
+    /// through the F4 wire boundary exactly once, here. False (position left default) when
+    /// no waypoint of exactly this name exists, or the host has no waypoint collection
+    /// (e.g. the headless test map). WaypointCollection explicitly permits duplicate names
+    /// (Scripting/Waypoints.cs:24 "we explicitly allow duplicate waypoint names") - on a
+    /// name collision this returns whichever WaypointCollection's dictionary indexer holds,
+    /// which is an immutable match-setup fact baked identically for both peers at map load
+    /// (not a runtime RNG draw), so it is not a determinism hazard even though it is not
+    /// itself specified by GPL/data.
+    /// </summary>
+    bool TryGetWaypointPosition(string waypointName, out FixVector3 position);
 }
 
 /// <summary>

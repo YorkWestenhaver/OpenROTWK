@@ -119,6 +119,22 @@ public sealed class Waypoint
         }
     }
 
+    /// <summary>
+    /// Test-only construction (R13, RunOffMapBehaviorModuleData port, spec §4 prerequisite):
+    /// builds a Waypoint directly from its id/name/position without routing through a
+    /// MapObject, whose Properties dictionary has a private setter and so cannot be built
+    /// from test code. Internal, not test-project code, so it is reached exclusively via
+    /// OpenSage.Game.Tests' InternalsVisibleTo grant - production code always goes through
+    /// the MapObject ctor above.
+    /// </summary>
+    internal Waypoint(int id, string name, Vector3 position)
+    {
+        ID = id;
+        Name = name;
+        Position = position;
+        PathLabels = [];
+    }
+
     public void AddConnectionTo(Waypoint waypoint)
     {
         _connectedWaypoints ??= [];
