@@ -685,7 +685,11 @@ public partial class Player : IPersistableObject
         if (reader.Mode == StatePersistMode.Read)
         {
             DefaultTeam = reader.Game.TeamFactory.FindTeamById(defaultTeamId);
-            if (DefaultTeam.Template.Owner != this)
+
+            // Matches retail Player::xfer (GPL Generals/GeneralsMD Player.cpp): a missing/unresolved
+            // default team ID is tolerated on load and simply leaves DefaultTeam null. Only a
+            // *resolved* team with the wrong owner indicates corrupt save data.
+            if (DefaultTeam is not null && DefaultTeam.Template.Owner != this)
             {
                 throw new InvalidStateException();
             }
