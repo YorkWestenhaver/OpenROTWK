@@ -1,4 +1,4 @@
-﻿// HitReactionBehavior - R13 port (data-derivable; no GPL sibling, see modules-r13/specs/
+// HitReactionBehavior - R13 port (data-derivable; no GPL sibling, see modules-r13/specs/
 // HitReactionBehaviorData.md).
 //
 // Behavior facts (grounded in two independent retail AotR data sources plus already-landed
@@ -20,16 +20,28 @@
 //   - No death/damage-state gating invented: IDamageModule.OnDamage is only ever dispatched
 //     from ActiveBody.AttemptDamage while health is actively decreasing, which does not fire
 //     post-death - no extra guard is added here.
+//
+// Hold-timing convention (the frame the hit lands is frame zero of the hold): OnDamage arms
+// the wake at now + LifeTimerN and Update() clears at that frame, i.e. GPL PoisonedBehavior's
+// startPoisonedEffects/update pair (m_poisonOverallStopFrame = now + duration, effects stopped
+// once now >= that frame) applied to a reaction hold instead of a poison duration. See
+// HitReactionBehaviorDamage.cs for the arming half.
+//
+// File split (D-7, ProductionQueueHordeContainDamage.cs precedent): the two float-substrate
+// crossings this module needs - reading the legacy float DamageInfo.Result.ActualDamageDealt,
+// and the float HitReactionThresholdN flyweight fields it compares against - live in
+// HitReactionBehaviorDamage.cs and HitReactionBehaviorData.cs, neither of which declares a
+// [SimState] type, so the per-file SIMCORE quarantine scope never turns on for them. THIS file
+// declares [SimState] and stays float-free.
 
 using System;
-using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Sync;
 
 namespace OpenSage.Logic.Object;
 
 [SimState]
-public sealed class HitReactionBehavior : UpdateModule, IDamageModule
+public sealed partial class HitReactionBehavior : UpdateModule
 {
     private readonly HitReactionBehaviorData _data;
 
@@ -43,33 +55,6 @@ public sealed class HitReactionBehavior : UpdateModule, IDamageModule
     {
         _data = data;
         SetWakeFrame(UpdateSleepTime.Forever);
-    }
-
-    public void OnDamage(in DamageInfo damageData)
-    {
-        var amount = damageData.Result.ActualDamageDealt;
-
-        int tier;
-        if (amount >= _data.HitReactionThreshold3) tier = 3;
-        else if (amount >= _data.HitReactionThreshold2) tier = 2;
-        else if (amount >= _data.HitReactionThreshold1) tier = 1;
-        else return; // below every tier: no reaction
-
-        if (_activeTier != 0 && !_data.FastHitsResetReaction)
-        {
-            return; // already reacting, not fast-hits-reset: this hit is dropped
-        }
-
-        if (_activeTier != 0 && _activeTier != tier)
-        {
-            GameObject.ClearModelConditionState(HitLevelFlag(_activeTier));
-        }
-
-        _activeTier = tier;
-        GameObject.SetModelConditionState(ModelConditionFlag.HitReaction);
-        GameObject.SetModelConditionState(HitLevelFlag(tier));
-
-        SetWakeFrame(UpdateSleepTime.Frames(LifeTimerFor(tier)));
     }
 
     public override UpdateSleepTime Update()
@@ -121,51 +106,4 @@ public sealed class HitReactionBehavior : UpdateModule, IDamageModule
         // Flag to integrator: if an oracle/ddiff finding later surfaces a legacy .sav layout
         // for this module, this stub needs real field reads.
     }
-}
-
-// ============================================================================
-// PARSE SIDE - immutable flyweight, quantized at load (design-module-api §2.2).
-// ============================================================================
-[AddedIn(SageGame.Bfme)]
-[SimDataAudited]
-public sealed class HitReactionBehaviorData : UpdateModuleData
-{
-    internal static HitReactionBehaviorData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
-
-    internal static readonly IniParseTable<HitReactionBehaviorData> FieldParseTable = new IniParseTable<HitReactionBehaviorData>
-    {
-        { "HitReactionLifeTimer1", (parser, x) => x.HitReactionLifeTimer1 = parser.ParseDurationLogicFrames() },
-        { "HitReactionLifeTimer2", (parser, x) => x.HitReactionLifeTimer2 = parser.ParseDurationLogicFrames() },
-        { "HitReactionLifeTimer3", (parser, x) => x.HitReactionLifeTimer3 = parser.ParseDurationLogicFrames() },
-        { "HitReactionThreshold1", (parser, x) => x.HitReactionThreshold1 = parser.ParseFloat() },
-        { "HitReactionThreshold2", (parser, x) => x.HitReactionThreshold2 = parser.ParseFloat() },
-        { "HitReactionThreshold3", (parser, x) => x.HitReactionThreshold3 = parser.ParseFloat() },
-        { "FastHitsResetReaction", (parser, x) => x.FastHitsResetReaction = parser.ParseBoolean() }
-    };
-
-    /// <summary>Level 1 (light damage) reaction hold duration. Ms in INI, ceil-quantized at parse.</summary>
-    public LogicFrameSpan HitReactionLifeTimer1 { get; private set; }
-
-    /// <summary>Level 2 (medium damage) reaction hold duration. Ms in INI, ceil-quantized at parse.</summary>
-    public LogicFrameSpan HitReactionLifeTimer2 { get; private set; }
-
-    /// <summary>Level 3 (heavy damage) reaction hold duration. Ms in INI, ceil-quantized at parse.</summary>
-    public LogicFrameSpan HitReactionLifeTimer3 { get; private set; }
-
-    /// <summary>Thresholds stay float (F3: rate/time-adjacent scalar compared against the
-    /// legacy float `DamageInfo.Result.ActualDamageDealt` - see
-    /// FireWeaponWhenDamagedBehaviorModuleData.DamageAmount precedent, same field shape, same
-    /// reasoning: IDamageModule's callback struct is still float-typed engine-wide, not yet
-    /// migrated to Fix64/CombatDamageOutput).</summary>
-    public float HitReactionThreshold1 { get; private set; }
-    public float HitReactionThreshold2 { get; private set; }
-    public float HitReactionThreshold3 { get; private set; }
-
-    /// <summary>True = a qualifying hit during an active reaction restarts the timer to the
-    /// new tier's full duration (swapping HitLevelN if the tier changed); false = the new hit
-    /// is dropped and the in-flight reaction runs to its own completion.</summary>
-    public bool FastHitsResetReaction { get; private set; }
-
-    internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
-        => new HitReactionBehavior(gameObject, gameEngine.SimContext, this);
 }
