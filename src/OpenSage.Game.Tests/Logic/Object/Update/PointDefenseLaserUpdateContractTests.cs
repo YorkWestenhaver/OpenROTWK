@@ -36,6 +36,26 @@ Weapon TestLaser
   End
 End
 
+// ClipSize/ClipReloadTime deliberately mismatched against DelayBetweenShots: retail's
+// fireWhenReady() fires through a brand-new disposable Weapon every shot (force-filled and
+// destroyed - PointDefenseLaserUpdate.cpp:216-219), so these two fields are structurally
+// INERT for this module. A persistent-ammo implementation would fire once (draining the
+// 1-round clip) and then stall for the full 5000ms/25-frame reload; the GPL-correct,
+// pure-timer implementation keeps firing every DelayBetweenShots frame regardless.
+Weapon SlowReloadLaser
+  AttackRange = 50
+  ClipSize = 1
+  AutoReloadsClip = Yes
+  DelayBetweenShots = 200
+  ClipReloadTime = 5000
+  DamageNugget
+    Damage = 20
+    Radius = 0
+    DamageType = CRUSH
+    DeathType = NORMAL
+  End
+End
+
 Locomotor FastLoco
   Surfaces = GROUND
   Speed = 100
@@ -53,6 +73,21 @@ Object LaserPlatform
   End
   Behavior = PointDefenseLaserUpdate ModuleTag_PDL
     WeaponTemplate = TestLaser
+    PrimaryTargetTypes = INFANTRY
+    SecondaryTargetTypes = VEHICLE
+    ScanRate = 1000
+    ScanRange = 300
+    PredictTargetVelocityFactor = 6.0
+  End
+End
+
+Object SlowReloadLaserPlatform
+  KindOf = STRUCTURE
+  Body = ActiveBody ModuleTag_Body
+    MaxHealth = 500
+  End
+  Behavior = PointDefenseLaserUpdate ModuleTag_PDL
+    WeaponTemplate = SlowReloadLaser
     PrimaryTargetTypes = INFANTRY
     SecondaryTargetTypes = VEHICLE
     ScanRate = 1000
@@ -148,10 +183,20 @@ End
     // ------------------------------------------------------------------ weapon firing / ammo cycling
 
     [Fact]
-    public void FiresAtDelayIntervalAndCyclesAmmoThroughReload()
+    public void FiresPurelyOnDelayBetweenShots_ClipSizeAndReloadTimeAreInert()
     {
+        // GPL fireWhenReady() fires through a brand-new disposable Weapon every shot
+        // (allocateNewWeapon + loadAmmoNow + fireWeapon + deleteInstance,
+        // PointDefenseLaserUpdate.cpp:216-219) - the clip is force-filled and destroyed every
+        // time, so ClipSize/AutoReloadsClip/ClipReloadTime are structurally INERT for this
+        // module in retail; cadence is governed purely by DelayBetweenShots
+        // (m_nextShotAvailableInFrames). SlowReloadLaser sets ClipSize=1 with a 5000ms
+        // (25-frame) ClipReloadTime specifically to catch a persistent-ammo implementation:
+        // if the module genuinely depleted/reloaded a clip, it would fire once and then stall
+        // for ~25 frames. Retail (and this port) keeps firing every DelayBetweenShots
+        // (1 frame) regardless.
         var game = NewGame();
-        var platform = game.SpawnObject("LaserPlatform", game.CivilianPlayer, Vector3.Zero);
+        var platform = game.SpawnObject("SlowReloadLaserPlatform", game.CivilianPlayer, Vector3.Zero);
         var target = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
@@ -165,10 +210,12 @@ End
 
         var damageDealt = startingHealth - body.DamageCore.CurrentHealth;
 
-        // ClipSize 2 * Damage 20 = 40 is everything one full clip can deal; more than that
-        // over 12 frames (well past DelayBetweenShots(1) + ClipReloadTime(2) once) proves the
-        // clip actually auto-reloaded and cycled, not just fired once and stalled.
-        Assert.True(damageDealt > Fix(40), $"expected more than one clip's damage, got {damageDealt}");
+        // A clip-gated implementation can deal at most one shot (20 damage) inside this
+        // 12-frame window (the 25-frame reload dwarfs it). Pure-timer cadence at 1 shot/frame
+        // deals several multiples of that (~6 shots / 120 damage) - assert well above the
+        // one-shot ceiling and well below the full pure-timer total, so this discriminates the
+        // two implementations without being sensitive to +/-1 frame timing.
+        Assert.True(damageDealt > Fix(60), $"expected far more than one clip's worth of damage (ClipSize/ClipReloadTime must be inert), got {damageDealt}");
     }
 
     // ------------------------------------------------------------------ priority targeting
@@ -331,6 +378,62 @@ End
 
         Assert.NotEqual(lost.Id, module.BestTargetId);
         Assert.Equal(replacement.Id, module.BestTargetId);
+    }
+
+    // ------------------------------------------------------------------ stale-target fire-through-drop
+
+    [Fact]
+    public void FiresOneMoreShotOnRangeLossTransition_MatchingGplStaleTargetBias()
+    {
+        // GPL fireWhenReady(): on an in-range -> out-of-range transition, the rescan bias
+        // (GameLogicRandomValue(0,3)) is drawn, m_bestTargetID is unconditionally cleared, but
+        // m_inRange is only reset to false - and the local `target` pointer only nulled - in
+        // the bias==0 sub-case. On the other ~75% of transitions the stale target/m_inRange
+        // pair still passes `if (target && m_inRange)` and GPL fires once more at the target it
+        // just decided to drop, before the cleared m_bestTargetID takes effect next frame
+        // (PointDefenseLaserUpdate.cpp:178-196). Sweep several seeds so at least one exercises
+        // a nonzero bias draw on the transition frame (P(none of 16 draws nonzero) < 1e-9).
+        var seeds = new uint[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+        var sawExtraShot = false;
+
+        foreach (var seed in seeds)
+        {
+            var game = NewGame(seed);
+            var platform = game.SpawnObject("LaserPlatform", game.CivilianPlayer, Vector3.Zero);
+            var target = game.SpawnObject("Grunt", game.PlayerManager.NeutralPlayer, new Vector3(30, 0, 0));
+            MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+
+            for (var i = 0; i < 6; i++)
+            {
+                game.Step();
+            }
+
+            var module = ModuleOf(platform);
+            if (module.BestTargetId != target.Id || !module.InRange)
+            {
+                // Not settled into the expected in-range-tracking state yet for this seed;
+                // skip rather than risk a false negative.
+                continue;
+            }
+
+            var body = BodyOf(target);
+            var healthBeforeTransition = body.DamageCore.CurrentHealth;
+
+            // Move the target just outside firing range (50) but still inside scan range
+            // (300), so this is the range-loss branch, not a full scan-range departure.
+            target.UpdateTransform(new Vector3(100, 0, 0));
+            target.UpdateColliders();
+
+            game.Step();
+
+            if (body.DamageCore.CurrentHealth < healthBeforeTransition)
+            {
+                sawExtraShot = true;
+                break;
+            }
+        }
+
+        Assert.True(sawExtraShot, "expected at least one seed to draw a nonzero rescan bias and fire once more on the range-loss transition frame (GPL stale-target behavior)");
     }
 
     // ------------------------------------------------------------------ base contract tests
