@@ -138,12 +138,23 @@ public class OrderIdentityMapTests
         // The castle pairings are the sharpest case for this table's no-cast rule: their
         // OrderType values are engine-local 2xxx numbers (their recovered numbers were already
         // occupied in the ZH-derived OrderType enum), so casting the OrderType to a
-        // GameMessageType does not merely produce the WRONG message - it produces one that is
-        // not a defined message at all.
+        // GameMessageType silently produces a DIFFERENT, PERFECTLY VALID message.
+        //
+        // INT-R1B correction: this test originally asserted the cast landed on an undefined
+        // value. It does not, and that is the worse outcome - the 2xxx band the castle members
+        // took is fully populated in GameMessageType by the object-state messages, so a naive
+        // cast type-checks, round-trips, and dispatches the wrong behaviour with no error to
+        // catch. Enum.IsDefined would NOT have saved a caller here; only the table does.
         Assert.True(OrderIdentityMap.TryGetGameMessageType(OrderType.CastleUnpack, out var messageType));
         Assert.Equal(GameMessageType.MSG_CASTLE_UNPACK, messageType);
         Assert.NotEqual((int)OrderType.CastleUnpack, (int)messageType);
-        Assert.False(Enum.IsDefined(typeof(GameMessageType), (GameMessageType)(int)OrderType.CastleUnpack));
+
+        // What the cast actually yields for each castle member: a defined object-state message
+        // that has nothing to do with castles. Pinned so the danger stays legible.
+        Assert.Equal(GameMessageType.MSG_OBJECT_POSITION, (GameMessageType)(int)OrderType.CastleUnpack);
+        Assert.Equal(GameMessageType.MSG_OBJECT_ORIENTATION, (GameMessageType)(int)OrderType.CastlePack);
+        Assert.Equal(GameMessageType.MSG_OBJECT_CREATED, (GameMessageType)(int)OrderType.FoundationConstruct);
+        Assert.Equal(GameMessageType.MSG_OBJECT_DESTROYED, (GameMessageType)(int)OrderType.FoundationConstructCancel);
     }
 
     [Fact]

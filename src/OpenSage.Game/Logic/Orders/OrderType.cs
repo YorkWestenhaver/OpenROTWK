@@ -174,7 +174,11 @@ public enum OrderType
     // are NOT wire values and must never be written to a replay or a network packet as-is.
     // Their retail identity lives in exactly one place - OrderIdentityMap's explicit,
     // literal table - which is also what any SimCore/netcode path must go through. Never a
-    // cast: (GameMessageType)(int)OrderType.CastleUnpack would be 2003, which is nothing.
+    // cast. INT-R1B correction: the cast is not merely useless here, it is actively unsafe -
+    // GameMessageType's own 2xxx band is fully populated by the object-state messages, so
+    // (GameMessageType)(int)OrderType.CastleUnpack is a DEFINED message (an object-position
+    // one) rather than a hole. A naive cast therefore type-checks and dispatches silently
+    // wrong instead of failing; validity checks cannot catch it, only the table can.
     //
     // These are additive: no existing member's value changes.
     // ================================================================================
