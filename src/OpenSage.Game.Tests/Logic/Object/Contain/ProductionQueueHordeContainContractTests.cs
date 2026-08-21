@@ -356,6 +356,34 @@ End
         Assert.Equal(2, contain.SlotIndexOf(overflow.Id)); // reused the vacated slot
     }
 
+    [Fact]
+    public void TryAddMember_RejectsDuplicateReAdd_OfAlreadySeatedMember()
+    {
+        // Sibling module SlaughterHordeContain.CanContain explicitly guards against seating the
+        // same ObjectId twice (`if (_members.Contains(member.Id)) return false;`). Without the
+        // equivalent guard here, a second TryAddMember call for an already-seated member would
+        // occupy a second slot for the same ObjectId - a phantom occupant that TryRemoveMember
+        // (which only clears the FIRST matching slot) could never reach through the public API,
+        // silently shrinking usable capacity, and that ReleaseAll would double-release.
+        var game = NewGame();
+        var range = game.SpawnObject("QueueRange", game.CivilianPlayer, Vector3.Zero);
+        var contain = ContainOf(range);
+        var member = game.SpawnObject("QueueInfantry", game.CivilianPlayer, Vector3.Zero);
+
+        Assert.True(contain.TryAddMember(member));
+        Assert.Equal(1, contain.MemberCount);
+
+        // Re-adding the same live, already-seated member must be rejected outright - not seated
+        // into a second slot.
+        Assert.False(contain.TryAddMember(member));
+        Assert.Equal(1, contain.MemberCount);
+
+        // Removing it once must fully vacate the member - no phantom duplicate slot left behind.
+        Assert.True(contain.TryRemoveMember(member.Id));
+        Assert.Equal(0, contain.MemberCount);
+        Assert.False(contain.IsFull);
+    }
+
     // ---- shared base tests ----
 
     [Fact]
