@@ -290,6 +290,53 @@ public class DumpComparatorTests
         Assert.DoesNotContain('\n', json);
     }
 
+    // --- Stream-only dumps (DeepCrcWriter's streamOnly mode) contain only the header, optional
+    // comments, and V lines -- no F/C/R/E lines at all (see DeepCrcWriter.BeginFrame /
+    // BeginChannel, which return early under streamOnly). DumpParser still populates
+    // DumpLine.Frame for Vector lines, so the comparator must track lastCommonFrame off V lines
+    // too, or a stream-only comparison can never attribute a frame to its result. ---
+
+    [Fact]
+    public void StreamOnly_IdenticalPair_ReportsLastFrameFromVectorLines()
+    {
+        var streamOnly = Join(
+            "# opensage-deepdump v2",
+            "V 0 aabbccdd aabbccdd",
+            "V 1 aabbccdd aabbccdd",
+            "V 2 aabbccdd aabbccdd");
+
+        var report = DumpComparator.Compare(streamOnly, streamOnly, Options());
+
+        Assert.Equal(DivergenceKind.None, report.Kind);
+        Assert.Equal(0, report.ExitCode);
+        Assert.Equal("2", report.LastCommonFrame);
+        Assert.DoesNotContain("(none)", report.Summary);
+    }
+
+    [Fact]
+    public void StreamOnly_Divergence_NamesTheCorrectFrame()
+    {
+        var a = Join(
+            "# opensage-deepdump v2",
+            "V 0 aabbccdd aabbccdd",
+            "V 1 aabbccdd aabbccdd",
+            "V 2 aabbccdd aabbccdd");
+        var b = Join(
+            "# opensage-deepdump v2",
+            "V 0 aabbccdd aabbccdd",
+            "V 1 aabbccdd aabbccdd",
+            "V 2 deadbeef aabbccdd"); // combined crc differs at frame 2
+
+        var report = DumpComparator.Compare(a, b, Options());
+
+        Assert.Equal(DivergenceKind.VectorDivergence, report.Kind);
+        Assert.Equal(1, report.ExitCode);
+        // Frames 0 and 1 matched, so the last identical frame is 1 and the divergence is at 2.
+        Assert.Equal("1", report.LastCommonFrame);
+        Assert.Equal("2", report.DivergenceFrame);
+        Assert.Contains("frame 2", report.Summary);
+    }
+
     [Fact]
     public void HumanReport_OrdersFactsPerContract()
     {

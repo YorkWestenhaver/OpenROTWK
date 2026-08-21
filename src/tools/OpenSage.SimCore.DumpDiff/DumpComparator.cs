@@ -108,7 +108,11 @@ public static class DumpComparator
 
             if (la.Raw == lb.Raw)
             {
-                if (la.Kind == DumpLineKind.Frame)
+                // Stream-only dumps (DeepCrcWriter's streamOnly mode) omit every F/C/R/E line,
+                // leaving only V lines to attribute a frame from -- DumpParser still populates
+                // DumpLine.Frame for Vector lines, so track it here too, or a stream-only
+                // comparison can never report anything but "last frame (none)".
+                if (la.Kind == DumpLineKind.Frame || la.Kind == DumpLineKind.Vector)
                 {
                     lastCommonFrame = la.Frame.ToString();
                 }
