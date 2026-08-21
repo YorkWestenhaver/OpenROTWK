@@ -61,7 +61,10 @@ public interface IScene3D : IDisposable
     RenderScene RenderScene { get; }
     RadarDrawUtil RadarDrawUtil { get; }
     int GetPlayerIndex(Player player);
-    void LogicTick(in TimeInterval time);
+    /// <summary>Per-object sim tick; head of <c>SimPhase.PartitionUpdate</c>.</summary>
+    void SimObjectTick(in TimeInterval time);
+    /// <summary>Reap this frame's destroyed objects; tail of <c>SimPhase.PartitionUpdate</c>.</summary>
+    void ReapDestroyed();
     void LocalLogicTick(in TimeInterval gameTime, float tickT);
     void BuildRenderList(RenderList renderList, Camera camera, in TimeInterval gameTime);
     void Render(DrawingContext2D drawingContext);

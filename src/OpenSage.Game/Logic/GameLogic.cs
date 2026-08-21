@@ -350,6 +350,14 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // the module loop, before the partition tick (GameLogic.cpp subsystem order).
         _simPathfind?.Update();
 
+        // The rest of GPL's AI::update slot: ThePlayerList::update() runs immediately after
+        // the pathfind queue drains, still inside the module update and still on the
+        // pre-increment frame counter. This used to lead Scene3D.LogicTick, i.e. it ran a
+        // phase later and after the logic clock had already advanced; it belongs here, beside
+        // the pathfinder, so that every host that ticks GameLogic - headed loop, headless
+        // host, save-load replay - gets the same player tick in the same slot.
+        _game.PlayerManager.LogicTick();
+
         // S3 partition wiring (F-PV-1): the SimPhase.PartitionUpdate body for hosts that
         // tick GameLogic directly (position re-anchor + due shroud-undo pops). Runs on
         // the pre-increment frame counter, i.e. the frame that just executed.

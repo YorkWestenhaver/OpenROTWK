@@ -188,9 +188,10 @@ internal sealed class HeadlessSimGame : IGame
     }
 
     /// <summary>
-    /// Runs one 5 Hz logic frame: sleepy module updates, the frame advances, then the
+    /// Runs one 5 Hz logic frame: sleepy module updates, the pathfind queue and player tick
+    /// (GPL's AI::update slot, both inside GameLogic.Update), the frame advances, then the
     /// destroy list is reaped - the same two halves a real frame runs (GameLogic.Update
-    /// followed by Scene3D.LogicTick's DeleteDestroyed). Without the reap a killed object
+    /// followed by the headed loop's Scene3D.ReapDestroyed). Without the reap a killed object
     /// stays in the object list and keeps ticking, which is exactly what a Die test must
     /// not see.
     /// </summary>
@@ -361,7 +362,8 @@ internal sealed class HeadlessSimGame : IGame
         public RenderScene RenderScene => null;
         public RadarDrawUtil RadarDrawUtil => null;
         public int GetPlayerIndex(Player player) => 0;
-        public void LogicTick(in TimeInterval time) { }
+        public void SimObjectTick(in TimeInterval time) { }
+        public void ReapDestroyed() { }
         public void LocalLogicTick(in TimeInterval gameTime, float tickT) { }
         public void BuildRenderList(RenderList renderList, Camera camera, in TimeInterval gameTime) { }
         public void Render(DrawingContext2D drawingContext) { }

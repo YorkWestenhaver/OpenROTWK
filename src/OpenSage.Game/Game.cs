@@ -579,7 +579,7 @@ public sealed class Game : DisposableBase, IGame
             // sequence. See LogicTick(). CrcCheckpointIntervalInFrames = 0 keeps the
             // CrcCheckpoint phase body from ever running in a headed game (SimLoop guards
             // on != 0); packet 5 attaches SyncChecker behind a launcher flag.
-            var headedSimSystems = new HeadedSimSystems(this, RunUnphasedLogicResidue);
+            var headedSimSystems = new HeadedSimSystems(this);
             _simLoop = new SimLoop(headedSimSystems, headedSimSystems)
             {
                 CrcCheckpointIntervalInFrames = 0,
@@ -894,34 +894,21 @@ public sealed class Game : DisposableBase, IGame
     /// </summary>
     /// <remarks>
     /// Phase bodies live in <see cref="HeadedSimSystems"/>: IngestOrders drains
-    /// <c>NetworkMessageBuffer</c>, ModuleUpdate runs <c>GameLogic.Update()</c>,
-    /// PartitionUpdate runs <see cref="RunUnphasedLogicResidue"/> and then
-    /// <c>PartitionCellManager.Update()</c>. DispatchOrders and CrcCheckpoint are inert
-    /// for now (packets 4 and 5).
+    /// <c>NetworkMessageBuffer</c>, ModuleUpdate runs <c>GameLogic.Update()</c> (which now
+    /// carries the player tick in GPL's AI::update slot), PartitionUpdate runs
+    /// <c>Scene3D.SimObjectTick()</c>, then <c>PartitionCellManager.Update()</c>, then
+    /// <c>Scene3D.ReapDestroyed()</c>. DispatchOrders and CrcCheckpoint are inert for now
+    /// (packets 4 and 5).
     /// <para>
-    /// The per-frame call order is what it always was, with one intentional exception:
-    /// <c>NetworkMessageBuffer.Tick()</c> now runs BEFORE <c>GameLogic.Update()</c> instead of
-    /// after it, because IngestOrders precedes ModuleUpdate. Draining the connection after
-    /// running the frame is backwards for lockstep.
+    /// Two intentional exceptions to the legacy call order, one per packet:
+    /// <c>NetworkMessageBuffer.Tick()</c> runs BEFORE <c>GameLogic.Update()</c> instead of
+    /// after it, because IngestOrders precedes ModuleUpdate and draining the connection after
+    /// running the frame is backwards for lockstep (R14 packet 1); and the destroy-list reap
+    /// runs AFTER <c>PartitionCellManager.Update()</c> instead of before it, matching GPL,
+    /// which reaps once ThePartitionManager has already run for the frame (R15 packet 2).
     /// </para>
     /// </remarks>
     private void LogicTick() => _simLoop.Advance();
-
-    /// <summary>
-    /// The part of the legacy logic tick that has no phase of its own yet:
-    /// <c>Scene3D.LogicTick(timeInterval)</c>, which still mixes sim (PlayerManager, the per-object
-    /// GameObject.LogicTick loop, DeleteDestroyed) with presentation. Left exactly where it
-    /// ran - after the module update, before the partition tick - and invoked from the head of
-    /// the PartitionUpdate phase so that stays true. Packet 2 splits it into real phases.
-    /// </summary>
-    private void RunUnphasedLogicResidue()
-    {
-        // TODO: Calculate time correctly.
-        var timeInterval = GetTimeInterval();
-        Scene3D?.LogicTick(timeInterval);
-    }
-
-    private TimeInterval GetTimeInterval() => new(MapTime.TotalTime, TimeSpan.FromMilliseconds(GameEngine.MsPerLogicFrame));
 
     private void ToggleLogicRunning()
     {

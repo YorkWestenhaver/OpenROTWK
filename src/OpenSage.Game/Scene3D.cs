@@ -348,15 +348,34 @@ public sealed class Scene3D : DisposableBase, IScene3D
     // TODO: Move this over to a player collection?
     public int GetPlayerIndex(Player player) => Game.PlayerManager.GetPlayerIndex(player);
 
-    public void LogicTick(in TimeInterval time)
+    /// <summary>
+    /// The per-object half of the sim frame: every live object's logic tick. Runs at the head
+    /// of <c>SimPhase.PartitionUpdate</c>, i.e. after the module update and before the
+    /// partition tick, which is exactly where it ran when it was the body of the old
+    /// <c>LogicTick</c>. The object loop dirties positions the partition tick then re-anchors,
+    /// so nothing may be inserted between the two.
+    /// </summary>
+    /// <remarks>
+    /// The player tick that used to lead this method has moved into <c>GameLogic.Update()</c>,
+    /// beside the pathfind queue drain - GPL runs <c>ThePlayerList::update()</c> inside
+    /// <c>AI::update</c>, at the tail of the module update, not out here.
+    /// </remarks>
+    public void SimObjectTick(in TimeInterval time)
     {
-        Game.PlayerManager.LogicTick();
-
         foreach (var gameObject in GameObjects.Objects)
         {
             gameObject.LogicTick(time);
         }
+    }
 
+    /// <summary>
+    /// Reap the objects destroyed during this frame. Runs at the TAIL of
+    /// <c>SimPhase.PartitionUpdate</c>, after the partition tick: GPL reaps its pending-delete
+    /// list once <c>ThePartitionManager</c> has already run for the frame, so a dying object is
+    /// still present for that frame's partition update and only disappears afterwards.
+    /// </summary>
+    public void ReapDestroyed()
+    {
         GameObjects.DeleteDestroyed();
     }
 

@@ -10,11 +10,17 @@
 // GameLogic.Update() to BEFORE it, because IngestOrders precedes ModuleUpdate in the frozen
 // sequence (SimLoop.cs, SimPhase declaration order). Draining the connection after running
 // the frame is backwards for lockstep. Everything else runs in the same relative order it
-// ran in before - see _prePartitionResidue for how that is kept true.
+// ran in before.
 //
-// Non-goals, deliberately left for later packets: splitting Scene3D.LogicTick into sim and
-// presentation (packet 2), folding the second scripting accumulator into a phase and
-// unifying the two frame counters (packet 3), routing real orders through
+// R15 packet 2 (br-p2-scene3d-split) then retired the unphased residue hook: Scene3D.LogicTick
+// is gone, split into IScene3D.SimObjectTick (head of PartitionUpdate) and
+// IScene3D.ReapDestroyed (tail of PartitionUpdate, after PartitionCellManager.Update), with
+// the player tick moved into GameLogic.Update beside the pathfind queue - GPL's AI::update
+// slot. That reap move is packet 2's ONE claimed behavior change: GPL reaps its pending-delete
+// list after ThePartitionManager->update, not before it.
+//
+// Non-goals, deliberately left for later packets: folding the second scripting accumulator
+// into a phase and unifying the two frame counters (packet 3), routing real orders through
 // SimLoop.Orders/ScheduledOrder so DispatchOrder stops being a no-op (packet 4), and
 // attaching SyncChecker to the CrcCheckpoint phase (packet 5).
 
@@ -42,7 +48,6 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
     private readonly IGame _game;
-    private readonly Action _prePartitionResidue;
 
     private uint _logicFrameBeforeModuleUpdate;
     private bool _frameOpen;
@@ -54,22 +59,11 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     private TimeSpan _lastHeartbeatWallTime;
 
     /// <param name="game">The headed game whose subsystems this drives.</param>
-    /// <param name="prePartitionResidue">
-    /// Temporary carrier for the one piece of the legacy tick that has no phase yet:
-    /// <c>Scene3D.LogicTick(timeInterval)</c>, which is still a mix of sim (PlayerManager,
-    /// the per-object GameObject.LogicTick loop, DeleteDestroyed) and presentation. It ran
-    /// between <c>GameLogic.Update()</c> and <c>PartitionCellManager.Update()</c> in the
-    /// legacy tick, so it runs at the head of <see cref="PartitionUpdate"/> here, which is
-    /// the same slot in the same order. Running it after <c>Advance()</c> instead would have
-    /// silently moved the partition tick ahead of the object loop that dirties it - a second,
-    /// unclaimed behavior change. Packet 2 splits it into real phases and deletes this hook.
-    /// </param>
-    public HeadedSimSystems(IGame game, Action prePartitionResidue = null)
+    public HeadedSimSystems(IGame game)
     {
         ArgumentNullException.ThrowIfNull(game);
 
         _game = game;
-        _prePartitionResidue = prePartitionResidue;
     }
 
     /// <summary>
@@ -103,13 +97,38 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
         _game.GameLogic.Update();
     }
 
+    /// <summary>
+    /// The partition slot, in GPL's order: the per-object loop dirties positions, the
+    /// partition manager re-anchors against them, and only then is the frame's destroy list
+    /// reaped.
+    /// </summary>
+    /// <remarks>
+    /// GPL <c>GameLogic::update</c> runs <c>ThePartitionManager->update()</c> and reaps its
+    /// pending-delete list immediately afterwards. The legacy headed tick reaped BEFORE the
+    /// partition tick (<c>DeleteDestroyed</c> sat at the tail of <c>Scene3D.LogicTick</c>,
+    /// which ran ahead of <c>PartitionCellManager.Update()</c>); moving the reap after it is
+    /// this packet's one claimed behavior change. A dying object therefore stays visible to
+    /// the partition update for the frame it dies on, as it does in the retail order.
+    /// </remarks>
     public void PartitionUpdate(LogicFrame frame)
     {
-        // Unphased residue first - it ran here in the legacy tick. See the ctor doc.
-        _prePartitionResidue?.Invoke();
+        var timeInterval = GetTimeInterval();
+
+        _game.Scene3D?.SimObjectTick(timeInterval);
 
         _game.PartitionCellManager.Update();
+
+        _game.Scene3D?.ReapDestroyed();
     }
+
+    /// <summary>
+    /// The logic-frame time interval the per-object tick is handed. Same expression the
+    /// legacy <c>Game.GetTimeInterval()</c> used - map time plus one logic frame's worth of
+    /// wall clock.
+    /// </summary>
+    // TODO: Calculate time correctly (inherited from the legacy tick).
+    private TimeInterval GetTimeInterval() =>
+        new(_game.MapTime.TotalTime, TimeSpan.FromMilliseconds(_game.GameEngine.MsPerLogicFrame));
 
     /// <summary>
     /// No-op. A headed game runs with <c>CrcCheckpointIntervalInFrames = 0</c>, so the loop
