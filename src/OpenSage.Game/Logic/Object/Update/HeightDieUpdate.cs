@@ -48,9 +48,12 @@
 //   F-HDU-2 bridge/layer height: GPL's TargetHeightIncludesStructures branch also consults
 //     TheTerrainLogic->getHighestLayerForDestination/getLayerHeight to raise terrainHeightAtPos
 //     for objects standing on a bridge. ITerrainLogic exposes no layer/bridge query yet (only
-//     GetGroundHeight); the structure-scan half of TargetHeightIncludesStructures (the part
-//     every existing test in this codebase's genre of object actually exercises) is fully
-//     ported, the bridge-layer contribution is not.
+//     GetGroundHeight); the structure-scan half of TargetHeightIncludesStructures now measures
+//     with the same GPL FROM_BOUNDINGSPHERE_3D distance mode as the reference (R13 fix - the
+//     Center2D partition seam query below is a pre-filter only, followed by a manual 3D
+//     bounding-sphere-to-bounding-sphere check per candidate, see the comment at that call
+//     site; was previously accepting every same-footprint structure as "in range" regardless
+//     of Z), the bridge-layer contribution is still not.
 //
 // Every mutable sim field appears in Xfer exactly once (§3); field order mirrors the GPL
 // xfer() order (hasDied, particlesDestroyed, lastPosition, earliestDeathFrame).
@@ -139,7 +142,40 @@ public sealed class HeightDieUpdate : UpdateModule
                 var range = SimTransformBridge.PullGeometry(GameObject).BoundingCircleRadius;
                 var tallestHeight = Fix64.Zero;
 
-                foreach (var candidate in Context.Partition.QueryObjectsInRadius(GameObject, range))
+                // GPL requests FROM_BOUNDINGSPHERE_3D for this scan (HeightDieUpdate.cpp),
+                // not plain center-to-center 2D: full 3D distance between each pair's
+                // bounding-sphere CENTERS (object position + that shape's own
+                // getZDeltaToCenterPosition, since positions are the bottom-center of the
+                // geometry - PartitionManager.cpp distCalcProc_BoundaryAndBoundary_3D),
+                // minus both objects' bounding-SPHERE radii (getBoundingSphereRadius, which
+                // grows with height - NOT the 2D bounding-circle radius), clamped at zero,
+                // compared strictly-less-than range.
+                //
+                // The seam's Context.Partition.QueryObjectsInRadius only ever measures
+                // Center2D (SimPartitionEngineHost.cs), and its registered partition-entry
+                // radius is the 2D bounding-CIRCLE radius, not a true 3D bounding-sphere -
+                // so it cannot serve FROM_BOUNDINGSPHERE_3D directly, and using it as a
+                // same-`range` PRE-FILTER before a manual per-candidate 3D check would still
+                // be wrong: the shrunk (radius-subtracted) 3D distance can be strictly less
+                // than a raw 2D center distance that already exceeds `range` (a tall/wide
+                // structure's own bounding-sphere radius can itself exceed `range`), so that
+                // shape would be dropped before ever reaching the manual check - reproducing
+                // exactly the false-negative direction of this same finding ("a structure...
+                // offset laterally beyond its own tiny BoundingCircleRadius... will be missed
+                // by the port's plain center-to-center 2D test"). Rather than widen the
+                // shared partition seam/grid for this one caller (R13, scoped to this module
+                // per the review's own suggested fix shape), the scan instead walks the
+                // blessed whole-world iteration (Context.GameLogic.ObjectsAscendingId,
+                // ISimContext's one deterministic full-object enumeration) filtered to
+                // KindOf STRUCTURE first (GPL's own PartitionFilterAcceptByKindOf(STRUCTURE)
+                // filter, cheap and typically shrinks the candidate set far below the full
+                // object count), then applies the exact GPL bounding-sphere-3D test below -
+                // correct in both directions, at the cost of an O(objects) rather than
+                // O(nearby) scan.
+                var selfCenter = new FixVector3(pos.X, pos.Y, pos.Z + GameObject.GeometryZDeltaToCenterPosition);
+                var selfSphereRadius = GameObject.BoundingSphereRadius;
+
+                foreach (var candidate in Context.GameLogic.ObjectsAscendingId)
                 {
                     if (candidate == GameObject)
                     {
@@ -147,6 +183,25 @@ public sealed class HeightDieUpdate : UpdateModule
                     }
 
                     if (candidate.Definition.KindOf is null || !candidate.Definition.KindOf.Get(ObjectKinds.Structure))
+                    {
+                        continue;
+                    }
+
+                    var candidatePos = SimTransformBridge.PullPosition(candidate);
+                    var candidateCenter = new FixVector3(
+                        candidatePos.X,
+                        candidatePos.Y,
+                        candidatePos.Z + candidate.GeometryZDeltaToCenterPosition);
+
+                    var actualDist = FixMath.Distance(selfCenter, candidateCenter);
+                    var totalRad = selfSphereRadius + candidate.BoundingSphereRadius;
+                    var shrunkDist = actualDist - totalRad;
+                    if (shrunkDist < Fix64.Zero)
+                    {
+                        shrunkDist = Fix64.Zero;
+                    }
+
+                    if (shrunkDist >= range)
                     {
                         continue;
                     }

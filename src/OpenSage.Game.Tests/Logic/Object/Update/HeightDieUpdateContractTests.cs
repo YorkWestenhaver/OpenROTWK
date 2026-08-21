@@ -202,6 +202,36 @@ End
         Assert.True(obj.IsDestroyed);
     }
 
+    // R13 fix (structure-scan distance mode, HeightDieUpdate.cs:142-ish): GPL scans for
+    // TargetHeightIncludesStructures with FROM_BOUNDINGSPHERE_3D, not a 2D-radius-limited
+    // pre-filter. The test above places Tower and Faller at identical X/Y throughout, so
+    // it cannot distinguish correct 3D bounding-sphere behavior from either bug direction
+    // (see the review doc). This test places Tower at a genuine lateral offset (20 units)
+    // - farther than the faller's own tiny default-geometry BoundingCircleRadius (1.0) but
+    // well within the tower's own large bounding-sphere radius (~57.4, driven by its
+    // 100-unit height) - so a buggy Center2D-with-tiny-maxDist scan misses it entirely
+    // (raw center distance 20 > the faller's radius 1.0) while GPL's real
+    // FROM_BOUNDINGSPHERE_3D test correctly still finds it.
+    [Fact]
+    public void TargetHeightIncludesStructures_LaterallyOffsetStructure_StillDetectedViaBoundingSphere3D()
+    {
+        var game = NewGame();
+        game.SpawnObject("Tower", game.CivilianPlayer, new Vector3(20, 0, 0)); // MaxZ = 100, offset 20 units in X
+        var obj = game.SpawnObject("FallerOverStructure", game.CivilianPlayer, new Vector3(0, 0, 200));
+
+        game.Step(); // well above both the plain TargetHeight (10) and the structure top (100): alive
+        Assert.False(obj.IsDestroyed);
+
+        // 50 is well above the plain TargetHeight (10) alone, and sits at the tower's own
+        // mid-height (its bounding sphere is centered at Z=50) - squarely within the
+        // tower's real 3D bounding-sphere reach despite the 20-unit lateral offset. Only
+        // dies if the laterally-offset structure is genuinely detected via a true 3D scan.
+        SetZ(obj, 50);
+        game.Step();
+
+        Assert.True(obj.IsDestroyed);
+    }
+
     [Fact]
     public void TargetHeightIncludesStructures_NoStructureUnderneath_UsesPlainTargetHeight()
     {
