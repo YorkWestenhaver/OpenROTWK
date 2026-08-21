@@ -106,19 +106,33 @@ internal sealed class WeaponStateMachine
 
     public void Update()
     {
+        // Entering a state twice in one call means the transition cycle closed without the
+        // logic frame advancing (every duration around it is zero - e.g. a weapon template
+        // with no DelayBetweenShots, whose Firing -> IdleAfterFiring -> BetweenShots ->
+        // Firing ring elapses instantly), so the loop below would never terminate. The
+        // original advances weapon status once per frame, so stopping at the repeat and
+        // letting the rest happen on the next tick is the faithful outcome; a zero-cooldown
+        // weapon fires at most once per frame rather than wedging the sim.
+        var entered = 0;
+
         while (true)
         {
             // TODO: Fix timing. Need to use actual time that previous state ended.
             var nextState = _currentState.GetNextState();
 
-            if (nextState != null)
-            {
-                TransitionToState(nextState.Value);
-            }
-            else
+            if (nextState == null)
             {
                 break;
             }
+
+            var stateBit = 1 << (int)nextState.Value;
+            if ((entered & stateBit) != 0)
+            {
+                break;
+            }
+            entered |= stateBit;
+
+            TransitionToState(nextState.Value);
         }
     }
 

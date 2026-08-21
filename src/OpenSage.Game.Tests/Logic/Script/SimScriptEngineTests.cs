@@ -662,6 +662,7 @@ End
 
 Weapon ScriptShortGun
   AttackRange = 20
+  DelayBetweenShots = 1000
   DamageNugget
     Damage = 10
     Radius = 0.0
@@ -867,6 +868,9 @@ End
         // 5-frame-ish opening approach (Speed 30 -> 6/frame), so the contract that matters —
         // the unit walks toward the waypoint FIRST and only diverts to fight once the foe is
         // actually in range — is exercised, not sidestepped by spawning already in range.
+        // Its DelayBetweenShots (1s = 5 frames) also keeps the foe alive across the whole
+        // window, so the closing "did not resume walking" assertion measures the engagement
+        // rather than the victim-died resume path (that one is a separate contract).
         var attackerOwner = game.PlayerManager.GetPlayerByIndex(0); // neutral
         var foeOwner = game.CivilianPlayer;
         attackerOwner.AddEnemy(foeOwner);
