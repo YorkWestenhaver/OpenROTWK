@@ -142,6 +142,20 @@ End
     private static ReplaceSelfUpgrade ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<ReplaceSelfUpgrade>().Single();
 
+    private static uint NextTestTeamId = 900;
+
+    // Mirrors ReplaceObjectUpgradeContractTests.AssignSingletonTeam - HeadlessSimGame.SpawnObject
+    // never assigns Team (Sim/HeadlessSimGame.cs), so tests must assign one explicitly to
+    // exercise the Team-preservation path at all.
+    private static Team AssignSingletonTeam(HeadlessSimGame game, GameObject obj, Player owner)
+    {
+        var id = NextTestTeamId++;
+        var template = new TeamTemplate(game.TeamFactory, id, $"ReplaceSelfUpgradeTestTeam{id}", owner, isSingleton: true);
+        var team = new Team(template, id);
+        obj.Team = team;
+        return team;
+    }
+
     private static UpgradeSet MetamorphoseSet(HeadlessSimGame game) =>
         new UpgradeSet { game.AssetStore.Upgrades.GetByName("Upgrade_Metamorphose") };
 
@@ -205,6 +219,26 @@ End
 
         var replacement = game.GameLogic.Objects.Single(o => o.Definition.Name == "ReplacementUnit");
         Assert.Same(enemyOwner, replacement.Owner);
+    }
+
+    // ---- Team preservation (R13 fix: donor.Team was never copied to any spawn) ----
+
+    [Fact]
+    public void TeamPreservation_ReplacementAndAndThenAddASpawnsInheritDonorTeam()
+    {
+        var game = NewGame(out var enemyOwner);
+        var original = game.SpawnObject("OriginalWithSpawns", enemyOwner, new Vector3(5, 5, 0));
+        var team = AssignSingletonTeam(game, original, enemyOwner);
+
+        ModuleOf(original).TryUpgrade(MetamorphoseSet(game));
+
+        var replacement = game.GameLogic.Objects.Single(o => o.Definition.Name == "ReplacementUnit");
+        var footman = game.GameLogic.Objects.Single(o => o.Definition.Name == "FootmanUnit");
+        var archer = game.GameLogic.Objects.Single(o => o.Definition.Name == "ArcherUnit");
+
+        Assert.Equal(team, replacement.Team);
+        Assert.Equal(team, footman.Team);
+        Assert.Equal(team, archer.Team);
     }
 
     // ---- testCase 5: Empty spawns ----

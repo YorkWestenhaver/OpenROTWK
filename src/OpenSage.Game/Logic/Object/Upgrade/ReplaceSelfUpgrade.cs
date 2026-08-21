@@ -9,9 +9,15 @@
 //     order; then remove the original object.
 //   - Ownership/team: the replacement and every AndThenAddAs spawn are created with the
 //     original object's Owner (CreateObjectAt's owner parameter). Team is a separate
-//     GameObject-owned field (not part of the donor-copy that CreateObjectAt performs) -
-//     TODO-spec: carrying Team across the swap is unverified retail behavior, filed not
-//     invented, since no source names it as a Player-only concept here.
+//     GameObject-owned field that CreateObjectAt never copies (grep of GameObject.cs finds
+//     no `Team =` assignment on the constructor/CreateObject path), so it is restored
+//     explicitly here for every spawn - matching every sibling module that performs this
+//     kind of swap: ReplaceObjectUpgrade.cs `replacement.Team = team;`,
+//     Update/ReplaceObjectUpdate.cs, Die/CreateCrateDie.cs, Collide/UnitCrateCollide.cs.
+//     Without this, every spawn's Team stays null and GameObject.GetRelationship
+//     (unconditional Neutral whenever either side's Team is null) makes the upgraded
+//     structure look unowned to AI targeting, vision/minimap coloring, and base-defense
+//     logic. R13 finding: fixed here.
 //   - Veterancy: the replacement's ExperienceTracker level is set to at least the
 //     original's, when the original is above the base rank. AndThenAddAs spawns are NOT
 //     given the original's veterancy (the packet only asks for it on ReplaceWith - they are
@@ -60,15 +66,17 @@ public sealed class ReplaceSelfUpgrade : BehaviorModule, IUpgradeableModule
     public void TryUpgrade(UpgradeSet completedUpgrades) => _upgradeLogic.TryUpgrade(completedUpgrades);
 
     /// <summary>
-    /// The metamorphosis: spawn ReplaceWith (carrying veterancy forward), spawn every
-    /// AndThenAddAs entry in declaration order, then remove the original. All spawns stand
-    /// at the original's own position/orientation/layer and are owned by its player (see the
-    /// file header for the ordering and TODO-spec notes).
+    /// The metamorphosis: spawn ReplaceWith (carrying veterancy and team forward), spawn
+    /// every AndThenAddAs entry in declaration order (also carrying team forward), then
+    /// remove the original. All spawns stand at the original's own position/orientation/
+    /// layer and are owned by its player and team (see the file header for the ordering
+    /// notes).
     /// </summary>
     private void OnUpgradeTriggered()
     {
         var donor = GameObject;
         var owner = donor.Owner;
+        var team = donor.Team;
 
         if (!string.IsNullOrEmpty(_data.ReplaceWith))
         {
@@ -78,6 +86,7 @@ public sealed class ReplaceSelfUpgrade : BehaviorModule, IUpgradeableModule
                 var replacement = Context.GameLogic.CreateObjectAt(replaceWithDefinition, owner, donor);
                 if (replacement is not null)
                 {
+                    replacement.Team = team;
                     CarryForwardVeterancy(donor, replacement);
                 }
             }
@@ -96,7 +105,11 @@ public sealed class ReplaceSelfUpgrade : BehaviorModule, IUpgradeableModule
                 continue;
             }
 
-            Context.GameLogic.CreateObjectAt(addAsDefinition, owner, donor);
+            var added = Context.GameLogic.CreateObjectAt(addAsDefinition, owner, donor);
+            if (added is not null)
+            {
+                added.Team = team;
+            }
         }
 
         Context.GameLogic.DestroyObject(donor);
