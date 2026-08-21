@@ -14,9 +14,21 @@ public sealed class SabotageFakeBuildingCrateCollide : CrateCollide
     {
     }
 
+    /// <summary>
+    /// GPL <c>CrateCollide::onCollide</c>: validate, execute, and only then consume the
+    /// saboteur ("crate" is a misnomer for this family - the collider lives on the mobile
+    /// saboteur, not a pickup-crate object) via
+    /// <c>TheGameLogic-&gt;destroyObject(getObject())</c>, matching the sibling
+    /// <see cref="SabotagePowerPlantCrateCollide.OnCollide"/> port.
+    /// </summary>
     public override void OnCollide(GameObject other, in Vector3 location, in Vector3 normal)
     {
-        TryExecuteSabotage(other);
+        if (!TryExecuteSabotage(other))
+        {
+            return;
+        }
+
+        GameEngine.GameLogic.DestroyObject(GameObject);
     }
 
     /// <summary>
@@ -82,8 +94,18 @@ public sealed class SabotageFakeBuildingCrateCollide : CrateCollide
             return false;
         }
 
-        // Can only sabotage enemy buildings.
-        return GameObject.GetRelationship(other) == RelationshipType.Enemies;
+        // GPL getObject()->getRelationship(other) != ENEMIES. GameObject.GetRelationship
+        // resolves through Team.GetRelationship -> Player.GetRelationship, which reads the
+        // Player._playerToPlayerRelationships dictionary populated only by explicit
+        // Player.SetRelationship calls - PlayerManager.OnNewGame (the entry point for every
+        // real skirmish/multiplayer game start) never calls SetRelationship and leaves that
+        // dictionary empty, so this check would always read Neutral and never fire in a real
+        // game. Follow the sibling SabotagePowerPlantCrateCollide's established, live
+        // convention of reading Player.Enemies directly instead (populated straight from map
+        // side-list data by PlayerManager.OnNewGame).
+        return other.Owner is not null
+            && GameObject.Owner is not null
+            && GameObject.Owner.Enemies.Contains(other.Owner);
     }
 
     internal override void Load(StatePersister reader)
