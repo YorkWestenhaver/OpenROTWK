@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,7 @@ using OpenSage.Diagnostics;
 using OpenSage.Graphics;
 using OpenSage.Input;
 using OpenSage.Logic;
+using OpenSage.Logic.AI.Skirmish;
 using OpenSage.Mathematics;
 using OpenSage.Mods.BuiltIn;
 using OpenSage.Network;
@@ -41,6 +43,12 @@ public static class Program
 
         [Option("ai-difficulty", Default = "Easy", Required = false, HelpText = "AI difficulty for player 2 in a --map skirmish: Easy, Medium, or Hard.")]
         public string AiDifficulty { get; set; } = "Easy";
+
+        [Option("ai-vs-ai", Default = false, Required = false, HelpText = "In a --map skirmish, also set player 1 to AI-controlled (same --ai-difficulty as player 2) instead of human, for an unattended AI-vs-AI match.")]
+        public bool AiVsAi { get; set; }
+
+        [Option("ai-report", Default = null, Required = false, HelpText = "Write a bfme2-ai-match/report/v1 JSON match report (AiMatchReport) to this path when the process exits. Captures each skirmish-AI player's AiTrace heartbeats/counters from match start to match end.")]
+        public string? AiReport { get; set; }
 
         [Option("novsync", Default = false, Required = false, HelpText = "Disable vsync.")]
         public bool DisableVsync { get; set; }
@@ -257,13 +265,19 @@ public static class Program
                                 var unknown => LogUnknownDifficultyAndDefault(unknown)
                             };
 
+                            // --ai-vs-ai: player 1 gets the same AI ownership as player 2 instead
+                            // of PlayerOwner.Player, so PlayerManager.OnNewGame -> Player.FromMapData
+                            // attaches a SkirmishAIBrain (AI.Skirmish.SkirmishAIBrains.AttachTo) to
+                            // both slots and no human input is required to reach a verdict.
+                            var player1Owner = opts.AiVsAi ? aiOwner : PlayerOwner.Player;
+
                             var pSettings = new PlayerSetting[]
                             {
-                                new(1, faction1, new ColorRgb(255, 0, 0), 0, PlayerOwner.Player),
+                                new(1, faction1, new ColorRgb(255, 0, 0), 0, player1Owner),
                                 new(2, faction2, new ColorRgb(0, 255, 0), 0, aiOwner),
                             };
 
-                            Logger.Debug($"Starting multiplayer game with factions '{faction1}' vs '{faction2}' (AI difficulty: {aiOwner})");
+                            Logger.Debug($"Starting multiplayer game with factions '{faction1}' vs '{faction2}' (AI difficulty: {aiOwner}, ai-vs-ai: {opts.AiVsAi})");
 
                             game.StartSkirmishOrMultiPlayerGame(opts.Map,
                                 new EchoConnection(),
@@ -284,6 +298,17 @@ public static class Program
             {
                 Logger.Debug("Showing main menu");
                 game.ShowMainMenu();
+            }
+
+            // --ai-report: capture every skirmish-AI player's AiTrace state right after the
+            // match started (whichever branch above started it), so the report written at exit
+            // can tell "money rose" from a real start value rather than assuming 0.
+            IReadOnlyList<AiMatchReport.PlayerSnapshot>? aiReportStart = null;
+            if (!string.IsNullOrEmpty(opts.AiReport))
+            {
+                var brains = AiMatchReport.SkirmishAiBrains(game.PlayerManager.Players);
+                aiReportStart = AiMatchReport.CaptureAll(brains);
+                Logger.Info($"--ai-report: capturing {aiReportStart.Count} skirmish-AI player(s) for {opts.AiReport}");
             }
 
             game.InputMessageBuffer.Handlers.Add(
@@ -346,6 +371,17 @@ public static class Program
                     Logger.Info($"Exiting after reaching logic frame {game.CurrentLogicFrameNumber} (--exit-after-frames {opts.ExitAfterFrames.Value})");
                     break;
                 }
+            }
+
+            // --ai-report: written here, still inside the `game` using-block, so the final
+            // capture reads live World/Trace state before disposal - never after.
+            if (aiReportStart != null && !string.IsNullOrEmpty(opts.AiReport))
+            {
+                var brains = AiMatchReport.SkirmishAiBrains(game.PlayerManager.Players);
+                var aiReportEnd = AiMatchReport.CaptureAll(brains);
+                var report = AiMatchReport.Build(aiReportStart, aiReportEnd);
+                report.WriteToFile(opts.AiReport);
+                Logger.Info($"--ai-report: wrote {opts.AiReport} (milestoneA={report.MilestoneA} milestoneB={report.MilestoneB} pass={report.Pass})");
             }
         }
 
