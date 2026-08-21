@@ -170,6 +170,26 @@ End
         Assert.True(trap.IsDestroyed);
     }
 
+    /// <summary>
+    /// Steps the game forward (bounded) until the trap's detonation weapon fires, to prove a
+    /// later scan tick genuinely reaches detonation - used after a "does not detonate" branch
+    /// to prove the earlier non-detonation was the specific filter under test doing its job,
+    /// not the scan loop never running at all (e.g. a broken/empty partition query would also
+    /// make the "does not detonate" assertion pass vacuously). ScanRate = 100ms is 1 logic
+    /// frame at BFME2's 5Hz logic rate (IniParser.Fix64.ScanDurationLogicFrames), so a handful
+    /// of extra steps is always enough; the cap just guards against an infinite loop if this
+    /// regresses to never detonating.
+    /// </summary>
+    private static void StepUntilFired(HeadlessSimGame game, GameObject trap, WeaponSlot slot, int maxSteps = 20)
+    {
+        for (var i = 0; i < maxSteps && !Fired(trap, slot); i++)
+        {
+            game.Step();
+        }
+
+        Assert.True(Fired(trap, slot), $"Trap did not detonate within {maxSteps} steps.");
+    }
+
     [Fact]
     public void FriendlyInRange_NoEnemies_AutoDetonationWithFriendsDisabled_DoesNotDetonate()
     {
@@ -180,10 +200,21 @@ End
         // to detonate with friends -> bail without detonating).
         game.SpawnObject("EnemyVehicle", game.CivilianPlayer, new Vector3(10, 0, 0));
 
+        // The module's first live tick is the second Step() (SetWakeFrame(None) wakes it one
+        // frame after spawn - see EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
+        game.Step();
         game.Step();
 
         Assert.False(Fired(trap, WeaponSlot.Tertiary));
         Assert.False(trap.IsDestroyed);
+
+        // Prove the scan loop actually ran and reached the friendly-bailout branch (rather
+        // than, say, never scanning at all): a genuine enemy showing up should still detonate
+        // on a later scan.
+        game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
+        StepUntilFired(game, trap, WeaponSlot.Tertiary);
+        Assert.True(trap.IsDestroyed);
     }
 
     [Fact]
@@ -195,10 +226,19 @@ End
         game.SpawnObject("EnemyInfantry", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
+        // The module's first live tick is the second Step() (see
+        // EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
+        game.Step();
         game.Step();
 
         Assert.False(Fired(trap, WeaponSlot.Tertiary));
         Assert.False(trap.IsDestroyed);
+
+        // Prove the scan loop actually ran and reached the kind-filter branch: a
+        // non-ignored enemy showing up should still detonate on a later scan.
+        game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 0));
+        StepUntilFired(game, trap, WeaponSlot.Tertiary);
+        Assert.True(trap.IsDestroyed);
     }
 
     [Fact]
@@ -211,11 +251,19 @@ End
         var enemy = game.SpawnObject("EnemyVehicle", game.PlayerManager.NeutralPlayer, new Vector3(10, 0, 50));
         MakeEnemies(game.CivilianPlayer, game.PlayerManager.NeutralPlayer);
 
+        // The module's first live tick is the second Step() (see
+        // EnemyInRange_ProximityMode_DetonatesAndFiresWeapon above).
+        game.Step();
         game.Step();
 
         Assert.False(Fired(trap, WeaponSlot.Tertiary));
         Assert.False(trap.IsDestroyed);
-        _ = enemy;
+
+        // Prove the scan loop actually ran and reached the airborne-filter branch: bringing
+        // the same enemy down to the ground should still detonate on a later scan.
+        enemy.SetTranslation(new Vector3(10, 0, 0));
+        StepUntilFired(game, trap, WeaponSlot.Tertiary);
+        Assert.True(trap.IsDestroyed);
     }
 
     [Fact]
