@@ -217,7 +217,13 @@ internal sealed class HeadlessSimGame : IGame
 
     public IGameDefinition Definition { get; }
     public SageGame SageGame { get; }
-    public Configuration Configuration { get; }
+
+    // Was implicitly null forever (get-only auto-property, never assigned): harmless while
+    // nothing read it, but the sim heartbeat (HeadedSimSystems.OnPhase) reads
+    // Configuration.SimHeartbeatIntervalInFrames every EndFrame, and SimHeartbeatTests wants a
+    // real instance whose interval it can dial down. Default-constructed, same as a real Game
+    // with no CLI overrides.
+    public Configuration Configuration { get; } = new Configuration();
     public string UserDataLeafName { get; }
     public string UserDataFolder { get; }
     public string UserAppDataFolder { get; }
@@ -259,6 +265,8 @@ internal sealed class HeadlessSimGame : IGame
     public TimeInterval CurrentGameTime { get; }
     public TimeInterval RenderTime { get; }
     public TimeSpan CumulativeLogicUpdateError { get; }
+    public uint CurrentLogicFrameNumber => GameLogic.CurrentFrame.Value;
+    public ulong RenderFrameCount { get; }
     public OrderGeneratorSystem OrderGenerator { get; }
     public AudioSystem Audio { get; }
     public SelectionSystem Selection { get; }

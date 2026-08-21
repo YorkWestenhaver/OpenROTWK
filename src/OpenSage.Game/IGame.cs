@@ -103,6 +103,24 @@ public interface IGame
     TimeInterval RenderTime { get; }
 
     TimeSpan CumulativeLogicUpdateError { get; }
+
+    /// <summary>
+    /// The most recently completed logic frame number. Exposed publicly (unlike
+    /// <c>GameLogic</c> itself, which is internal) so external callers - the launcher's
+    /// <c>--exit-after-frames</c> termination and the periodic sim heartbeat
+    /// (<c>HeadedSimSystems.OnPhase</c>) - can read it. Mirrors
+    /// <c>GameLogic.CurrentFrame.Value</c>.
+    /// </summary>
+    uint CurrentLogicFrameNumber { get; }
+
+    /// <summary>
+    /// Count of <see cref="Update"/> calls since the game started - i.e. render/message-pump
+    /// frames, distinct from the fixed 5 Hz logic frames counted by
+    /// <see cref="CurrentLogicFrameNumber"/>. Used by the periodic sim heartbeat to report how
+    /// far render has run ahead of logic.
+    /// </summary>
+    ulong RenderFrameCount { get; }
+
     IGameDefinition Definition { get; }
     SageGame SageGame { get; }
     Configuration Configuration { get; }

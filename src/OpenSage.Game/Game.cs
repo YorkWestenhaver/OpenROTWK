@@ -291,6 +291,9 @@ public sealed class Game : DisposableBase, IGame
     /// </summary>
     public TimeInterval RenderTime { get; private set; }
 
+    /// <summary>See <see cref="IGame.RenderFrameCount"/>. Incremented once per <see cref="Update"/> call.</summary>
+    public ulong RenderFrameCount { get; private set; }
+
     // The time of the next logic update.
     private TimeSpan _nextLogicUpdate;
 
@@ -308,6 +311,9 @@ public sealed class Game : DisposableBase, IGame
     /// two is packet 3.
     /// </summary>
     internal LogicFrame SimLoopFrame => _simLoop.CurrentFrame;
+
+    /// <summary>See <see cref="IGame.CurrentLogicFrameNumber"/>.</summary>
+    public uint CurrentLogicFrameNumber => GameLogic.CurrentFrame.Value;
 
     // TODO: Move this to somewhere else, or remove it.
     public TimeSpan CumulativeLogicUpdateError { get; private set; }
@@ -819,6 +825,8 @@ public sealed class Game : DisposableBase, IGame
 
     public void Update(IEnumerable<InputMessage> messages)
     {
+        RenderFrameCount++;
+
         // Update timers, input and UI state
         LocalLogicTick(messages);
 

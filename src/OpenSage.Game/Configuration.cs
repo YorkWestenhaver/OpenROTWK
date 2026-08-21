@@ -20,4 +20,11 @@ public sealed class Configuration
     ///   <c>true</c> if [use unique ports]; otherwise, <c>false</c>.
     /// </value>
     public bool UseUniquePorts { get; set; } = false;
+
+    /// <summary>
+    /// Logic-frame interval (5 Hz) between periodic sim heartbeat emissions - a log line plus,
+    /// when a <see cref="Diagnostics.GameTrace"/> session is active, a GameTrace instant event
+    /// (see <c>HeadedSimSystems.OnPhase</c>). 0 disables the heartbeat. CLI: <c>--trace-frames</c>.
+    /// </summary>
+    public int SimHeartbeatIntervalInFrames { get; set; } = 50;
 }

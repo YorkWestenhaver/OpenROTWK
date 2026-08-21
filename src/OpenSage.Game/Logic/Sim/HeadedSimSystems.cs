@@ -19,6 +19,7 @@
 // attaching SyncChecker to the CrcCheckpoint phase (packet 5).
 
 using System;
+using OpenSage.Diagnostics;
 using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 
@@ -30,16 +31,27 @@ namespace OpenSage.Logic.Sim;
 /// </summary>
 /// <remarks>
 /// Also serves as its own <see cref="ISimPhaseObserver"/> so the EndFrame phase can assert the
-/// frame-counter reconciliation described on <see cref="OnPhase"/>. The observer body is
-/// assertion-only and must stay side-effect free.
+/// frame-counter reconciliation described on <see cref="OnPhase"/>, and can emit the periodic
+/// sim heartbeat (A1-G9, see <c>Heartbeat</c>) once that assertion has passed. Both live in the
+/// same EndFrame callback but are independent: the assertion reads counters only and crashes
+/// the process on mismatch, while the heartbeat is read-only telemetry (a log line, and a
+/// GameTrace instant event when a trace session is active) that never alters sim state.
 /// </remarks>
 internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly IGame _game;
     private readonly Action _prePartitionResidue;
 
     private uint _logicFrameBeforeModuleUpdate;
     private bool _frameOpen;
+
+    // Heartbeat bookkeeping (see Heartbeat below). Wall time is read from IGame.RenderTime
+    // rather than a Stopwatch of our own, so the logic-FPS figure agrees with whatever clock
+    // the rest of the headed game already reports through.
+    private uint _lastHeartbeatLoopFrame;
+    private TimeSpan _lastHeartbeatWallTime;
 
     /// <param name="game">The headed game whose subsystems this drives.</param>
     /// <param name="prePartitionResidue">
@@ -142,5 +154,52 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
                 $"SimLoop.Advance() (loop frame {frame.Value}); the logic clock and the loop " +
                 "must move in lockstep.");
         }
+
+        Heartbeat(frame, logicFrame);
+    }
+
+    /// <summary>
+    /// Periodic liveness signal for unattended runs (A1-G9): every
+    /// <see cref="Configuration.SimHeartbeatIntervalInFrames"/> logic frames, log where the
+    /// loop frame, the logic clock, and the render-frame counter each stand, plus the wall
+    /// time and effective logic-FPS since the previous heartbeat. When a
+    /// <see cref="GameTrace"/> session is active, the same snapshot also goes out as a
+    /// GameTrace instant event, so a headed trace capture carries a coarse progress marker
+    /// without needing a duration event around every frame.
+    /// </summary>
+    /// <remarks>
+    /// Fires at loop frame 0 (an immediate "the sim is alive" signal at boot) and every
+    /// <c>interval</c> frames after that. An interval of 0 or less disables the heartbeat
+    /// entirely - useful for tests and for anyone who wants a quiet log.
+    /// </remarks>
+    private void Heartbeat(LogicFrame loopFrame, uint logicFrame)
+    {
+        var interval = _game.Configuration.SimHeartbeatIntervalInFrames;
+        if (interval <= 0 || loopFrame.Value % (uint)interval != 0)
+        {
+            return;
+        }
+
+        var wallNow = _game.RenderTime.TotalTime;
+        var wallDelta = wallNow - _lastHeartbeatWallTime;
+        var framesSinceLastHeartbeat = loopFrame.Value - _lastHeartbeatLoopFrame;
+        var logicFps = wallDelta.TotalSeconds > 0
+            ? framesSinceLastHeartbeat / wallDelta.TotalSeconds
+            : 0.0;
+
+        var message =
+            $"SimHeartbeat loopFrame={loopFrame.Value} logicFrame={logicFrame} " +
+            $"renderFrame={_game.RenderFrameCount} wallDeltaMs={wallDelta.TotalMilliseconds:F0} " +
+            $"logicFps={logicFps:F2}";
+
+        Logger.Debug(message);
+
+        if (GameTrace.IsTracing)
+        {
+            GameTrace.TraceInstantEvent(message);
+        }
+
+        _lastHeartbeatLoopFrame = loopFrame.Value;
+        _lastHeartbeatWallTime = wallNow;
     }
 }

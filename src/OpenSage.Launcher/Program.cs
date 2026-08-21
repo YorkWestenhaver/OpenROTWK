@@ -57,6 +57,12 @@ public static class Program
         [Option("tracefile", Default = null, Required = false, HelpText = "Generate trace output to the specified path, for example `--tracefile trace.json`. Trace files can be loaded into Chrome's tracing GUI at chrome://tracing")]
         public string? TraceFile { get; set; }
 
+        [Option("trace-frames", Default = 50, Required = false, HelpText = "Logic-frame interval (5 Hz) between periodic sim heartbeat emissions: a log line, plus a GameTrace instant event whenever --tracefile is also set. 0 disables the heartbeat.")]
+        public int TraceFrames { get; set; }
+
+        [Option("exit-after-frames", Default = null, Required = false, HelpText = "Exit the process once the logic-frame counter (5 Hz) reaches this many frames, for deterministic unattended termination. Omit to run until the window is closed.")]
+        public int? ExitAfterFrames { get; set; }
+
         [Option("replay", Default = null, Required = false, HelpText = "Specify a replay file to immediately start replaying")]
         public string? ReplayFile { get; set; }
 
@@ -169,7 +175,8 @@ public static class Program
         {
             UseRenderDoc = opts.RenderDoc,
             LoadShellMap = !opts.NoShellmap,
-            UseUniquePorts = opts.UseUniquePorts
+            UseUniquePorts = opts.UseUniquePorts,
+            SimHeartbeatIntervalInFrames = opts.TraceFrames,
         };
 
         UPnP.InitializeAsync(TimeSpan.FromSeconds(10)).ContinueWith(_ => Logger.Info($"UPnP status: {UPnP.Status}"));
@@ -333,6 +340,12 @@ public static class Program
                 window.MessageQueue.Clear();
 
                 game.GraphicsDevice.SwapBuffers(window.Swapchain);
+
+                if (opts.ExitAfterFrames.HasValue && game.CurrentLogicFrameNumber >= (uint)opts.ExitAfterFrames.Value)
+                {
+                    Logger.Info($"Exiting after reaching logic frame {game.CurrentLogicFrameNumber} (--exit-after-frames {opts.ExitAfterFrames.Value})");
+                    break;
+                }
             }
         }
 
