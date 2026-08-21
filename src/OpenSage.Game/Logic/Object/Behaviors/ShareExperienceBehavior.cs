@@ -48,9 +48,14 @@
 //     non-Generals game, and that helper raises a still-zero CurrentExperience to the rank-1
 //     floor of 1 on its first tick (SetExperienceAndLevel, not AddExperiencePoints). Polling
 //     sees that as an ordinary +1 delta. There is no per-point "XP gained" event to subscribe
-//     to, so the baseline is seeded at the rank-1 floor instead of at literal zero (see the
-//     ctor) - which costs at most a single point, once, on an object that genuinely earns
-//     exactly 1 XP before this module's first tick.
+//     to, so the baseline is held at or above the rank-1 floor instead of at literal zero (see
+//     BaselineFor, applied both at ctor time and on every per-tick resync) - which costs at most
+//     a single point, once, on an object that genuinely earns exactly 1 XP before this module's
+//     first tick. The clamp has to cover the resync as well as the seed, not just the seed: our
+//     wake frame and the helper's are equal-priority entries in the same sleepy-update heap, so
+//     the helper is not guaranteed to have run before our first Update - if it has not, an
+//     unclamped resync writes the raw 0 back over the seeded baseline and the helper's seeding
+//     becomes a +1 "gain" on the following tick.
 
 using OpenSage.Data.Ini;
 using OpenSage.SimCore;
@@ -93,15 +98,12 @@ public sealed class ShareExperienceBehavior : UpdateModule
         // Clamped up to the rank-1 floor because our ctor runs before the ExperienceUpdate
         // helper's first tick: seeding the raw 0 here would make that helper's own 0 -> 1
         // initialization look like a +1 gain on our next tick and broadcast a phantom point to
-        // every candidate in Radius. The clamp is ordering-independent (it holds whether the
-        // helper ticks before or after us on the first frame), which a lazy first-tick seed
-        // would not be. A genuine 1-point gain earned from zero before our first tick is
-        // indistinguishable from that guaranteed-to-happen seed under the poll idiom, and is
-        // absorbed by this clamp.
-        var startingExperience = gameObject.ExperienceTracker.CurrentExperience;
-        _lastObservedExperience = startingExperience > EngineRankOneExperienceFloor
-            ? startingExperience
-            : EngineRankOneExperienceFloor;
+        // every candidate in Radius. The clamp is applied on every observation - here and again
+        // on each resync in Update - so it holds whether the helper ticks before or after us on
+        // the first frame, which a lazy first-tick seed would not. A genuine 1-point gain earned
+        // from zero before our first tick is indistinguishable from that guaranteed-to-happen
+        // seed under the poll idiom, and is absorbed by this clamp.
+        _lastObservedExperience = BaselineFor(gameObject.ExperienceTracker.CurrentExperience);
 
         // No delay field is authored on this block - tick every frame, same "absent delay
         // field" shape as EmpUpdate, no periodic re-arm.
@@ -118,10 +120,24 @@ public sealed class ShareExperienceBehavior : UpdateModule
             ShareGain(delta);
         }
 
-        _lastObservedExperience = currentExperience;
+        // Same floor clamp as the ctor, and for the same reason: our wake frame and the
+        // ExperienceUpdate helper's are equal-priority entries in the sleepy-update heap, so on
+        // the first live frame we may run BEFORE the helper's 0 -> 1 seeding and observe a
+        // still-zero CurrentExperience. Resyncing the baseline to that raw 0 would undo the
+        // ctor's clamp and turn the helper's seeding into a +1 gain on our next tick - which is
+        // exactly the phantom point the clamp exists to suppress. Clamping here as well makes
+        // the suppression hold in both tick orders.
+        _lastObservedExperience = BaselineFor(currentExperience);
 
         return UpdateSleepTime.None;
     }
+
+    /// <summary>The baseline to track for an observed experience total: never below the rank-1
+    /// floor, so the engine helper's seeding of that floor is never observable as a gain.</summary>
+    private static int BaselineFor(int observedExperience) =>
+        observedExperience > EngineRankOneExperienceFloor
+            ? observedExperience
+            : EngineRankOneExperienceFloor;
 
     /// <summary>Broadcasts a flat share of a positive XP gain to every live, filter-matching
     /// candidate inside Radius (§1.2 step 4; DropOff == 0 branch only, see F-SEB-1).</summary>
