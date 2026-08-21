@@ -85,6 +85,17 @@
 //
 // Every mutable sim field appears in Xfer exactly once (§3 of the spec); tolerances are the
 // field's conformance class at its declaration site (§4).
+//
+// Frame-arithmetic note (§4 of the spec pins exact boundaries, e.g. "start+5", "start+10"):
+// InitiateIntentToDoSpecialPower is a driven seam called BETWEEN logic ticks - Context.CurrentFrame
+// there names the next frame Update() has not yet processed, unlike every phase-end computed
+// from inside this class's own Update() (mid-tick, where CurrentFrame names the frame currently
+// being processed). Using "CurrentFrame + duration" unmodified in both places makes a phase
+// entered synchronously from Initiate() (directly, or via a zero-duration cascade through
+// Enter*/Trigger that never reaches an Update() tick) take one MORE tick to elapse than the
+// same duration entered from inside Update() - the two contexts are not interchangeable.
+// PhaseEndFrame's fromInitiate flag compensates by one frame so "N frames" always means N
+// Update() ticks regardless of which context started the phase.
 
 using System.Linq;
 using OpenSage.Data.Ini;
@@ -200,7 +211,7 @@ public sealed class ArrowStormUpdate : UpdateModule
 
         _triggerCount = 0;
         _persistentTriggered = false;
-        EnterUnpackingOrLater();
+        EnterUnpackingOrLater(fromInitiate: true);
         return true;
     }
 
@@ -254,26 +265,26 @@ public sealed class ArrowStormUpdate : UpdateModule
         return UpdateSleepTime.None;
     }
 
-    private void EnterUnpackingOrLater()
+    private void EnterUnpackingOrLater(bool fromInitiate = false)
     {
         if (_data.UnpackTime.Value > 0)
         {
             _phase = ArrowStormPhase.Unpacking;
-            _phaseEndFrame = Context.CurrentFrame + _data.UnpackTime;
+            _phaseEndFrame = PhaseEndFrame(_data.UnpackTime, fromInitiate);
             GameObject.SetModelConditionState(ModelConditionFlag.Unpacking);
         }
         else
         {
-            EnterPreparingOrLater();
+            EnterPreparingOrLater(fromInitiate);
         }
     }
 
-    private void EnterPreparingOrLater()
+    private void EnterPreparingOrLater(bool fromInitiate = false)
     {
         GameObject.ClearModelConditionState(ModelConditionFlag.Unpacking);
 
         _phase = ArrowStormPhase.Preparing;
-        _phaseEndFrame = Context.CurrentFrame + _data.PreparationTime;
+        _phaseEndFrame = PhaseEndFrame(_data.PreparationTime, fromInitiate);
 
         if (!string.IsNullOrEmpty(_data.ActiveLoopSound))
         {
@@ -285,13 +296,13 @@ public sealed class ArrowStormUpdate : UpdateModule
         // for the next Update() call.
         if (_data.PreparationTime.Value == 0)
         {
-            Trigger();
+            Trigger(fromInitiate);
         }
     }
 
     /// <summary>The TRIGGER POINT (triggerAbilityEffect(), cpp:1264-1290), reached when the
     /// Preparing countdown completes.</summary>
-    private void Trigger()
+    private void Trigger(bool fromInitiate = false)
     {
         _triggerCount++;
 
@@ -307,20 +318,20 @@ public sealed class ArrowStormUpdate : UpdateModule
             // Stay in Preparing: the first trigger used PreparationTime, every subsequent one
             // uses PersistentPrepTime (h:240-241) - the two spans must not collapse.
             _persistentTriggered = true;
-            _phaseEndFrame = Context.CurrentFrame + _data.PersistentPrepTime;
+            _phaseEndFrame = PhaseEndFrame(_data.PersistentPrepTime, fromInitiate);
         }
         else
         {
-            EnterPackingOrLater();
+            EnterPackingOrLater(fromInitiate);
         }
     }
 
-    private void EnterPackingOrLater()
+    private void EnterPackingOrLater(bool fromInitiate = false)
     {
         if (_data.PackTime.Value > 0)
         {
             _phase = ArrowStormPhase.Packing;
-            _phaseEndFrame = Context.CurrentFrame + _data.PackTime;
+            _phaseEndFrame = PhaseEndFrame(_data.PackTime, fromInitiate);
             GameObject.SetModelConditionState(ModelConditionFlag.Packing);
         }
         else
@@ -328,6 +339,21 @@ public sealed class ArrowStormUpdate : UpdateModule
             GameObject.ClearModelConditionState(ModelConditionFlag.Packing);
             _phase = ArrowStormPhase.Packed;
         }
+    }
+
+    /// <summary>See the frame-arithmetic note above the Xfer walk: compensates the one-frame
+    /// gap between Initiate()'s between-ticks call context and every other phase entry's
+    /// mid-tick context, so a phase's duration always costs exactly that many Update() calls
+    /// regardless of which context started it.</summary>
+    private LogicFrame PhaseEndFrame(LogicFrameSpan duration, bool fromInitiate)
+    {
+        var reference = Context.CurrentFrame;
+        if (fromInitiate && reference.Value > 0)
+        {
+            reference -= 1;
+        }
+
+        return reference + duration;
     }
 
     private enum ArrowStormPhase

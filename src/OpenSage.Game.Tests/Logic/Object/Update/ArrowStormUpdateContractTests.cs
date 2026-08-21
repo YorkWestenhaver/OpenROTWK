@@ -77,6 +77,7 @@ End
 
 Object XPArcher
   KindOf = INFANTRY
+  IsTrainable = Yes
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
@@ -91,6 +92,7 @@ End
 
 Object PersistentXPArcher
   KindOf = INFANTRY
+  IsTrainable = Yes
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
