@@ -115,7 +115,7 @@ End
     private static WeaponBonusUpdate ModuleOf(GameObject obj) =>
         obj.BehaviorModules.OfType<WeaponBonusUpdate>().Single();
 
-    private static uint _nextTeamId = 9000;
+    private static uint NextTeamId = 9000;
 
     /// <summary>
     /// Establishes an Allies relationship from <paramref name="granter"/> toward
@@ -136,11 +136,11 @@ End
     {
         if (granter.Team == null)
         {
-            var granterTeamId = _nextTeamId++;
+            var granterTeamId = NextTeamId++;
             granter.Team = new Team(new TeamTemplate(game.TeamFactory, granterTeamId, "GranterTeam", granter.Owner, isSingleton: true), granterTeamId);
         }
 
-        var candidateTeamId = _nextTeamId++;
+        var candidateTeamId = NextTeamId++;
         candidate.Team = new Team(new TeamTemplate(game.TeamFactory, candidateTeamId, "CandidateTeam", candidate.Owner, isSingleton: true), candidateTeamId);
         granter.Owner.SetRelationship(candidate.Owner, RelationshipType.Allies);
     }
