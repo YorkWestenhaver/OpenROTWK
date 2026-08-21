@@ -129,7 +129,18 @@ public sealed class HordeContainBehavior : UpdateModule
             {
                 if (position.Object == obj)
                 {
-                    _payload.Add(obj);
+                    // Guard against duplicate entries: this method is called both the first time
+                    // an object claims a formation slot (Register-adjacent callers, e.g.
+                    // ProductionUpdate on unit creation, where obj is not yet in _payload) and
+                    // repeatedly thereafter by callers that only want the RankInfo-driven offset
+                    // for an already-seated member (e.g. HordeGarrisonContain.ExitGarrisonHorde,
+                    // which can run many times over a horde's life as it garrisons/exits
+                    // repeatedly). Without this guard every re-query re-adds obj to _payload,
+                    // growing it unbounded across enter/exit cycles.
+                    if (!_payload.Contains(obj))
+                    {
+                        _payload.Add(obj);
+                    }
                     return Vector3.Transform(position.Position, Quaternion.CreateFromYawPitchRoll(hordeYaw, 0, 0));
                 }
             }
