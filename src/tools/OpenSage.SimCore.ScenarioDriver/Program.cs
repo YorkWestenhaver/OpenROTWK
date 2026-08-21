@@ -81,7 +81,13 @@ internal static class Program
             }
         }
 
-        if (outPath is null || (schedulePath is null && mapPath is null))
+        // Self-stimulating scenarios compile their own fixed frame schedule and therefore need
+        // neither an injection schedule nor a map. respawn-v1 is the first: putting a
+        // respawn-carrying hero into map-v1 would mean editing a binary .map, so the seam gets
+        // its own corpus entry instead (see RespawnSeamScenario's header).
+        var selfDriven = scenarioName == "respawn-v1";
+
+        if (outPath is null || (schedulePath is null && mapPath is null && !selfDriven))
         {
             Console.Error.WriteLine(
                 "usage: scenariodriver --schedule <injection-schedule.json> --out <dump> " +
@@ -127,7 +133,9 @@ internal static class Program
                 lastOrderFrame = o.Frame;
             }
         }
-        var stopAfter = untilFrame ?? (mapPath is not null ? 300u : lastOrderFrame + 10);
+        // respawn-v1's own schedule ends with a permanent kill at frame 25; 40 frames leaves
+        // room for the reap and a few quiet checkpoints after it.
+        var stopAfter = untilFrame ?? (mapPath is not null ? 300u : selfDriven ? 40u : lastOrderFrame + 10);
 
         IDriverScenario scenario;
         switch (scenarioName)
@@ -146,6 +154,9 @@ internal static class Program
                 break;
             case "spcd-v1":
                 scenario = new SpecialPowerCompletionDieScenario(seed);
+                break;
+            case "respawn-v1":
+                scenario = new RespawnSeamScenario(seed);
                 break;
             case "map-v1":
                 if (mapPath is null)

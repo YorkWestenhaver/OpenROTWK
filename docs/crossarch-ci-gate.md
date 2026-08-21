@@ -25,6 +25,24 @@ dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration R
   --out stream-<leg>.txt
 ```
 
+and then a second corpus entry, the R14 respawn seam:
+
+```
+dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release -- \
+  --scenario respawn-v1 \
+  --checkpoint-interval 1 --stream-only --arch-stamp --until-frame 40 \
+  --out respawn-<leg>.txt
+```
+
+`respawn-v1` is self-stimulating (`src/tools/OpenSage.SimCore.ScenarioDriver/RespawnSeamScenario.cs`):
+its kill/purchase/second-death schedule is compiled into the scenario, so it needs neither
+`--map` nor `--schedule`. It exists because putting a respawn-carrying hero into the job-009 run
+would mean editing a binary `.map`, and because the seam's arms - a dead-but-un-reaped hero
+sitting in the Objects walk for many frames, a revive priced through the anchor's float
+`CostMultiplier`, and a permanent second death that resolves to the corpse path - are exactly
+the shapes an arm64/x64 split would show up in. It is uploaded and compared as its OWN stream,
+so a divergence report names which corpus entry broke.
+
 job-009's map and INI subset are checked into this repo (`OpenSage.Game.Tests`'s assets) - no
 retail assets and no self-hosted runner are needed. `--until-frame 501` pins job-009's own known
 script-exit frame; `--ignore-map-exit` is deliberately not passed (see the ci.yml comment).
@@ -37,7 +55,7 @@ the actually-executing process - that is the only way this gate can prove it ran
 rather than trusting a publish-time RID label. GitHub's `macos-latest` runners are Apple
 Silicon; `ubuntu-latest`/`windows-latest` are x64.
 
-`crossarch-compare` downloads all three streams and runs `dumpdiff`
+`crossarch-compare` downloads all six streams (three legs x two corpus entries) and runs `dumpdiff`
 (`src/tools/OpenSage.SimCore.DumpDiff`) pairwise: macos-vs-ubuntu and macos-vs-windows (both
 with `--require-cross-arch`, since those pairs are expected to mix architectures) and
 ubuntu-vs-windows (without the flag - both legs are X64, so requiring cross-arch there would

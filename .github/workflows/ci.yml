@@ -133,11 +133,34 @@ jobs:
     # --ignore-map-exit is intentionally NOT passed (job009's own MapExitFrame is 501, so
     # --until-frame 501 pins the same bound either way until N14c's corpus registry exists to
     # carry this per-map instead of hardcoding it here).
+
+    # Second corpus entry: the R14 respawn seam (see RespawnSeamScenario's header for why it is
+    # a sibling scenario rather than an extension of job-009's map). It is self-stimulating, so
+    # it needs neither --map nor --schedule; --until-frame 40 covers its whole schedule (kill at
+    # 2, purchase at 10, revive completion, permanent second death at 25) plus quiet frames
+    # after the reap. Kept as a SEPARATE stream so a divergence names which corpus entry broke.
+    - name: Run respawn-v1 (respawn seam corpus)
+      shell: bash
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.ScenarioDriver --configuration Release --no-build --
+        --scenario respawn-v1
+        --checkpoint-interval 1
+        --stream-only
+        --arch-stamp
+        --until-frame 40
+        --out respawn-${{ matrix.os }}.txt
+
     - name: Upload stream
       uses: actions/upload-artifact@v6
       with:
         name: crossarch-stream-${{ matrix.os }}
         path: stream-${{ matrix.os }}.txt
+
+    - name: Upload respawn stream
+      uses: actions/upload-artifact@v6
+      with:
+        name: crossarch-respawn-${{ matrix.os }}
+        path: respawn-${{ matrix.os }}.txt
 
   crossarch-compare:
     needs: crossarch
@@ -170,6 +193,24 @@ jobs:
       with:
         name: crossarch-stream-windows-latest
         path: streams
+
+    - name: Download macos-latest respawn stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-respawn-macos-latest
+        path: respawn
+
+    - name: Download ubuntu-latest respawn stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-respawn-ubuntu-latest
+        path: respawn
+
+    - name: Download windows-latest respawn stream
+      uses: actions/download-artifact@v7
+      with:
+        name: crossarch-respawn-windows-latest
+        path: respawn
 
     - name: Cache NuGet packages
       uses: actions/cache@v4
@@ -208,6 +249,28 @@ jobs:
       run: >
         dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
         streams/stream-ubuntu-latest.txt streams/stream-windows-latest.txt
+        --label-a ubuntu-latest --label-b windows-latest
+
+    # The respawn-seam corpus entry, compared on exactly the same terms: full per-channel,
+    # no exclusions, --require-cross-arch on the two pairs that actually mix architectures.
+    - name: Compare respawn macos(arm64) vs ubuntu(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        respawn/respawn-macos-latest.txt respawn/respawn-ubuntu-latest.txt
+        --label-a macos-latest --label-b ubuntu-latest
+        --require-cross-arch
+
+    - name: Compare respawn macos(arm64) vs windows(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        respawn/respawn-macos-latest.txt respawn/respawn-windows-latest.txt
+        --label-a macos-latest --label-b windows-latest
+        --require-cross-arch
+
+    - name: Compare respawn ubuntu(x64) vs windows(x64)
+      run: >
+        dotnet run --project src/tools/OpenSage.SimCore.DumpDiff --configuration Release --no-build --
+        respawn/respawn-ubuntu-latest.txt respawn/respawn-windows-latest.txt
         --label-a ubuntu-latest --label-b windows-latest
 
   build:
