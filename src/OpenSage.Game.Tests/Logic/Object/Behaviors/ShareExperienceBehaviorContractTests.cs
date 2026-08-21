@@ -126,11 +126,15 @@ End
     /// nothing in this file's object set uses it, but a faithful decorator does not silently
     /// drop interface members it happens not to need today.
     /// </summary>
-    private sealed class QueryOccurrenceCountingPartition : IPartitionQuery
+    // NOTE: IPartitionQuery is ambiguous unqualified - OpenSage.Logic.PartitionCellManager
+    // declares a same-named predicate interface (bool Evaluate(GameObject)) and both namespaces
+    // are imported above. SimContext.Partition is the OpenSage.Logic.Object one, so every
+    // mention of the type in this decorator is fully qualified.
+    private sealed class QueryOccurrenceCountingPartition : OpenSage.Logic.Object.IPartitionQuery
     {
-        private readonly IPartitionQuery _inner;
+        private readonly OpenSage.Logic.Object.IPartitionQuery _inner;
 
-        public QueryOccurrenceCountingPartition(IPartitionQuery inner) => _inner = inner;
+        public QueryOccurrenceCountingPartition(OpenSage.Logic.Object.IPartitionQuery inner) => _inner = inner;
 
         public int QueryCount { get; private set; }
 
@@ -157,7 +161,7 @@ End
         var field = typeof(SimContext).GetField("<Partition>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(field);
 
-        var counter = new QueryOccurrenceCountingPartition((IPartitionQuery)field!.GetValue(simContext)!);
+        var counter = new QueryOccurrenceCountingPartition((OpenSage.Logic.Object.IPartitionQuery)field!.GetValue(simContext)!);
         field.SetValue(simContext, counter);
         return counter;
     }
