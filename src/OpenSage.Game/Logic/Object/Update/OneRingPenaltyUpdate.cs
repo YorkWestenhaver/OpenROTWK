@@ -59,7 +59,9 @@
 //     GameObject.Update(), which nothing in GameLogic.Update()'s sleepy-module loop calls today
 //     - same dead-code gap as EmpUpdate's F-EMP-6, not re-solved here (framework-level fix, out
 //     of this task's scope per api-freeze-v1 §6). The correct un-disable frame is still
-//     recorded so the fix is a one-line wiring change elsewhere.
+//     recorded so the fix is a one-line wiring change elsewhere. R14 UPDATE (respawn seam A0):
+//     GameObject.Update()'s duplicate module-dispatch half is now deleted, so that one-line
+//     wiring (A0') is safe to make; it stays a separate packet because it is CRC-visible.
 //   F-RING-6 (TimeRingPowerSuppressed has no consumer): tracked and exposed via
 //     IsRingPowerSuppressed, unconsumed by anything landed today - wire it into whatever
 //     special-power-invocation gate eventually checks "is this hero allowed to use the Ring

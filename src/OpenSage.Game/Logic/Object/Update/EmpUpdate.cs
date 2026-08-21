@@ -110,7 +110,13 @@
 //     GameObject.Update() method - which nothing in this engine snapshot's GameLogic.Update()
 //     sleepy-module loop calls (that loop dispatches UpdateModule.Update() directly; the
 //     per-object CheckDisabledStates sweep is dead code today, a pre-existing engine gap, not
-//     something introduced by or fixable from this module). A victim this module disables
+//     something introduced by or fixable from this module). R14 UPDATE (respawn seam A0):
+//     GameObject.Update()'s duplicate module-dispatch half - and the misleading dead-object
+//     allowlist inside it - has been deleted, so the method is now exactly
+//     { VerifyHealer(); CheckDisabledStates(); } and wiring it into GameLogic.Update() no
+//     longer risks double-ticking every module. That wiring (A0', which closes THIS finding)
+//     is behaviour-changing and CRC-visible, so it is deliberately still a separate packet.
+//     A victim this module disables
 //     therefore stays disabled past DisabledDuration in the current engine, exactly as any
 //     other module's Disable() call would. This port still records the correct un-disable
 //     frame (Context.CurrentFrame + DisabledDuration, matching GPL's setDisabledUntil target)

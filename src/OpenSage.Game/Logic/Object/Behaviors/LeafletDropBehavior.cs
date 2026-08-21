@@ -71,7 +71,10 @@
 //   module disables therefore stays disabled past DisabledDuration in the current engine,
 //   exactly as any other module's Disable() call would; this port still records the correct
 //   un-disable frame so the fix is the one shared wiring change already filed against
-//   EmpUpdate, not a re-port of this module.
+//   EmpUpdate, not a re-port of this module. R14 UPDATE (respawn seam A0): GameObject.Update()
+//   now contains only VerifyHealer()/CheckDisabledStates() - its duplicate module-dispatch half
+//   was deleted - so that shared wiring change (A0') can be made without double-ticking every
+//   module. It remains its own packet because it is behaviour-changing and CRC-visible.
 //
 // Every mutable sim field appears in Xfer exactly once (§3); tolerances are the field's
 // conformance class at its declaration site (§4). Field order is OUR choice (F9): there is no

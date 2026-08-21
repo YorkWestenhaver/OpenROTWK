@@ -1017,32 +1017,26 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         }
     }
 
+    /// <summary>
+    /// Per-object engine bookkeeping: the healer timeout and the <see cref="DisabledType"/>
+    /// auto-expiry sweep. This method currently has NO CALLER anywhere in the tree - the live
+    /// module dispatch is <c>GameLogic.Update()</c>'s sleepy queue - so both sweeps are dead
+    /// until it is wired up.
+    /// <para>
+    /// A0 (design-respawn-seam.md §3.7, adversarial-review-endorsed reading): the module
+    /// dispatch half that used to live here has been DELETED, not the method. It duplicated
+    /// <c>GameLogic</c>'s sleepy queue, so wiring this method up would have double-ticked
+    /// every module; and it carried a three-class <c>IsEffectivelyDead</c> allowlist that read
+    /// like a live dead-object gate while doing nothing at all. Deleting it makes wiring the
+    /// method up (the separate A0' packet that closes F-EMP-6 / F-RING-5 / F-LDB-3) a safe,
+    /// behaviour-scoped change instead of a silent double dispatch. Zero callers today, so
+    /// this deletion is itself behaviour-free.
+    /// </para>
+    /// </summary>
     internal void Update()
     {
         VerifyHealer();
         CheckDisabledStates();
-
-        // TODO(Port): Implement this properly.
-
-        void RunUpdate(UpdateOrder updatePhase)
-        {
-            foreach (var behavior in _behaviorModules)
-            {
-                if (IsEffectivelyDead && behavior is not SlowDeathBehavior and not LifetimeUpdate and not DeletionUpdate)
-                {
-                    continue; // if we're dead, we should only update SlowDeathBehavior, LifetimeUpdate, or DeletionUpdate
-                }
-                if (behavior is IUpdateModule updateModule && updateModule.UpdatePhase == updatePhase)
-                {
-                    updateModule.Update();
-                }
-            }
-        }
-
-        RunUpdate(UpdateOrder.Order0);
-        RunUpdate(UpdateOrder.Order1);
-        RunUpdate(UpdateOrder.Order2);
-        RunUpdate(UpdateOrder.Order3);
     }
 
     public bool CanRecruitHero(ObjectDefinition definition)
@@ -1598,6 +1592,41 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
         IsSelectable = false;
         Owner.DeselectUnit(this);
+
+        // ---- killed-to-respawn branch (design-respawn-seam.md §3.2/§3.3) ----
+        //
+        // Translation of the GPL Object::onDie control-flow idiom: inside onDie, consult a
+        // condition and, when it holds, hand the death to a named module interface instead of
+        // letting the ordinary corpse path run (generals-gpl GeneralsMD Object.cpp's
+        // OBJECT_STATUS_RECONSTRUCTING -> RebuildHoleBehaviorInterface handoff). Here the
+        // interface is IReviveLifecycleModule and the condition is the module's own
+        // ClaimDeath verdict, evaluated from the killing blow this method was handed.
+        //
+        // Single-owner handoff: modules are offered the death in ascending ModuleIndex (INI
+        // declaration order) and the FIRST one to claim it owns it. The early return is the
+        // whole reap suppression - nothing calls Destroy(), so the object never reaches
+        // GameLogic's destroy list and its update modules keep ticking in the sleepy queue,
+        // which is what lets the claiming module run its death/revive timers.
+        if (!construction)
+        {
+            foreach (var behavior in _behaviorModules)
+            {
+                if (behavior is not IReviveLifecycleModule reviveLifecycle)
+                {
+                    continue;
+                }
+
+                if (!reviveLifecycle.ClaimDeath(damageInput))
+                {
+                    continue;
+                }
+
+                // The claiming module owns presentation from here (it plays the death
+                // animation before hiding the object), so this branch sets nothing on the
+                // object except what OnDie already set above: unselectable and deselected.
+                return;
+            }
+        }
 
         var dieModules = FindBehaviors<IDieModule>().ToList();
 
