@@ -1089,13 +1089,19 @@ public class ActiveBody : BodyModule
 
         if (reader.Mode == StatePersistMode.Read)
         {
+            // Retail's .sav layout has no SubdualDamageCap field (it was never real
+            // per-instance state in retail either - see BodyDamageCore.AddSubdualDamage,
+            // which always overwrites it from module data on the very next subdual event).
+            // Reconstruct it from the object's own INI data rather than inventing a new
+            // field in the legacy binary reader.
             _core.LoadState(
                 CombatLegacyBridge.QuantizeFloat(currentHealth),
                 CombatLegacyBridge.QuantizeFloat(currentSubdualDamage),
                 CombatLegacyBridge.QuantizeFloat(previousHealth),
                 CombatLegacyBridge.QuantizeFloat(maxHealth),
                 CombatLegacyBridge.QuantizeFloat(initialHealth),
-                currentDamageState);
+                currentDamageState,
+                _moduleData.SubdualDamageCap);
         }
 
         reader.PersistLogicFrame(ref _nextDamageFXFrame);
