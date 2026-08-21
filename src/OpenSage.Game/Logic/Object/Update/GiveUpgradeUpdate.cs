@@ -44,7 +44,6 @@
 // Every mutable sim field appears in Xfer exactly once (§3 of the spec); tolerances are the
 // field's conformance class at its declaration site (§4).
 
-using OpenSage.Data.Ini;
 using OpenSage.SimCore;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Sync;
@@ -243,53 +242,5 @@ public sealed class GiveUpgradeUpdate : UpdateModule
         xfer.XferFrame("PhaseEndFrame", ref _phaseEndFrame);
         xfer.XferBool("PrepExtended", ref _prepExtended);
         xfer.XferObjectId("TriggeringObject", ref _triggeringObjectId);
-    }
-}
-
-[AddedIn(SageGame.Bfme)]
-[SimDataAudited]
-public sealed class GiveUpgradeUpdateModuleData : UpdateModuleData
-{
-    internal static GiveUpgradeUpdateModuleData Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
-
-    private static readonly IniParseTable<GiveUpgradeUpdateModuleData> FieldParseTable = new IniParseTable<GiveUpgradeUpdateModuleData>
-    {
-        { "SpecialPowerTemplate", (parser, x) => x.SpecialPowerTemplate = parser.ParseAssetReference() },
-        { "StartAbilityRange", (parser, x) => x.StartAbilityRange = parser.ParseFix64() },
-        { "UnpackTime", (parser, x) => x.UnpackTime = parser.ParseDurationLogicFrames() },
-        { "PreparationTime", (parser, x) => x.PreparationTime = parser.ParseDurationLogicFrames() },
-        { "PersistentPrepTime", (parser, x) => x.PersistentPrepTime = parser.ParseDurationLogicFrames() },
-        { "PackTime", (parser, x) => x.PackTime = parser.ParseDurationLogicFrames() },
-        { "ApproachRequiresLOS", (parser, x) => x.ApproachRequiresLos = parser.ParseBoolean() },
-        { "SpawnOutFX", (parser, x) => x.SpawnOutFX = parser.ParseAssetReference() },
-        { "DeliverUpgrade", (parser, x) => x.DeliverUpgrade = parser.ParseBoolean() },
-        { "FadeOutSpeed", (parser, x) => x.FadeOutSpeed = parser.ParseFloat() },
-    };
-
-    public string SpecialPowerTemplate { get; private set; }
-    public Fix64 StartAbilityRange { get; private set; }
-    public LogicFrameSpan UnpackTime { get; private set; }
-    public LogicFrameSpan PreparationTime { get; private set; }
-    public LogicFrameSpan PersistentPrepTime { get; private set; }
-    public LogicFrameSpan PackTime { get; private set; }
-
-    /// <summary>Parsed and held; not currently modeled - see the file-header gap note.</summary>
-    public bool ApproachRequiresLos { get; private set; }
-
-    /// <summary>Parsed and held; not currently modeled - see the file-header gap note.</summary>
-    public string SpawnOutFX { get; private set; }
-
-    /// <summary>
-    /// Parsed and held; not currently modeled - see the file-header gap note. Exposed
-    /// read-only on the runtime module as <see cref="GiveUpgradeUpdate.DeliversUpgrade"/>.
-    /// </summary>
-    public bool DeliverUpgrade { get; private set; }
-
-    /// <summary>Parsed and held; not currently modeled - see the file-header gap note.</summary>
-    public float FadeOutSpeed { get; private set; }
-
-    internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
-    {
-        return new GiveUpgradeUpdate(gameObject, gameEngine.SimContext, this);
     }
 }
