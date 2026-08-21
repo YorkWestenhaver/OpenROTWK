@@ -58,10 +58,10 @@ public sealed class SabotageInternetCenterCrateCollideModuleData : CrateCollideM
     private static new readonly IniParseTable<SabotageInternetCenterCrateCollideModuleData> FieldParseTable = CrateCollideModuleData.FieldParseTable
         .Concat(new IniParseTable<SabotageInternetCenterCrateCollideModuleData>
         {
-            { "SabotageDuration", (parser, x) => x.SabotageDuration = parser.ParseInteger() },
+            { "SabotageDuration", (parser, x) => x.SabotageDuration = parser.ParseDurationLogicFrames() },
         });
 
-    public int SabotageDuration { get; private set; }
+    public LogicFrameSpan SabotageDuration { get; private set; }
 
     internal override BehaviorModule CreateModule(GameObject gameObject, IGameEngine gameEngine)
     {

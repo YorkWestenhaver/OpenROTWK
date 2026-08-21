@@ -54,7 +54,12 @@ End
 
         var data = (SabotageInternetCenterCrateCollideModuleData)game.AssetStore.ObjectDefinitions
             .GetByName("SaboteurCrate").Behaviors["ModuleTag_Sabotage"].Data;
-        Assert.Equal(900, data.SabotageDuration);
+        // GPL parseDurationUnsignedInt semantics: authored milliseconds -> ceil(ms * fps / 1000)
+        // logic frames (BFME2 fps = 5, IniParser.ParseDurationLogicFrames). 900ms * 5/1000 = 4.5
+        // -> ceil -> 5 frames. NOT the raw authored integer (that was the R12 bug: ParseInteger()
+        // stored 900 verbatim, ~30x too long once executeCrateBehavior is wired to read this as
+        // a frame count).
+        Assert.Equal(new LogicFrameSpan(5), data.SabotageDuration);
         Assert.Equal(ObjectKinds.Infantry, data.RequiredKindOf);
     }
 
