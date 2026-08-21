@@ -56,10 +56,17 @@ End
     }
 
     /// <summary>
-    /// Two players, each on their own singleton team, with the saboteur's side declared an
-    /// enemy of the other - the minimum wiring GameObject.GetRelationship needs (both objects
-    /// must carry a non-null Team; OpenSAGE does not yet populate this from map data outside a
-    /// save file, so tests set it up directly rather than inventing broader engine wiring).
+    /// Two players wired up the way a real skirmish game actually populates enmity: the map
+    /// player's <c>Enemies</c>/<c>Allies</c> name lists, which <see cref="PlayerManager.OnNewGame"/>
+    /// (via its private CreatePlayers) feeds straight into <see cref="Player.Enemies"/> -
+    /// <em>not</em> <see cref="Player.SetRelationship"/>, which backs
+    /// <see cref="GameObject.GetRelationship"/> and is never called by
+    /// <c>PlayerManager.OnNewGame</c> in real play (it has a literal
+    /// "// TODO: Setup player relationships." right after building the player list). A prior
+    /// version of this fixture called <c>SetRelationship</c> directly and hand-built
+    /// <c>Team</c>/<c>TeamFactory</c> objects, which populated a dictionary the production code
+    /// no longer reads and let the tests pass against a relationship path real games never
+    /// populate.
     /// </summary>
     private static Fixture NewGame()
     {
@@ -71,12 +78,14 @@ End
             Name = "plyrSaboteur",
             Faction = "FactionSaboteur",
             DisplayName = "Saboteur",
+            Enemies = "plyrEnemy",
         };
         var enemyMapPlayer = new OpenSage.Data.Map.Player
         {
             Name = "plyrEnemy",
             Faction = "FactionEnemy",
             DisplayName = "Enemy",
+            Enemies = "plyrSaboteur",
         };
 
         game.PlayerManager.OnNewGame(
@@ -92,32 +101,14 @@ End
         var saboteurPlayer = game.PlayerManager.GetPlayerByName(saboteurMapPlayer.Name);
         var enemyPlayer = game.PlayerManager.GetPlayerByName(enemyMapPlayer.Name);
 
-        var teamFactory = new TeamFactory(game);
-        var saboteurTeam = teamFactory.AddTeam(new TeamTemplate(teamFactory, 1, "SaboteurTeam", saboteurPlayer, isSingleton: true));
-
-        saboteurPlayer.SetRelationship(enemyPlayer, RelationshipType.Enemies);
-
         var saboteur = game.SpawnObject("TestSaboteur", saboteurPlayer, new Vector3(0, 0, 0));
-        saboteur.Team = saboteurTeam;
 
         return new Fixture { Game = game, Saboteur = saboteurPlayer, Enemy = enemyPlayer };
     }
 
-    private static GameObject SpawnTarget(Fixture fixture, string definitionName, Player owner, OpenSage.Logic.Team team, in Vector3 position)
+    private static GameObject SpawnTarget(Fixture fixture, string definitionName, Player owner, in Vector3 position)
     {
-        var target = fixture.Game.SpawnObject(definitionName, owner, position);
-        target.Team = team;
-        return target;
-    }
-
-    // Rebuilds the enemy team the same way NewGame did, for tests that need it directly
-    // (NewGame only returns players, since most callers just need SpawnTarget's Team param
-    // from a value they already created inline).
-    private static OpenSage.Logic.Team EnemyTeam(Fixture fixture)
-    {
-        var teamFactory = new TeamFactory(fixture.Game);
-        var template = new TeamTemplate(teamFactory, 1, "EnemyTeamAgain", fixture.Enemy, isSingleton: true);
-        return teamFactory.AddTeam(template);
+        return fixture.Game.SpawnObject(definitionName, owner, position);
     }
 
     private static SabotageFakeBuildingCrateCollide Collider(GameObject saboteur) =>
@@ -128,7 +119,7 @@ End
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var building = SpawnTarget(fixture, "TestRealBuilding", fixture.Enemy, EnemyTeam(fixture), new Vector3(10, 0, 0));
+        var building = SpawnTarget(fixture, "TestRealBuilding", fixture.Enemy, new Vector3(10, 0, 0));
         saboteur.AIUpdate.GoalObject = building;
 
         var result = Collider(saboteur).TryExecuteSabotage(building);
@@ -142,7 +133,7 @@ End
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, EnemyTeam(fixture), new Vector3(10, 0, 0));
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(10, 0, 0));
         building.IsEffectivelyDead = true;
         saboteur.AIUpdate.GoalObject = building;
 
@@ -158,12 +149,9 @@ End
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
 
-        // Civilian is neither allied nor at war with the saboteur by default (no relationship
-        // override was set for it), so its fake building reads as Neutral - not Enemies.
-        var civilianTeamFactory = new TeamFactory(fixture.Game);
-        var civilianTeam = civilianTeamFactory.AddTeam(
-            new TeamTemplate(civilianTeamFactory, 1, "CivilianTeam", fixture.Game.CivilianPlayer, isSingleton: true));
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Game.CivilianPlayer, civilianTeam, new Vector3(10, 0, 0));
+        // Civilian is neither allied nor at war with the saboteur by default (its map-side
+        // Enemies list is empty), so it is absent from Owner.Enemies - not an enemy.
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Game.CivilianPlayer, new Vector3(10, 0, 0));
         saboteur.AIUpdate.GoalObject = building;
 
         var result = Collider(saboteur).TryExecuteSabotage(building);
@@ -177,9 +165,8 @@ End
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var enemyTeam = EnemyTeam(fixture);
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, enemyTeam, new Vector3(10, 0, 0));
-        var decoy = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, enemyTeam, new Vector3(20, 0, 0));
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(10, 0, 0));
+        var decoy = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(20, 0, 0));
 
         // Saboteur's AI order is aimed at the decoy, not the building it happens to touch:
         // proximity alone must not trigger the sabotage.
@@ -196,7 +183,7 @@ End
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, EnemyTeam(fixture), new Vector3(10, 0, 0));
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(10, 0, 0));
         saboteur.AIUpdate.GoalObject = building;
 
         var result = Collider(saboteur).TryExecuteSabotage(building);
@@ -213,7 +200,7 @@ End
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, EnemyTeam(fixture), new Vector3(10, 0, 0));
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(10, 0, 0));
         saboteur.AIUpdate.GoalObject = building;
 
         var result = Collider(saboteur).TryExecuteSabotage(building);
@@ -232,15 +219,35 @@ End
     }
 
     [Fact]
-    public void OnCollide_DelegatesToTryExecuteSabotage()
+    public void OnCollide_DelegatesToTryExecuteSabotage_AndDestroysBoth()
     {
         var fixture = NewGame();
         var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
-        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, EnemyTeam(fixture), new Vector3(10, 0, 0));
+        var building = SpawnTarget(fixture, "TestFakeBuilding", fixture.Enemy, new Vector3(10, 0, 0));
         saboteur.AIUpdate.GoalObject = building;
 
         saboteur.OnCollide(building);
 
         Assert.True(building.IsDestroyed);
+        // GPL's shared CrateCollide::onCollide calls
+        // TheGameLogic->destroyObject(getObject()) whenever executeCrateBehavior returns
+        // true - "crate" is a misnomer for this family, getObject() is the saboteur itself,
+        // so a successful sabotage consumes the saboteur as a one-shot action just like the
+        // rest of the crate-collide family.
+        Assert.True(saboteur.IsDestroyed);
+    }
+
+    [Fact]
+    public void OnCollide_FailedSabotage_SaboteurSurvives()
+    {
+        var fixture = NewGame();
+        var saboteur = fixture.Game.GameLogic.Objects.Single(o => o.Definition.Name == "TestSaboteur");
+        var building = SpawnTarget(fixture, "TestRealBuilding", fixture.Enemy, new Vector3(10, 0, 0));
+        saboteur.AIUpdate.GoalObject = building;
+
+        saboteur.OnCollide(building);
+
+        Assert.False(building.IsDestroyed);
+        Assert.False(saboteur.IsDestroyed);
     }
 }
