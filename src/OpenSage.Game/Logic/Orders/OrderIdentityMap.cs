@@ -45,8 +45,11 @@
 // their GameMessageType numbers - 1049/1085/1086 were already occupied in the ZH-derived
 // OrderType enum (BuildObject/Unknown1085/DirectParticleCannon) and that enum may not be
 // renumbered (see OrderType.cs's own note). This is precisely the case that proves the
-// no-cast rule: (GameMessageType)(int)OrderType.CastleUnpack is 2003, which is not a message
-// at all. Only the literal pairings below carry the identity.
+// no-cast rule - and it is worse than "the cast gives nothing". INT-R1B: GameMessageType's own
+// 2xxx band is fully populated by the object-state messages, so (GameMessageType)(int)
+// OrderType.CastleUnpack is 2003 = MSG_OBJECT_POSITION: a DEFINED message that type-checks,
+// validates, and dispatches something entirely unrelated with no error to catch it. Only the
+// literal pairings below carry the identity.
 //
 // Every other absent OrderType remains UNMAPPED, which is a documented, load-bearing state,
 // not an oversight: IOrderSubmitter's contract requires a Local-origin order that misses this
