@@ -852,20 +852,10 @@ public sealed class Game : DisposableBase, IGame
             return;
         }
 
-        if (LogicUpdateScaleFactor != 1f)
-        {
-            throw new InvalidOperationException(
-                "The headed CRC requires LogicUpdateScaleFactor == 1 (it is " +
-                $"{LogicUpdateScaleFactor}). The multiplier changes how many frames elapse per " +
-                "second of wall clock, so a scaled run dumps a different set of checkpoint " +
-                "frames than its 1x counterpart and the comparator reads that as a divergence.");
-        }
-
-        if (string.IsNullOrEmpty(Configuration.HeadedCrcDumpPath))
-        {
-            throw new InvalidOperationException(
-                "--headed-crc needs --headed-crc-out: there is nowhere to write the dump.");
-        }
+        HeadedCrcChannels.ValidateStartPreconditions(
+            configuredInterval,
+            Configuration.HeadedCrcDumpPath,
+            LogicUpdateScaleFactor);
 
         // A restart (Game.Restart) runs StartGame again; close the previous match's dump
         // before opening this one's rather than leaking the handle.

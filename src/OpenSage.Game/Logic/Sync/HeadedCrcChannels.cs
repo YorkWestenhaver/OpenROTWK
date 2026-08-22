@@ -68,4 +68,50 @@ internal static class HeadedCrcChannels
 
     /// <summary>Convenience: <see cref="Build"/> handed straight to a checker.</summary>
     public static SyncChecker CreateChecker(IGame game) => new(Build(game));
+
+    /// <summary>
+    /// The two conditions a headed CRC run refuses to start without. Separated from
+    /// <c>Game</c> so they are testable without a graphics device.
+    /// </summary>
+    /// <param name="intervalInFrames">
+    /// <c>Configuration.HeadedCrcIntervalInFrames</c>. 0 means the CRC is off and nothing is
+    /// checked - a flag-off run must never be able to fail this.
+    /// </param>
+    /// <param name="dumpPath">
+    /// <c>Configuration.HeadedCrcDumpPath</c>. A CRC with nowhere to write it is an argument
+    /// error, not a silent no-op: the operator would only discover the missing dump after the
+    /// match, with nothing left to compare.
+    /// </param>
+    /// <param name="logicUpdateScaleFactor">
+    /// <c>Game.LogicUpdateScaleFactor</c>, which must be 1. The multiplier does not change what
+    /// a frame does, but it changes how many frames elapse per second of wall clock, so a
+    /// scaled run stopped by a wall-clock watchdog dumps a different set of checkpoint frames
+    /// than its 1x counterpart - a comparator reads that as divergence with nothing having
+    /// diverged.
+    /// </param>
+    public static void ValidateStartPreconditions(
+        uint intervalInFrames,
+        string dumpPath,
+        float logicUpdateScaleFactor)
+    {
+        if (intervalInFrames == 0)
+        {
+            return;
+        }
+
+        if (logicUpdateScaleFactor != 1f)
+        {
+            throw new System.InvalidOperationException(
+                "The headed CRC requires LogicUpdateScaleFactor == 1 (it is " +
+                $"{logicUpdateScaleFactor}). The multiplier changes how many frames elapse per " +
+                "second of wall clock, so a scaled run dumps a different set of checkpoint " +
+                "frames than its 1x counterpart and the comparator reads that as a divergence.");
+        }
+
+        if (string.IsNullOrEmpty(dumpPath))
+        {
+            throw new System.InvalidOperationException(
+                "--headed-crc needs --headed-crc-out: there is nowhere to write the dump.");
+        }
+    }
 }
