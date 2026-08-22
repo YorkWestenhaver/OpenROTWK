@@ -601,8 +601,14 @@ End
         // Persistent-trigger path: step well past the T+1 boundary of the longer (aborted)
         // duration, checking every frame rather than only at the end - a 3- or 4-frame window
         // opened at any trigger would otherwise be stepped straight over.
+        // Bounded: UnpackTime 1000 (5 frames) + PreparationTime 200 (1) + PersistentPrepTime 600
+        // (3) puts trigger 2 around frame 10, so a budget of 200 can only be exhausted by the
+        // module having stopped retriggering - which must fail as a budget assertion here rather
+        // than hang the integrate lane's test run.
+        var steps = 0;
         while (module.TriggerCount < 2)
         {
+            Assert.True(++steps <= 200, "HeldFieldArcher did not reach trigger 2 within 200 frames");
             game.Step();
             Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
         }
