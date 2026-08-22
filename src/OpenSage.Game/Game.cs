@@ -161,9 +161,16 @@ public sealed class Game : DisposableBase, IGame
         {
             if (value != 1f && HeadedCrcActive)
             {
-                throw new InvalidOperationException(
-                    $"LogicUpdateScaleFactor must stay 1 while the headed CRC is on (requested {value}). " +
+                // Refused, not thrown: the only caller is the developer-mode slider
+                // (GameSettingsView), and taking down a long unattended CRC run because
+                // someone dragged a debug widget would be a worse failure than ignoring the
+                // drag. Starting a CRC run at a scaled factor IS refused, loudly, in
+                // EnableHeadedCrcIfRequested.
+                Logger.Warn(
+                    $"Ignoring LogicUpdateScaleFactor={value}: it must stay 1 while the headed " +
+                    "CRC is on, or a run's checkpoint frames stop lining up with its comparand. " +
                     "Restart without --headed-crc to use the developer speed multiplier.");
+                return;
             }
 
             _logicUpdateScaleFactor = value;
