@@ -39,13 +39,20 @@
 //     the weaker "advanced by exactly one" delta - see OnPhase. SimLoop.ResetTo is what makes
 //     that assertable across a host-side clock jump.
 //
-// Non-goal, deliberately left for a later packet: attaching SyncChecker to the CrcCheckpoint
-// phase (packet 5).
+// R15 packet 5 (br-p5) then filled the last empty phase: CrcCheckpoint. AttachCrc hands this
+// object a SyncChecker over the three HeadedCrcChannels sources plus a DeepCrcWriter, and the
+// phase body writes the same record/vector format the headless map-v1 scenario writes, so the
+// two dumps are comparable by DumpDiff. It is OPT-IN (--headed-crc): with the flag off nothing
+// is attached, the loop keeps CrcCheckpointIntervalInFrames = 0, and the phase body is never
+// reached - a flag-off run is byte-identical to a pre-packet-5 run. Packet 5 delivers the
+// plumbing and the format match only; the headed-vs-headless EQUALITY run is a round-3 item
+// (it needs the L1 map fixes and a deterministic stimulus first).
 
 using System;
 using OpenSage.Diagnostics;
 using OpenSage.Logic.Orders;
 using OpenSage.SimCore.Orders;
+using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
 
 namespace OpenSage.Logic.Sim;
@@ -75,6 +82,10 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     private readonly IScriptingTick _scriptingOverride;
 
     private bool _frameOpen;
+
+    // R15 packet 5: null unless --headed-crc attached them (see AttachCrc / CrcCheckpoint).
+    private SyncChecker _crcChecker;
+    private DeepCrcWriter _crcWriter;
 
     // Heartbeat bookkeeping (see Heartbeat below). Wall time is read from IGame.RenderTime
     // rather than a Stopwatch of our own, so the logic-FPS figure agrees with whatever clock
@@ -208,12 +219,60 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
         new(_game.MapTime.TotalTime, TimeSpan.FromMilliseconds(_game.GameEngine.MsPerLogicFrame));
 
     /// <summary>
-    /// No-op. A headed game runs with <c>CrcCheckpointIntervalInFrames = 0</c>, so the loop
-    /// never calls this at all; packet 5 attaches <c>SyncChecker</c> behind a launcher flag.
+    /// Attach the deep-CRC plumbing (R15 packet 5). Until this is called - i.e. unless
+    /// <c>--headed-crc</c> was passed - the game keeps
+    /// <c>SimLoop.CrcCheckpointIntervalInFrames = 0</c> and this phase body is never reached
+    /// at all, so a flag-off run is byte-identical to one built before packet 5 existed.
     /// </summary>
+    /// <param name="checker">Built by <c>HeadedCrcChannels</c>, after Scene3D exists.</param>
+    /// <param name="writer">The dump the checkpoint records and vector lines go to.</param>
+    public void AttachCrc(SyncChecker checker, DeepCrcWriter writer)
+    {
+        ArgumentNullException.ThrowIfNull(checker);
+        ArgumentNullException.ThrowIfNull(writer);
+
+        _crcChecker = checker;
+        _crcWriter = writer;
+    }
+
+    /// <summary>
+    /// The CRC slot: fold the frozen channel walk and stream it, in the exact record and
+    /// vector format the headless map-v1 scenario writes (<c>MapScenario.CrcCheckpoint</c>),
+    /// so <c>DumpDiff</c> can compare a headed dump against a headless one line for line.
+    /// </summary>
+    /// <remarks>
+    /// No-op when nothing is attached. The loop only calls this on checkpoint frames and only
+    /// when <c>CrcCheckpointIntervalInFrames != 0</c>, which a flag-off headed game never sets,
+    /// so the null check is belt-and-braces for a host that sets the interval without
+    /// attaching.
+    /// <para>
+    /// DEVIATION, recorded not fixed (design doc §6, "the early-CRC intra-frame offset"): GPL
+    /// computes its logic CRC EARLY in <c>GameLogic::update</c> - after the script engine and
+    /// terrain logic, but before command-list processing, the update queue, the AI/partition
+    /// updates and the destroy-list reap - whereas the frozen <c>SimPhase</c> sequence puts
+    /// CrcCheckpoint after ModuleUpdate and PartitionUpdate. Both hosts here use the same late
+    /// slot, so headed-vs-headless comparison is unaffected; only a comparison against retail
+    /// would have to account for the offset.
+    /// </para>
+    /// </remarks>
     public void CrcCheckpoint(LogicFrame frame)
     {
+        if (_crcChecker is null)
+        {
+            return;
+        }
+
+        var message = _crcChecker.ComputeDeepCheckpoint(frame, _crcWriter);
+        _crcWriter.CrcVector(frame.Value, message.Combined, message.ChannelCrcs);
+        Checkpoints++;
+        FinalCombined = message.Combined;
     }
+
+    /// <summary>Number of CRC checkpoints written since <see cref="AttachCrc"/>. Diagnostic.</summary>
+    public int Checkpoints { get; private set; }
+
+    /// <summary>The most recent checkpoint's combined CRC. Diagnostic.</summary>
+    public uint FinalCombined { get; private set; }
 
     /// <summary>
     /// Frame-counter reconciliation, asserted at EndFrame.

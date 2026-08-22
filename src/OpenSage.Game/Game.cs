@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Text;
 using OpenSage.Audio;
 using OpenSage.Client;
 using OpenSage.Content;
@@ -27,11 +29,13 @@ using OpenSage.Logic;
 using OpenSage.Logic.Map;
 using OpenSage.Logic.Orders;
 using OpenSage.Logic.Sim;
+using OpenSage.Logic.Sync;
 using OpenSage.Mathematics;
 using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
 using OpenSage.SimCore.Orders;
+using OpenSage.SimCore.Sync;
 using OpenSage.SimCore.Ticking;
 using OpenSage.Utilities;
 using Veldrid;
@@ -41,6 +45,8 @@ namespace OpenSage;
 
 public sealed class Game : DisposableBase, IGame
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly FileSystem _fileSystem;
     private readonly WndCallbackResolver _wndCallbackResolver;
 
@@ -134,7 +140,40 @@ public sealed class Game : DisposableBase, IGame
     /// </summary>
     private float LogicUpdateInterval => GameEngine.MsPerLogicFrame / LogicUpdateScaleFactor;
 
-    public float LogicUpdateScaleFactor { get; set; } = 1f;
+    /// <summary>
+    /// Developer-mode speed multiplier on the wall-clock accumulator that decides when a logic
+    /// frame is due (see <see cref="LogicUpdateInterval"/>). It changes only the PACING of
+    /// frames, never their content.
+    /// </summary>
+    /// <remarks>
+    /// Pinned to 1 while the headed CRC is on (R15 packet 5). The multiplier does not alter
+    /// the sim, but it does alter how many frames elapse per second of wall clock, and a CRC
+    /// run exists to be compared against another run frame-for-frame. A run at 3x that
+    /// terminates on a wall-clock watchdog dumps a different set of checkpoint frames than its
+    /// 1x counterpart, which reads as a divergence in the comparator without anything having
+    /// actually diverged. Refusing the change is cheaper than teaching every consumer of a
+    /// dump that its frame axis might be scaled.
+    /// </remarks>
+    public float LogicUpdateScaleFactor
+    {
+        get => _logicUpdateScaleFactor;
+        set
+        {
+            if (value != 1f && HeadedCrcActive)
+            {
+                throw new InvalidOperationException(
+                    $"LogicUpdateScaleFactor must stay 1 while the headed CRC is on (requested {value}). " +
+                    "Restart without --headed-crc to use the developer speed multiplier.");
+            }
+
+            _logicUpdateScaleFactor = value;
+        }
+    }
+
+    private float _logicUpdateScaleFactor = 1f;
+
+    /// <summary>True once <c>--headed-crc</c> has attached a checker to the CrcCheckpoint phase.</summary>
+    internal bool HeadedCrcActive => _headedCrcWriter != null;
 
     public void LoadSaveFile(FileSystemEntry entry)
     {
@@ -309,6 +348,14 @@ public sealed class Game : DisposableBase, IGame
     // The deterministic frame driver (R14 packet 1). The wall-clock accumulator above decides
     // WHEN a logic frame is due; the loop decides what happens inside one.
     private readonly SimLoop _simLoop;
+
+    // The phase bodies (also the loop's observer). Held so StartGame can attach the deep-CRC
+    // plumbing to the CrcCheckpoint phase when --headed-crc asked for it (R15 packet 5).
+    private readonly HeadedSimSystems _headedSimSystems;
+
+    // The headed CRC dump, open for the life of the match. Null unless --headed-crc is on.
+    private DeepCrcWriter _headedCrcWriter;
+    private StreamWriter _headedCrcStream;
 
     /// <summary>
     /// The deterministic loop's frame counter. Advances once per logic frame, in the EndFrame
@@ -600,9 +647,10 @@ public sealed class Game : DisposableBase, IGame
             // R14 packet 1: the headed logic frame runs through SimCore's frozen phase
             // sequence. See LogicTick(). CrcCheckpointIntervalInFrames = 0 keeps the
             // CrcCheckpoint phase body from ever running in a headed game (SimLoop guards
-            // on != 0); packet 5 attaches SyncChecker behind a launcher flag.
-            var headedSimSystems = new HeadedSimSystems(this);
-            _simLoop = new SimLoop(headedSimSystems, headedSimSystems)
+            // on != 0); R15 packet 5 raises it, and attaches a SyncChecker, only when
+            // --headed-crc asked for it (EnableHeadedCrcIfRequested, called from StartGame).
+            _headedSimSystems = new HeadedSimSystems(this);
+            _simLoop = new SimLoop(_headedSimSystems, _headedSimSystems)
             {
                 CrcCheckpointIntervalInFrames = 0,
             };
@@ -774,8 +822,82 @@ public sealed class Game : DisposableBase, IGame
         // constructor); it is the save-load path that can actually move the logic clock.
         _simLoop.ResetTo(GameLogic.CurrentFrame);
 
+        // R15 packet 5: the CRC channels need Scene3D (IGame.GameEngine resolves through it),
+        // so this is the earliest correct point - after LoadMap, after the loop is re-seated,
+        // before the first frame runs.
+        EnableHeadedCrcIfRequested();
+
         // Scripts should be enabled in all games, even replays
         Scripting.Active = true;
+    }
+
+    /// <summary>
+    /// Turn the CrcCheckpoint phase on when <c>--headed-crc</c> asked for it (R15 packet 5).
+    /// A no-op - and therefore byte-identical to a pre-packet-5 run - whenever
+    /// <see cref="Configuration.HeadedCrcIntervalInFrames"/> is 0, which is the default.
+    /// </summary>
+    /// <remarks>
+    /// Writes the same dump format the headless ScenarioDriver writes ("opensage-deepdump v2",
+    /// UTF-8 without BOM, LF line endings, one "# key=value" provenance comment per line) so a
+    /// headed dump and a headless dump of the same map are comparable by DumpDiff without
+    /// either side special-casing the other. The comparison RUN is not this packet's business:
+    /// the float AIUpdate/Locomotor chain a shipped AotR map moves units through is unported,
+    /// so equality is a round-3 item that needs the L1 map fixes and a deterministic stimulus.
+    /// </remarks>
+    private void EnableHeadedCrcIfRequested()
+    {
+        var configuredInterval = Configuration.HeadedCrcIntervalInFrames;
+        if (configuredInterval == 0)
+        {
+            return;
+        }
+
+        if (LogicUpdateScaleFactor != 1f)
+        {
+            throw new InvalidOperationException(
+                "The headed CRC requires LogicUpdateScaleFactor == 1 (it is " +
+                $"{LogicUpdateScaleFactor}). The multiplier changes how many frames elapse per " +
+                "second of wall clock, so a scaled run dumps a different set of checkpoint " +
+                "frames than its 1x counterpart and the comparator reads that as a divergence.");
+        }
+
+        if (string.IsNullOrEmpty(Configuration.HeadedCrcDumpPath))
+        {
+            throw new InvalidOperationException(
+                "--headed-crc needs --headed-crc-out: there is nowhere to write the dump.");
+        }
+
+        // A restart (Game.Restart) runs StartGame again; close the previous match's dump
+        // before opening this one's rather than leaking the handle.
+        CloseHeadedCrcDump();
+
+        _headedCrcStream = new StreamWriter(
+            Configuration.HeadedCrcDumpPath,
+            append: false,
+            new UTF8Encoding(false))
+        {
+            NewLine = "\n",
+        };
+
+        _headedCrcWriter = new DeepCrcWriter(_headedCrcStream, leaveOpen: true);
+        _headedCrcWriter.Comment($"arch={RuntimeInformation.ProcessArchitecture}");
+        _headedCrcWriter.Comment($"rid={RuntimeInformation.RuntimeIdentifier}");
+        _headedCrcWriter.Comment("host=headed");
+
+        _headedSimSystems.AttachCrc(HeadedCrcChannels.CreateChecker(this), _headedCrcWriter);
+        _simLoop.CrcCheckpointIntervalInFrames = SyncChecker.EffectiveInterval(configuredInterval);
+
+        Logger.Info(
+            $"Headed CRC on: interval={_simLoop.CrcCheckpointIntervalInFrames} " +
+            $"(configured {configuredInterval}) out={Configuration.HeadedCrcDumpPath}");
+    }
+
+    private void CloseHeadedCrcDump()
+    {
+        _headedCrcWriter?.Dispose();
+        _headedCrcWriter = null;
+        _headedCrcStream?.Dispose();
+        _headedCrcStream = null;
     }
 
     public void StartCampaign(string side)
@@ -963,6 +1085,9 @@ public sealed class Game : DisposableBase, IGame
 
     protected override void Dispose(bool disposeManagedResources)
     {
+        // R15 packet 5: flush and close the headed CRC dump, if one is open.
+        CloseHeadedCrcDump();
+
         base.Dispose(disposeManagedResources);
 
         if (UPnP.Status == UPnPStatus.PortsForwarded)
