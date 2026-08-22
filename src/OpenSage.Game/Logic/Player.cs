@@ -1,5 +1,6 @@
 ﻿#nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using OpenSage.Content.Translation;
@@ -934,6 +935,108 @@ public partial class Player : IPersistableObject
     public void SetAttackedBy(uint playerIndex)
     {
         // TODO(Port): Implement this.
+    }
+
+    // ---- L4 victory/defeat lane (VD-3) ------------------------------------------------
+    //
+    // Three members, and only three. Behavioral reference (clean-room, semantics only):
+    // generals-gpl GeneralsMD Player.cpp's m_isPlayerDead / isPlayerObserver / killPlayer.
+    // Design: workbench research/design-victory-defeat.md §1.5, §1.6, §4.
+    //
+    // NOTE, load-bearing: none of these is persisted here. Player.Persist is a
+    // retail-savegame-shaped walk at PersistVersion(8) - it carries a SkipUnknownBytes, three
+    // unknown fields and a nested Energy object whose own walk sanity-checks the player index
+    // and throws on a mismatch. Inserting a field anywhere in that walk shifts every
+    // subsequent byte and would break retail save compatibility and the CRC channel at the
+    // same time. IsDefeated is persisted by VictoryConditionsCore's own IsDefeated[] latch
+    // (PersistVersion(1)) and reconstructed onto the players at load; IsPlayerObserver is
+    // reconstructible from the cached victory pool. **Player.Persist stays byte-identical.**
+
+    private bool _isPlayerObserverOverride;
+    private bool _hasPlayerObserverOverride;
+
+    /// <summary>
+    /// GPL <c>m_isPlayerDead</c>: this player has been eliminated. A one-way latch - set by
+    /// <see cref="KillPlayer"/> (and by the victory core when it restores a saved match), never
+    /// cleared during a match, exactly as GPL treats it. In-memory only; see the note above.
+    /// </summary>
+    public bool IsDefeated { get; internal set; }
+
+    /// <summary>
+    /// GPL <c>Player::isPlayerObserver</c>. An observer is excluded from the victory pool
+    /// (design §1.6), never wins and never personally loses.
+    /// </summary>
+    /// <remarks>
+    /// Derived from the player's faction, which is the only observer signal this engine
+    /// currently carries: <c>Player.FromMapData</c> already special-cases the observer faction
+    /// name when deciding whether to attach an AI. The setter is the seam for lobby observer
+    /// seats when that wiring lands - once set, it wins over the derived value.
+    /// </remarks>
+    public bool IsPlayerObserver
+    {
+        get => _hasPlayerObserverOverride
+            ? _isPlayerObserverOverride
+            : string.Equals(Side, ObserverFactionName, StringComparison.OrdinalIgnoreCase)
+              || string.Equals(Template?.Name, ObserverFactionName, StringComparison.OrdinalIgnoreCase);
+        internal set
+        {
+            _isPlayerObserverOverride = value;
+            _hasPlayerObserverOverride = true;
+        }
+    }
+
+    private const string ObserverFactionName = "FactionObserver";
+
+    /// <summary>
+    /// GPL <c>Player::killPlayer()</c>, reduced to what this lane needs (design §1.5): mark the
+    /// player dead, then destroy every object they still own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The order is GPL's and it matters: <see cref="IsDefeated"/> is set <b>before</b> anything
+    /// is destroyed, so every handler that reacts to the destruction already sees a dead player
+    /// - GPL's stated reason being that object-creation lists must not spawn useful units for a
+    /// player who has just lost.
+    /// </para>
+    /// <para>
+    /// Destruction runs in ascending <c>ObjectId</c>: <c>GameLogic.Objects</c> is index-ordered
+    /// by construction, and the doomed set is snapshotted first so the destroy pass cannot be
+    /// perturbed by anything a die handler creates. Deterministic on every peer.
+    /// </para>
+    /// <para>
+    /// Deliberately not ported here: GPL's container evacuation (no container dependency wanted
+    /// in this lane), its single-player carve-out (this lane is inert outside
+    /// multiplayer/skirmish) and its local control-bar refresh (VD-8).
+    /// </para>
+    /// </remarks>
+    public void KillPlayer()
+    {
+        IsDefeated = true;
+
+        var gameLogic = _game.GameLogic;
+        if (gameLogic is null)
+        {
+            return;
+        }
+
+        List<GameObject>? doomed = null;
+        foreach (var gameObject in gameLogic.Objects)
+        {
+            if (gameObject != null && gameObject.Owner == this && !gameObject.IsDestroyed)
+            {
+                (doomed ??= new List<GameObject>()).Add(gameObject);
+            }
+        }
+
+        if (doomed == null)
+        {
+            return;
+        }
+
+        foreach (var gameObject in doomed)
+        {
+            gameObject.Destroy();
+        }
     }
 }
 
