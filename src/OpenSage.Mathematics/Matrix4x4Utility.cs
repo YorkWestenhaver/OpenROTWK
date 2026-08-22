@@ -15,6 +15,17 @@ public static class Matrix4x4Utility
         return result;
     }
 
+    /// <summary>
+    /// Non-throwing <see cref="Invert(in Matrix4x4)"/>. Use this on any matrix that comes from
+    /// asset data (bone transforms, mesh world matrices): a degenerate/zero-scale transform in a
+    /// mod's W3D is a bad asset, and per the STANDING RULE one bad asset must never abort the
+    /// frame - the caller degrades instead of throwing.
+    /// </summary>
+    public static bool TryInvert(in Matrix4x4 value, out Matrix4x4 result)
+    {
+        return Matrix4x4.Invert(value, out result);
+    }
+
     public static float GetXTranslation(in this Matrix4x4 value) => value.M41;
 
     public static float GetYTranslation(in this Matrix4x4 value) => value.M42;

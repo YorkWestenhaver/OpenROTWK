@@ -38,6 +38,11 @@ public sealed partial class ModelMesh : ModelRenderObject
     public override bool Hidden { get; }
     public readonly bool CameraOriented;
 
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>Once-per-mesh latch for the non-invertible-world-matrix warning.</summary>
+    private bool _loggedNonInvertibleWorldMatrix;
+
     internal override void BuildRenderList(
         RenderList renderList,
         Camera camera,
@@ -78,19 +83,25 @@ public sealed partial class ModelMesh : ModelRenderObject
             return;
         }
 
+        // STANDING RULE: one bad asset never aborts the frame. A camera-oriented mesh whose
+        // bone world matrix is singular (a zero-scale / collapsed bone, which mod W3Ds do ship
+        // and animations do produce transiently) has no inverse; that used to throw out of
+        // Matrix4x4Utility.Invert and take the whole render pass - and therefore the game -
+        // down mid-frame. Degrade to the un-oriented world matrix instead and log once per mesh.
         Matrix4x4 world;
-        if (CameraOriented)
+        if (CameraOriented
+            && Matrix4x4Utility.TryInvert(camera.View, out var viewInverse)
+            && Matrix4x4Utility.TryInvert(meshWorldMatrix, out var meshWorldInverse))
         {
             // TODO: I don't think this is correct yet.
 
             var localToWorldMatrix = meshWorldMatrix;
 
-            var viewInverse = Matrix4x4Utility.Invert(camera.View);
             var cameraPosition = viewInverse.Translation;
 
             var toCamera = Vector3.Normalize(Vector3.TransformNormal(
                 cameraPosition - meshWorldMatrix.Translation,
-                Matrix4x4Utility.Invert(meshWorldMatrix)));
+                meshWorldInverse));
 
             toCamera.Z = 0;
 
@@ -103,6 +114,14 @@ public sealed partial class ModelMesh : ModelRenderObject
         }
         else
         {
+            if (CameraOriented && !_loggedNonInvertibleWorldMatrix)
+            {
+                _loggedNonInvertibleWorldMatrix = true;
+                Logger.Warn(
+                    $"Camera-oriented mesh '{Name}' has a non-invertible world matrix " +
+                    $"(bone '{parentBone.Name}'); rendering it un-oriented. Logged once per mesh.");
+            }
+
             world = meshWorldMatrix;
         }
 

@@ -88,24 +88,50 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
     internal CastleOrderHandler CastleOrdersIfCreated => _castleOrders;
     // ------------------------------------------------------------------------------------
 
-    private readonly List<GameObject> _objectsToIterate = new();
-    // TODO: This allocates memory. Don't do this.
-    public IEnumerable<GameObject> Objects
+    // Snapshot buffers for <see cref="Objects"/>. A pool, not one shared list: the previous
+    // single-buffer implementation Cleared and refilled the SAME list on every property access,
+    // so any RE-ENTRANT access - a loop body that itself walks Objects, e.g.
+    // LiveAiWorldView.EnsureSnapshot -> CastleUnpackStamper.FindStructureOnPlot - invalidated
+    // the outer enumerator and threw "Collection was modified; enumeration operation may not
+    // execute" mid-frame. Each enumeration now rents its own buffer and returns it when the
+    // enumerator is disposed (foreach always disposes), so nested walks are independent and the
+    // steady state still allocates nothing.
+    private readonly Stack<List<GameObject>> _objectIterationBufferPool = new();
+
+    /// <summary>
+    /// A snapshot of the live objects, safe to enumerate while objects are created or destroyed
+    /// and safe to enumerate re-entrantly (a nested enumeration gets its own snapshot).
+    /// </summary>
+    public IEnumerable<GameObject> Objects => IterateObjects();
+
+    private IEnumerable<GameObject> IterateObjects()
     {
-        get
+        // We can't return _objects directly because it's possible for new objects to be added
+        // during iteration. We should instead create new objects in a pending list, like we do for
+        // removed objects.
+        var buffer = _objectIterationBufferPool.Count > 0
+            ? _objectIterationBufferPool.Pop()
+            : new List<GameObject>();
+
+        try
         {
-            // TODO: We can't return _objects directly because it's possible for new objects to be added
-            // during iteration. We should instead create new objects in a pending list, like we do for
-            // removed objects.
-            _objectsToIterate.Clear();
             foreach (var gameObject in _objects)
             {
                 if (gameObject != null)
                 {
-                    _objectsToIterate.Add(gameObject);
+                    buffer.Add(gameObject);
                 }
             }
-            return _objectsToIterate;
+
+            for (var i = 0; i < buffer.Count; i++)
+            {
+                yield return buffer[i];
+            }
+        }
+        finally
+        {
+            buffer.Clear();
+            _objectIterationBufferPool.Push(buffer);
         }
     }
 
