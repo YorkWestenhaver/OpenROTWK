@@ -1,11 +1,19 @@
 ﻿using System.Numerics;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
+using OpenSage.Diagnostics;
 
 namespace OpenSage.Logic.Object;
 
 internal sealed class ObjectCreationUpgrade : UpgradeModule
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>
+    /// <see cref="DegradeLog"/> category for the unresolved-OCL guard in <see cref="OnUpgrade"/>.
+    /// </summary>
+    private const string UnresolvedUpgradeObjectCategory = "ObjectCreationUpgrade.UnresolvedUpgradeObject";
+
     private readonly ObjectCreationUpgradeModuleData _moduleData;
 
     internal ObjectCreationUpgrade(GameObject gameObject, IGameEngine gameEngine, ObjectCreationUpgradeModuleData moduleData)
@@ -16,7 +24,27 @@ internal sealed class ObjectCreationUpgrade : UpgradeModule
 
     protected override void OnUpgrade()
     {
-        foreach (var item in _moduleData.UpgradeObject.Value.Nuggets)
+        // R15 L1-11: UpgradeObject is an ObjectCreationList reference that can fail to resolve
+        // (the module block omits it, or names an OCL absent from the loaded INI corpus), in
+        // which case .Value is null and the foreach below NREs. GrantUpgradeCreate.OnCreate
+        // drives this during map load, so an unresolved OCL used to terminate the process
+        // before the sim loop started (RivendellWell on "map sp good ettenmoors" in the R15
+        // AotR sweep). Degrade: grant the upgrade, create nothing, report the gap once.
+        var objectCreationList = _moduleData.UpgradeObject?.Value;
+        if (objectCreationList == null)
+        {
+            var templateName = GameObject?.Definition?.Name;
+            if (DegradeLog.ShouldReport(UnresolvedUpgradeObjectCategory, templateName))
+            {
+                Logger.Warn(
+                    $"ObjectCreationUpgrade on object template '{DegradeLog.Normalize(templateName)}' has no " +
+                    "resolvable UpgradeObject ObjectCreationList; the upgrade is applied but nothing is created.");
+            }
+
+            return;
+        }
+
+        foreach (var item in objectCreationList.Nuggets)
         {
             var createdObjects = item.Execute(GameObject, GameEngine);
 

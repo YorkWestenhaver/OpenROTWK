@@ -4,6 +4,8 @@ namespace OpenSage.Logic.Object;
 
 public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPersistableObject
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly IGameEngine _gameEngine = gameEngine;
 
     /// <summary>
@@ -96,11 +98,39 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
     }
 
     /// <summary>
+    /// R15 L1-11 (sweep ratchet): the single choke point through which an out-of-enum
+    /// <see cref="VeterancyLevel"/> can enter the object's state. BFME2/AotR content declares
+    /// ranks above <see cref="VeterancyLevel.Heroic"/> (an <c>ExperienceLevelCreate</c>
+    /// <c>LevelToGrant</c>, or an <c>ExperienceLevel</c> asset's <c>Rank</c>, cast straight to
+    /// the enum), and every per-level table the engine owns — <c>GameData.HealthBonus</c>,
+    /// <c>ObjectDefinition.ExperienceRequired</c>, the switches in <see cref="ActiveBody"/> —
+    /// is sized for four levels. Clamp and report once rather than let the cast index off the
+    /// end and terminate the process. See <see cref="VeterancyLevelSupport"/>.
+    /// </summary>
+    private VeterancyLevel ClampToSupportedLevel(VeterancyLevel requested)
+    {
+        if (VeterancyLevelSupport.IsSupported(requested))
+        {
+            return requested;
+        }
+
+        var templateName = _parent.Definition?.Name;
+        if (VeterancyLevelSupport.ShouldReport(templateName, requested))
+        {
+            Logger.Warn(VeterancyLevelSupport.FormatMessage(templateName, requested));
+        }
+
+        return VeterancyLevelSupport.Clamp(requested);
+    }
+
+    /// <summary>
     /// Set the veterancy level to this level.
     /// If we've already at this exact level, do nothing.
     /// </summary>
     public void SetVeterancyLevel(VeterancyLevel newLevel, bool provideFeedback = true)
     {
+        newLevel = ClampToSupportedLevel(newLevel);
+
         if (newLevel == _currentLevel)
         {
             return;
@@ -119,6 +149,8 @@ public class ExperienceTracker(GameObject parent, IGameEngine gameEngine) : IPer
     /// </summary>
     public void SetMinVeterancyLevel(VeterancyLevel newLevel)
     {
+        newLevel = ClampToSupportedLevel(newLevel);
+
         if (newLevel <= _currentLevel)
         {
             return;

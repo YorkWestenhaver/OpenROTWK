@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
+using OpenSage.Diagnostics;
 using OpenSage.Gui.InGame;
 using OpenSage.Mathematics;
 using OpenSage.Utilities;
@@ -176,6 +177,13 @@ public sealed class CreateDebrisOCNugget : OCNugget
 
 public sealed class CreateObjectOCNugget : OCNugget
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    /// <summary>
+    /// <see cref="DegradeLog"/> category for the unresolved-spawn guard in <see cref="Execute"/>.
+    /// </summary>
+    private const string UnresolvedSpawnCategory = "ObjectCreationList.CreateObject.Unresolved";
+
     internal static CreateObjectOCNugget Parse(IniParser parser) => parser.ParseBlock(FieldParseTable);
 
     private static readonly IniParseTable<CreateObjectOCNugget> FieldParseTable = new IniParseTable<CreateObjectOCNugget>
@@ -349,6 +357,29 @@ public sealed class CreateObjectOCNugget : OCNugget
             for (var i = 0; i < Count; i++)
             {
                 var newGameObject = gameEngine.GameLogic.CreateObject(objectName.Value, gameObject.Owner);
+
+                // R15 L1-11: GameLogic.CreateObject returns null when the ObjectDefinition
+                // reference did not resolve, i.e. the OCL names an object template that does
+                // not exist in the loaded INI corpus. Every line below dereferences the new
+                // object, so an unresolved name used to NRE out of whatever ran the OCL — for
+                // "map good lothlorien" and "map sp evil mirkwood" in the R15 AotR sweep that
+                // was SlowDeathBehavior.ExecutePhaseActions on logic frame 5, ending the match.
+                // Degrade: skip this spawn, name the missing template once, keep simulating.
+                if (newGameObject == null)
+                {
+                    var sourceTemplateName = gameObject?.Definition?.Name;
+                    if (DegradeLog.ShouldReport(UnresolvedSpawnCategory, sourceTemplateName))
+                    {
+                        Logger.Warn(
+                            "CreateObject ObjectCreationList nugget on object template " +
+                            $"'{DegradeLog.Normalize(sourceTemplateName)}' names an object template that is " +
+                            "not defined in the loaded INI corpus (the reference resolved to null); " +
+                            "skipping that spawn. Nothing will be created for it.");
+                    }
+
+                    continue;
+                }
+
                 // TODO: Count
                 // TODO: Disposition
                 // TODO: DispositionIntensity
