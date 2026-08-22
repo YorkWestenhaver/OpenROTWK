@@ -55,11 +55,27 @@ class AptControlBar : IControlBar
         _game.Scene2D.AptWindowManager.PushWindow(_window);
     }
 
+    /// <summary>
+    /// The Apt content used by the Palantir puts the drawable shape at content index 1.
+    /// Returns null when the sprite has not been populated with that item yet, so callers
+    /// can retry on a later frame instead of throwing.
+    /// </summary>
+    private static RenderItem GetSecondRenderItem(SpriteItem sprite)
+    {
+        var items = sprite?.Content?.Items;
+        return items != null && items.Count > 1 ? items[1] as RenderItem : null;
+    }
+
     private void SetMinimap()
     {
         if (!_minimapInitialized)
         {
             var radar = _root.ScriptObject.GetMember("Radar").ToObject();
+            if (radar == null)
+            {
+                return;
+            }
+
             var radarClipValue = radar.GetMember("RadarClip");
 
             if (radarClipValue.Type == ValueType.Undefined)
@@ -68,8 +84,14 @@ class AptControlBar : IControlBar
             }
 
             // This shape is used to render the minimap
-            var radarClip = radarClipValue.ToObject().Item as SpriteItem;
-            var shape = radarClip.Content.Items[1] as RenderItem;
+            var radarClip = radarClipValue.ToObject()?.Item as SpriteItem;
+            var shape = GetSecondRenderItem(radarClip);
+            if (shape == null)
+            {
+                // Apt content not populated yet; retry on a later frame.
+                return;
+            }
+
             shape.RenderCallback = (AptRenderingContext renderContext, Geometry geom, Texture orig) =>
             {
                 var rect = new Rectangle(renderContext.GetBoundingBox(geom));
@@ -77,8 +99,14 @@ class AptControlBar : IControlBar
             };
 
             // This shape is used to render the overlay
-            var radarChild = ((SpriteItem)radar.Item).Content.Items[1] as SpriteItem;
-            shape = radarChild.Content.Items[1] as RenderItem;
+            var radarItems = (radar.Item as SpriteItem)?.Content?.Items;
+            var radarChild = radarItems != null && radarItems.Count > 1 ? radarItems[1] as SpriteItem : null;
+            shape = GetSecondRenderItem(radarChild);
+            if (shape == null)
+            {
+                return;
+            }
+
             shape.RenderCallback = (AptRenderingContext renderContext, Geometry geom, Texture orig) =>
             {
                 var rect = new Rectangle(renderContext.GetBoundingBox(geom));
@@ -107,31 +135,62 @@ class AptControlBar : IControlBar
         }
     }
 
+    /// <summary>
+    /// Resolves the render shape behind a command-button slot's placeholder, or null when the
+    /// Apt content is not shaped the way we expect (missing placeholder, non-sprite item, or a
+    /// sprite whose content has no second item yet).
+    /// </summary>
+    private static bool TryGetSlot(ObjectContext commandButton, out SpriteItem placeHolder, out RenderItem shape)
+    {
+        placeHolder = null;
+        shape = null;
+
+        if (commandButton?.GetMember("placeholder").ToObject()?.Item is not SpriteItem placeHolderSprite)
+        {
+            return false;
+        }
+
+        placeHolder = placeHolderSprite;
+        shape = GetSecondRenderItem(placeHolderSprite);
+        return shape != null;
+    }
+
     private void ClearCommandbuttons()
     {
-        var aptCommandButtons = _root.ScriptObject.GetMember("CommandButtons").ToObject();
-        if (aptCommandButtons.Constants.Count == 0)
+        // we do not know how bfme handles this yet
+        if (!AptControlBarPolicy.SupportsCommandButtonSlots(_game.SageGame))
         {
             return;
         }
 
-        for (var i = 1; i <= 6; i++)
+        var aptCommandButtons = _root.ScriptObject.GetMember("CommandButtons").ToObject();
+        if (aptCommandButtons == null || !AptControlBarPolicy.CommandButtonsUsable(aptCommandButtons.Constants.Count))
         {
-            // we do not know how bfme handles this yet
-            if (_game.SageGame is SageGame.Bfme or SageGame.Bfme2 or SageGame.Bfme2Rotwk) continue;
+            return;
+        }
 
+        for (var i = 1; i <= AptControlBarPolicy.SlotCount; i++)
+        {
             var commandButton = aptCommandButtons.GetMember((i - 1).ToString()).ToObject();
-            var placeHolder = commandButton.GetMember("placeholder").ToObject();
-            placeHolder.Item.Visible = false;
+            if (!TryGetSlot(commandButton, out var placeHolder, out var shape))
+            {
+                continue;
+            }
 
-            var shape = (placeHolder.Item as SpriteItem).Content.Items[1] as RenderItem;
+            placeHolder.Visible = false;
             shape.RenderCallback = null;
         }
     }
 
     private void UpdateCommandbuttons()
     {
-        if (_game.Scene3D.LocalPlayer.SelectedUnits.Count == 0)
+        // we do not know how bfme handles this yet
+        if (!AptControlBarPolicy.SupportsCommandButtonSlots(_game.SageGame))
+        {
+            return;
+        }
+
+        if (!AptControlBarPolicy.ShouldUpdateButtons(_game.Scene3D.LocalPlayer.SelectedUnits.Count))
         {
             return;
         }
@@ -150,14 +209,20 @@ class AptControlBar : IControlBar
         var commandSet = selectedUnit.Definition.CommandSet.Value;
 
         var aptCommandButtons = _root.ScriptObject.GetMember("CommandButtons").ToObject();
-        for (var i = 1; i <= 6; i++)
+        if (aptCommandButtons == null || !AptControlBarPolicy.CommandButtonsUsable(aptCommandButtons.Constants.Count))
         {
-            // we do not know how bfme handles this yet
-            if (_game.SageGame == SageGame.Bfme) continue;
+            return;
+        }
 
+        for (var i = 1; i <= AptControlBarPolicy.SlotCount; i++)
+        {
             var commandButton = aptCommandButtons.GetMember((i - 1).ToString()).ToObject();
-            var placeHolder = commandButton.GetMember("placeholder").ToObject();
-            placeHolder.Item.Visible = false;
+            if (!TryGetSlot(commandButton, out var placeHolder, out var shape))
+            {
+                continue;
+            }
+
+            placeHolder.Visible = false;
 
             if (!commandSet.Buttons.ContainsKey(i))
             {
@@ -179,8 +244,7 @@ class AptControlBar : IControlBar
             //TODO: fix so this works
             FunctionCommon.ExecuteFunction(createContent, args.ToArray(), commandButton.Item.ScriptObject, _window.Context.Avm);
 
-            placeHolder.Item.Visible = true;
-            var shape = (placeHolder.Item as SpriteItem).Content.Items[1] as RenderItem;
+            placeHolder.Visible = true;
 
             var (count, progress) = isProducing ? selectedUnit.ProductionUpdate.GetCountAndProgress(button) : (0, 0.0f);
 
@@ -211,12 +275,11 @@ class AptControlBar : IControlBar
 
     private void ApplyPortrait(GameObject unit, ObjectContext frame)
     {
-        if (frame == null || ((SpriteItem)frame.Item).Content.Items.Count == 0)
+        var shape = GetSecondRenderItem(frame?.Item as SpriteItem);
+        if (shape == null)
         {
             return;
         }
-
-        var shape = ((SpriteItem)frame.Item).Content.Items[1] as RenderItem;
 
         if (shape.RenderCallback != null && _selectedUnit == unit)
         {
@@ -269,6 +332,10 @@ class AptControlBar : IControlBar
     private void UpdateSideCommandbar(Player player)
     {
         var sideCommandBar = _root.ScriptObject.GetMember("SideCommandBar").ToObject();
+        if (sideCommandBar?.Item == null)
+        {
+            return;
+        }
 
         if (player.SelectedUnits.Count > 0)
         {
@@ -310,7 +377,7 @@ class AptControlBar : IControlBar
                 UpdateSideCommandbar(player);
             }
 
-            if (player.SelectedUnits.Count > 0)
+            if (AptControlBarPolicy.ShouldUpdateButtons(player.SelectedUnits.Count))
             {
                 UpdateCommandbuttons();
             }
