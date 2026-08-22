@@ -314,10 +314,25 @@ public class VictoryWorldAdapterTests : MockedGameTest
         Assert.True(adapter.HasAnyVictoryObjects(0));
         Assert.True(adapter.HasAnyVictoryObjects(1));
 
-        // ...and a player holding only an opted-out structure has neither.
+        // ...and the union is genuinely a union, not an intersection: IGNORE_FOR_VICTORY is an
+        // exclusion on the STRUCTURE filter only, so a wall that opts out of that filter is still
+        // matched by the bare-ANY unit filter ("ANY -DOZER" matches everything it does not name)
+        // and the both-flags branch counts it. [INT-R2B] the writer asserted False here; that
+        // asserted an intersection and contradicted §6.1's own union rule plus
+        // HasAnyVictoryUnits_AnyRuleFilterCountsOrdinaryUnits above.
         var (source2, adapter2, c, _) = NewTwoPlayerWorld();
         NewObject(source2, c, "VictoryTestWall", ObjectKinds.Structure, ObjectKinds.IgnoreForVictory);
-        Assert.False(adapter2.HasAnyVictoryObjects(0));
+        Assert.False(adapter2.HasAnyVictoryStructures(0));
+        Assert.True(adapter2.HasAnyVictoryObjects(0));
+
+        // A player holding only an object excluded by BOTH filters — an inn (excluded from the
+        // structure filter by ExcludeThings name) that is also a DOZER (excluded from the unit
+        // filter by KindOf) — has neither, which is the claim the line above cannot make.
+        var (source3, adapter3, d, _) = NewTwoPlayerWorld();
+        NewObject(source3, d, "VictoryTestInn", ObjectKinds.Structure, ObjectKinds.Dozer);
+        Assert.False(adapter3.HasAnyVictoryStructures(0));
+        Assert.False(adapter3.HasAnyVictoryUnits(0));
+        Assert.False(adapter3.HasAnyVictoryObjects(0));
     }
 
     // ---- the null-filter fallback (§6.1, the state on disk today per §2.3a) ----
