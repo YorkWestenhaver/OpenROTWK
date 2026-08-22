@@ -36,6 +36,8 @@ namespace OpenSage.Logic.Object;
 /// </summary>
 public sealed class Locomotor : IPersistableObject
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private const float DonutTimeDelaySeconds = 2.5f;
     private const float DonutDistance = 4.0f * AIPathfind.PathfindCellSizeF;
     private const float MaxBrakingFactor = 5.0f;
@@ -202,10 +204,8 @@ public sealed class Locomotor : IPersistableObject
             return;
         }
 
-        var physics = obj.Physics;
-        if (physics == null)
+        if (!TryGetPhysics(obj, nameof(LocoUpdateMoveTowardsAngle), out var physics))
         {
-            DebugUtility.Crash("You can only apply Locomotors to objects with Physics");
             return;
         }
 
@@ -252,12 +252,39 @@ public sealed class Locomotor : IPersistableObject
         return RotateObjAroundLocoPivot(obj, goalPos, turnRate, out relAngle);
     }
 
+    /// <summary>
+    /// Locomotors can only be applied to objects that have a <see cref="PhysicsBehavior"/>.
+    /// Retail asserts on this in debug builds only and then returns, so a shipping build
+    /// silently no-ops the locomotor call and keeps simulating (see the four
+    /// <c>getPhysics() == NULL</c> guards in the EA GPL reference,
+    /// GeneralsMD Locomotor.cpp). We match the shipping behaviour: degrade instead of
+    /// throwing, and log one line per offending object template.
+    /// </summary>
+    /// <returns>True if the object has physics and the caller may continue.</returns>
+    private bool TryGetPhysics(GameObject obj, string callSite, out PhysicsBehavior physics)
+    {
+        physics = obj?.Physics;
+        if (physics != null)
+        {
+            return true;
+        }
+
+        var objectTemplateName = obj?.Definition?.Name;
+        if (LocomotorPhysicsRequirement.ShouldReport(objectTemplateName))
+        {
+            Logger.Warn(LocomotorPhysicsRequirement.FormatMessage(
+                objectTemplateName,
+                LocomotorTemplate?.Name,
+                callSite));
+        }
+
+        return false;
+    }
+
     public void SetPhysicsOptions(GameObject obj)
     {
-        var physics = obj.Physics;
-        if (physics == null)
+        if (!TryGetPhysics(obj, nameof(SetPhysicsOptions), out var physics))
         {
-            DebugUtility.Crash("You can only apply Locomotors to objects with Physics");
             return;
         }
 
@@ -298,10 +325,8 @@ public sealed class Locomotor : IPersistableObject
             _brakingFactor = 1.0f;
         }
 
-        var physics = obj.Physics;
-        if (physics == null)
+        if (!TryGetPhysics(obj, nameof(LocoUpdateMoveTowardsPosition), out var physics))
         {
-            DebugUtility.Crash("You can only apply Locomotors to objects with Physics");
             return;
         }
 
@@ -1892,10 +1917,9 @@ public sealed class Locomotor : IPersistableObject
 
         ResetDonutTimer();
         SetFlag(LocomotorFlags.IsBraking, false);
-        var physics = obj.Physics;
-        if (physics == null)
+        if (!TryGetPhysics(obj, nameof(LocoUpdateMaintainCurrentPosition), out var physics))
         {
-            DebugUtility.Crash("You can only apply Locomotors to objects with Physics");
+            // Nothing to maintain, and nothing that needs calling every frame.
             return true;
         }
 
