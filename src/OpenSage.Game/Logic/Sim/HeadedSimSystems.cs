@@ -66,6 +66,9 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     private uint _lastHeartbeatLoopFrame;
     private TimeSpan _lastHeartbeatWallTime;
 
+    /// <summary>OBS-3: 1-based count of heartbeats emitted, driving the Info echo cadence.</summary>
+    private long _heartbeatOrdinal;
+
     /// <param name="game">The headed game whose subsystems this drives.</param>
     public HeadedSimSystems(IGame game)
     {
@@ -241,7 +244,18 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
             $"renderFrame={_game.RenderFrameCount} wallDeltaMs={wallDelta.TotalMilliseconds:F0} " +
             $"logicFps={logicFps:F2}";
 
+        // Every heartbeat is recorded at Debug (output.log) - unchanged contract, the soak
+        // driver greps these. OBS-3 additionally echoes every Nth one at Info so the console /
+        // wrapper log on its own proves the sim is alive; before this, heartbeat evidence and
+        // crash evidence lived in different files and a run with a healthy sim could be
+        // misbucketed as "0 heartbeats".
         Logger.Debug(message);
+
+        _heartbeatOrdinal++;
+        if (HeartbeatCadence.ShouldEmitAtInfo(_heartbeatOrdinal, _game.Configuration.SimHeartbeatInfoEveryNth))
+        {
+            Logger.Info(message);
+        }
 
         if (GameTrace.IsTracing)
         {

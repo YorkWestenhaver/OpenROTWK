@@ -125,7 +125,10 @@ public class W3dModelDraw : DrawModule
         _activeConditionState = conditionState;
         _activeModelDrawConditionState = modelDrawConditionState;
 
-        NLog.LogManager.GetCurrentClassLogger().Info($"Set active condition state for {Drawable.Definition.Name}");
+        // OBS-3: per-object chatter - Debug, not Info. At Info this fires several times per
+        // object per second and was ~1,600 of the ~15,000 lines in a short headed run's console
+        // log, which is what made the wrapper log useless as a triage surface.
+        NLog.LogManager.GetCurrentClassLogger().Debug($"Set active condition state for {Drawable.Definition.Name}");
     }
 
     private bool ShouldWaitForRunningAnimationsToFinish()
@@ -184,7 +187,8 @@ public class W3dModelDraw : DrawModule
             animationInstance.Play(animationBlock.AnimationSpeedFactorRange.GetValue(random));
         }
 
-        NLog.LogManager.GetCurrentClassLogger().Info($"Set active animation state for {Drawable.Definition.Name}");
+        // OBS-3: per-object chatter - Debug, not Info (see SetActiveConditionState above).
+        NLog.LogManager.GetCurrentClassLogger().Debug($"Set active animation state for {Drawable.Definition.Name}");
 
         return true;
     }

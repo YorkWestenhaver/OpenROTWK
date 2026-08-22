@@ -27,4 +27,18 @@ public sealed class Configuration
     /// (see <c>HeadedSimSystems.OnPhase</c>). 0 disables the heartbeat. CLI: <c>--trace-frames</c>.
     /// </summary>
     public int SimHeartbeatIntervalInFrames { get; set; } = 50;
+
+    /// <summary>
+    /// OBS-3: how often a heartbeat is ALSO echoed at Info level, counted in heartbeats (not
+    /// frames). Every heartbeat still goes to the Debug log unconditionally - that contract is
+    /// unchanged - but the console/wrapper log only sees the 1st, (1+N)th, (1+2N)th ... one, so
+    /// a run's stdout alone proves sim liveness without carrying 15k lines of Debug detail.
+    /// 0 or less disables the Info echo entirely.
+    /// </summary>
+    /// <remarks>
+    /// Default 10: with the default 50-frame interval that is one Info line per 500 logic frames
+    /// (~33 s of sim at 15 Hz) - dense enough to bound "when did it stop" for a crash, sparse
+    /// enough to stay noise.
+    /// </remarks>
+    public int SimHeartbeatInfoEveryNth { get; set; } = 10;
 }

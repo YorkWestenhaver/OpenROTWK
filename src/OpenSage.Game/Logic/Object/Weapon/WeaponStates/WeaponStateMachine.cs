@@ -95,7 +95,10 @@ internal sealed class WeaponStateMachine
 
     public void TransitionToState(WeaponState state)
     {
-        Logger.Info($"Weapon {_context.Weapon.Template.Name} on game object {_context.GameObject.Name} transitioning to state {state}");
+        // OBS-3: per-object chatter - Debug, not Info. Every weapon of every unit transitions
+        // several times per engagement; at Info this drowned the console log that crash triage
+        // reads. It stays in output.log at Debug.
+        Logger.Debug($"Weapon {_context.Weapon.Template.Name} on game object {_context.GameObject.Name} transitioning to state {state}");
 
         _currentState?.OnExitState();
 
