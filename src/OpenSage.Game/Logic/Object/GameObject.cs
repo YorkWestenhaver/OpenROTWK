@@ -1140,7 +1140,23 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
     internal void OnCollide(GameObject other, in Vector3 location, in Vector3 normal)
     {
-        Logger.Info($"GameObject {Definition.Name} colliding with {other?.Definition.Name ?? "Ground"}");
+        // R15 PROD-FIX: this used to be an unconditional Info line per colliding PAIR per FRAME,
+        // which wrote 5-6 GB of wrapper log in the first ten minutes of an AotR demo-map run.
+        // Detail is now Debug (and only formatted when Debug is actually enabled - the
+        // interpolated string was being built even when the level filtered it out); Info keeps a
+        // summary at most once every CollisionLogCadence.DefaultInfoEveryNFrames frames so a gate
+        // run still shows collision handling is alive without exhausting the disk.
+        if (Logger.IsDebugEnabled)
+        {
+            Logger.Debug($"GameObject {Definition.Name} colliding with {other?.Definition.Name ?? "Ground"}");
+        }
+
+        var collisionSummary = CollisionLogCadence.Record(_gameEngine.GameLogic.CurrentFrame.Value);
+        if (collisionSummary.HasValue)
+        {
+            Logger.Info(
+                $"collisions f={collisionSummary.Value.Frame} since-last={collisionSummary.Value.Since} total={collisionSummary.Value.Total}");
+        }
 
         foreach (var behavior in _behaviorModules)
         {
