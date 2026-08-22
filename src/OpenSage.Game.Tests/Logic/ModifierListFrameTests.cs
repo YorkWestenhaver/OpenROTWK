@@ -119,7 +119,7 @@ End
     [InlineData(200, 1)]
     [InlineData(201, 2)]
     [InlineData(1, 1)]
-    public void DurationQuantizesUpToWholeLogicFrames(int durationMs, uint expectedFrames)
+    public void DurationQuantizesUpToWholeLogicFrames(int durationMs, int expectedFrames)
     {
         var name = durationMs switch
         {
@@ -137,16 +137,16 @@ End
         modifier.Apply(obj, game.GameEngine, applyFrame);
 
         // Live for every frame up to and including applyFrame + expectedFrames...
-        for (var i = 0u; i <= expectedFrames; i++)
+        for (var i = 0; i <= expectedFrames; i++)
         {
             Assert.False(
-                modifier.Expired(new LogicFrame(applyFrame.Value + i)),
+                modifier.Expired(new LogicFrame(applyFrame.Value + (uint)i)),
                 $"{name} must still be live at +{i} frames");
         }
 
         // ...and expired on the next one. A sub-frame Duration therefore still buys a whole
         // frame rather than rounding away to nothing, which is the point of the ceil.
-        Assert.True(modifier.Expired(new LogicFrame(applyFrame.Value + expectedFrames + 1)));
+        Assert.True(modifier.Expired(new LogicFrame(applyFrame.Value + (uint)expectedFrames + 1)));
     }
 
     [Fact]
