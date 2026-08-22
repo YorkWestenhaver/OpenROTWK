@@ -125,6 +125,14 @@ public static class Program
 
     private static void InstallCrashHandlers()
     {
+        // Freeze the ambient context at the THROW site. Without this the context is always empty
+        // by the time anyone formats it: `using` scopes dispose as the exception unwinds, so a
+        // catch block one stack frame up already sees nothing. Verified against the frame-127
+        // DozerAndWorkerState NRE, which reported "(no context)" until this hook existed.
+        // Cost is an array copy of at most 32 structs per throw, tagged with the exception so a
+        // handled throw cannot lend stale context to a later crash.
+        AppDomain.CurrentDomain.FirstChanceException += (_, e) => CrashContext.CaptureThrowSnapshot(e.Exception);
+
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             EmitCrashContext(e.ExceptionObject as Exception, e.IsTerminating ? "unhandled-terminating" : "unhandled");
@@ -136,7 +144,7 @@ public static class Program
         // line for a crash that may still be coming.
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
-            Logger.Fatal(e.Exception, "Unobserved task exception");
+            Logger.Fatal(e.Exception, $"CRASH-CONTEXT (unobserved-task): {CrashContext.DescribeFor(e.Exception)}");
             WriteCrashLineToStderr(CrashContext.FormatCrashLine(e.Exception, "unobserved-task"));
         };
     }
@@ -159,7 +167,12 @@ public static class Program
 
         try
         {
-            Logger.Fatal(exception, line);
+            // Deliberately NOT the CRASH-CONTEXT-V1 line: NLog's default rules send Fatal to the
+            // console as well as the file, and the harness wrapper log merges stdout+stderr, so
+            // logging the marker here would put two identical V1 records in the wrapper log and
+            // break "one record per crash" for OBS-4's dedup. The file target still gets the
+            // same information - human-readable context plus the full exception.
+            Logger.Fatal(exception, $"CRASH-CONTEXT ({phase}): {CrashContext.DescribeFor(exception)}");
             LogManager.Flush(TimeSpan.FromSeconds(2));
         }
         catch

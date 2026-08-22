@@ -54,6 +54,23 @@ public static class CrashContext
     [ThreadStatic]
     private static int _depth;
 
+    // THROW-TIME SNAPSHOT. Learned the hard way in this packet's first verification run: by the
+    // time a catch block (or the AppDomain hook) formats the context, every `using` scope the
+    // exception unwound through has already been disposed, so the live stack is EMPTY and the
+    // record reads "(no context)" - the exact failure the packet exists to fix. The context has
+    // to be frozen where the exception is *thrown*, which is what AppDomain.FirstChanceException
+    // gives us. The snapshot is an array copy of at most 32 structs - no allocation after the
+    // first call on a thread - and it is tagged with the exception object it belongs to, so a
+    // routine handled throw earlier in the run can never lend its stale context to a later crash.
+    [ThreadStatic]
+    private static Entry[]? _snapshot;
+
+    [ThreadStatic]
+    private static int _snapshotDepth;
+
+    [ThreadStatic]
+    private static Exception? _snapshotException;
+
     /// <summary>Current nesting depth on this thread. Exposed for tests.</summary>
     public static int Depth => _depth;
 
@@ -127,20 +144,101 @@ public static class CrashContext
     }
 
     /// <summary>
-    /// Clears the calling thread's context. Only for tests and for a crash handler that has
-    /// finished formatting; normal code relies on <see cref="Scope"/> disposal.
+    /// Clears the calling thread's context and any throw-time snapshot. Only for tests and for a
+    /// crash handler that has finished formatting; normal code relies on <see cref="Scope"/>
+    /// disposal.
     /// </summary>
-    public static void Reset() => _depth = 0;
+    public static void Reset()
+    {
+        _depth = 0;
+        _snapshotDepth = 0;
+        _snapshotException = null;
+    }
+
+    /// <summary>
+    /// Freezes the calling thread's current context and tags it with <paramref name="exception"/>.
+    /// Wire this to <c>AppDomain.CurrentDomain.FirstChanceException</c>: it runs at the throw
+    /// site, before any <see cref="Scope"/> unwinds, which is the only moment the context still
+    /// describes what the engine was doing.
+    /// </summary>
+    public static void CaptureThrowSnapshot(Exception? exception)
+    {
+        var stack = _stack;
+        var depth = Math.Min(_depth, MaxDepth);
+
+        if (stack != null && depth > 0)
+        {
+            var snapshot = _snapshot ??= new Entry[MaxDepth];
+            Array.Copy(stack, snapshot, depth);
+        }
+        else
+        {
+            depth = 0;
+        }
+
+        _snapshotDepth = depth;
+        _snapshotException = exception;
+    }
+
+    /// <summary>
+    /// The entries to report for <paramref name="exception"/>: the live stack when the caller is
+    /// still inside it, otherwise the throw-time snapshot - but only if that snapshot belongs to
+    /// this exception or to one it wraps. Anything else reports nothing rather than guessing.
+    /// </summary>
+    private static void SelectEntries(Exception? exception, out Entry[]? entries, out int depth)
+    {
+        if (_stack != null && _depth > 0)
+        {
+            entries = _stack;
+            depth = Math.Min(_depth, MaxDepth);
+            return;
+        }
+
+        if (_snapshot != null && _snapshotDepth > 0 && SnapshotBelongsTo(exception))
+        {
+            entries = _snapshot;
+            depth = _snapshotDepth;
+            return;
+        }
+
+        entries = null;
+        depth = 0;
+    }
+
+    private static bool SnapshotBelongsTo(Exception? exception)
+    {
+        var tagged = _snapshotException;
+        if (tagged == null)
+        {
+            return false;
+        }
+
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (ReferenceEquals(current, tagged))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Human-readable one-liner, outermost frame first:
     /// <c>frame=127 | object=#48 GondorWorker | module=DozerAndWorkerState</c>.
     /// Returns <c>"(no context)"</c> when nothing is pushed.
     /// </summary>
-    public static string Describe()
+    public static string Describe() => DescribeFor(null);
+
+    /// <summary>
+    /// <see cref="Describe"/>, but able to fall back to the throw-time snapshot taken for
+    /// <paramref name="exception"/> once the live scopes have unwound. This is the overload a
+    /// crash handler wants; the parameterless one only ever sees the live stack.
+    /// </summary>
+    public static string DescribeFor(Exception? exception)
     {
-        var stack = _stack;
-        var depth = Math.Min(_depth, MaxDepth);
+        SelectEntries(exception, out var stack, out var depth);
         if (stack == null || depth <= 0)
         {
             return "(no context)";
@@ -199,10 +297,10 @@ public static class CrashContext
         AppendJsonString(sb, exception?.Message ?? string.Empty);
 
         sb.Append(",\"context\":");
-        AppendJsonString(sb, Describe());
+        AppendJsonString(sb, DescribeFor(exception));
 
         sb.Append(",\"frames\":[");
-        AppendFramesArray(sb);
+        AppendFramesArray(sb, exception);
         sb.Append(']');
 
         sb.Append(",\"stack\":");
@@ -212,10 +310,9 @@ public static class CrashContext
         return sb.ToString();
     }
 
-    private static void AppendFramesArray(StringBuilder sb)
+    private static void AppendFramesArray(StringBuilder sb, Exception? exception)
     {
-        var stack = _stack;
-        var depth = Math.Min(_depth, MaxDepth);
+        SelectEntries(exception, out var stack, out var depth);
         if (stack == null)
         {
             return;

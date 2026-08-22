@@ -175,6 +175,81 @@ public class CrashContextTests : IDisposable
         Assert.Equal("a\"b", document.RootElement.GetProperty("message").GetString());
     }
 
+    // ---- throw-time snapshot ----
+    //
+    // The defect this closes was found in this packet's own verification run: the first
+    // implementation formatted the LIVE context in the catch block, by which point every
+    // `using` scope the exception unwound through had disposed, and the record read
+    // "(no context)" on a real frame-127 crash. Context must be frozen at the throw site.
+
+    [Fact]
+    public void DescribeFor_AfterTheScopesUnwound_StillReportsTheContextAsOfTheThrow()
+    {
+        Exception caught;
+        try
+        {
+            using (CrashContext.Push("frame", 127L))
+            using (CrashContext.Push("object", "GondorWorker", 48L))
+            using (CrashContext.Push("module", "DozerAndWorkerState"))
+            {
+                try
+                {
+                    throw new NullReferenceException("unwind me");
+                }
+                catch (Exception ex)
+                {
+                    // Stand in for AppDomain.FirstChanceException, which the launcher wires to
+                    // this method: it runs at the throw site, before any scope disposes.
+                    CrashContext.CaptureThrowSnapshot(ex);
+                    throw;
+                }
+            }
+        }
+        catch (NullReferenceException ex)
+        {
+            caught = ex;
+        }
+
+        // Live context is empty here - that is the whole problem.
+        Assert.Equal(0, CrashContext.Depth);
+        Assert.Equal("(no context)", CrashContext.Describe());
+
+        Assert.Equal(
+            "frame=127 | object=#48 GondorWorker | module=DozerAndWorkerState",
+            CrashContext.DescribeFor(caught));
+
+        using var document = JsonDocument.Parse(
+            CrashContext.FormatCrashLine(caught, "game-loop").Substring(CrashContext.LineMarker.Length + 1));
+        Assert.Equal(3, document.RootElement.GetProperty("frames").GetArrayLength());
+    }
+
+    [Fact]
+    public void DescribeFor_DoesNotLendAnEarlierHandledThrowsContextToALaterCrash()
+    {
+        // Handled throws are routine during asset load; their stale context must never be
+        // attributed to a different exception that crashes the process later.
+        using (CrashContext.Push("mapObject", "SomeAssetBeingLoaded", 3L))
+        {
+            CrashContext.CaptureThrowSnapshot(new InvalidOperationException("handled, recovered"));
+        }
+
+        var laterCrash = new NullReferenceException("unrelated");
+        Assert.Equal("(no context)", CrashContext.DescribeFor(laterCrash));
+    }
+
+    [Fact]
+    public void DescribeFor_MatchesTheSnapshotThroughAnInnerExceptionWrapper()
+    {
+        var inner = new NullReferenceException("inner");
+        using (CrashContext.Push("frame", 9L))
+        {
+            CrashContext.CaptureThrowSnapshot(inner);
+        }
+
+        var wrapper = new InvalidOperationException("wrapped", inner);
+        Assert.Equal("frame=9", CrashContext.DescribeFor(wrapper));
+    }
+
     [Fact]
     public void FormatCrashLine_WithNoExceptionAndNoContext_StillEmitsAValidRecord()
     {
