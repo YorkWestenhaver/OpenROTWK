@@ -35,6 +35,22 @@ public enum SimScriptConditionKind
     NamedNotDestroyed,  // NAMED_NOT_DESTROYED <unit>
     TeamDestroyed,      // TEAM_DESTROYED <team>
     PlayerAllDestroyed, // PLAYER_ALL_DESTROYED <player>
+
+    // ---- L4 victory/defeat lane (VD-4). Appended; existing ordinals are unchanged. ----
+
+    /// <summary>MULTIPLAYER_ALLIED_VICTORY — GPL isLocalAlliedVictory(). No parameters.</summary>
+    MultiPlayerAlliedVictory,
+
+    /// <summary>MULTIPLAYER_ALLIED_DEFEAT — GPL isLocalAlliedDefeat(). No parameters.</summary>
+    MultiPlayerAlliedDefeat,
+
+    /// <summary>
+    /// MULTIPLAYER_PLAYER_DEFEAT — GPL isLocalDefeat() AND NOT isLocalAlliedDefeat(). The
+    /// and-not is the whole point: a player whose entire alliance lost reports *allied*
+    /// defeat, not player defeat. The runtime composes it from the two host readers, exactly
+    /// where the original composes it (ScriptConditions, not VictoryConditions).
+    /// </summary>
+    MultiPlayerPlayerDefeat,
 }
 
 /// <summary>The action subset the runtime executes.</summary>
@@ -62,6 +78,22 @@ public enum SimScriptActionKind
     MapExit,                        // MAP_EXIT (BFME2-only, content id 496)
     NamedMoveToWaypoint,            // MOVE_NAMED_UNIT_TO <unit> <waypoint> (ZH id 38)
     NamedAttackMoveToWaypoint,      // ATTACK_MOVE_NAMED_UNIT_TO <unit> <waypoint> (BFME2-new, content id 546)
+
+    // ---- L4 victory/defeat lane (VD-4). Appended; existing ordinals are unchanged. ----
+
+    /// <summary>
+    /// DEFEAT — GPL doDefeat. Everything the original does here is window management plus
+    /// its end-game timer; the only sim-visible fact is that a defeat was requested on a
+    /// known frame, which the runtime latches. Rendering is VD-8.
+    /// </summary>
+    Defeat,
+
+    /// <summary>
+    /// LOCALDEFEAT — GPL doLocalDefeat. Same shape as <see cref="Defeat"/>, plus the one bit
+    /// the original itself keeps in sim state (markMPLocalDefeatWindowShown, which doVictory
+    /// later reads to choose the observer window). Latched separately for that reason.
+    /// </summary>
+    LocalDefeat,
 }
 
 /// <summary>WorldBuilder comparison operators, in the map file's own encoding.</summary>

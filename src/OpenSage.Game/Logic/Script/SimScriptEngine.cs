@@ -11,7 +11,9 @@
 //   setTimer/pauseTimer/restartTimer, enableScript/disableScript/callSubroutine
 // ScriptConditions.cpp: evaluateNamedCreated (= exists), evaluateNamedUnitDestroyed
 //   (live -> isEffectivelyDead, gone -> didUnitExist), evaluateNamedUnitExists.
-// ScriptActions.cpp: createUnitOnTeamAt duplicate-name guard, doAttack, doNamedAttack.
+// ScriptActions.cpp: createUnitOnTeamAt duplicate-name guard, doAttack, doNamedAttack,
+//   doDefeat / doLocalDefeat (VD-4 — only their sim-visible residue is kept here).
+// ScriptConditions.cpp: evaluateMultiplayerAlliedVictory / AlliedDefeat / PlayerDefeat.
 //
 // Determinism: evaluation order is FIXED — players ascending, scripts in compiled program
 // order (top-level then groups, map order); timers decrement in slot order before any script
@@ -72,6 +74,13 @@ public sealed class SimScriptEngine
     private LogicFrame _mapExitFrame;
     private int _unknownActionsExecuted;
     private int _unknownConditionsEvaluated;
+    // L4 victory/defeat lane (VD-4). APPENDED AT THE TAIL, after every field that existed at
+    // Xfer version 1, and never interleaved with them: the walk order of this inventory is
+    // the CRC contract, so new state goes here and only here.
+    private bool _defeatRequested;
+    private LogicFrame _defeatFrame;
+    private bool _localDefeatRequested;
+    private LogicFrame _localDefeatFrame;
     // ---- end Xfer inventory ----
 
     private uint _programFingerprint;
@@ -101,6 +110,25 @@ public sealed class SimScriptEngine
     public int UnknownActionsExecuted => _unknownActionsExecuted;
 
     public int UnknownConditionsEvaluated => _unknownConditionsEvaluated;
+
+    /// <summary>
+    /// True once a DEFEAT action ran; <see cref="DefeatFrame"/> is the frame it first ran on.
+    /// Latch-once, exactly the MAP_EXIT shape — a script that fires DEFEAT every frame does
+    /// not keep rewriting the frame.
+    /// </summary>
+    public bool DefeatRequested => _defeatRequested;
+
+    public LogicFrame DefeatFrame => _defeatFrame;
+
+    /// <summary>
+    /// True once a LOCALDEFEAT action ran — the port of GPL's own sim-visible
+    /// <c>markMPLocalDefeatWindowShown</c> bit. Kept separate from
+    /// <see cref="DefeatRequested"/> because the two end-reasons are distinguishable
+    /// downstream (design-victory-defeat.md §5.2: ScriptDefeat vs ScriptLocalDefeat).
+    /// </summary>
+    public bool LocalDefeatRequested => _localDefeatRequested;
+
+    public LogicFrame LocalDefeatFrame => _localDefeatFrame;
 
     /// <summary>
     /// Rebuilds run state from the program: counters/flags zeroed (GPL tables start zeroed),
@@ -149,6 +177,10 @@ public sealed class SimScriptEngine
         _mapExitFrame = LogicFrame.Zero;
         _unknownActionsExecuted = 0;
         _unknownConditionsEvaluated = 0;
+        _defeatRequested = false;
+        _defeatFrame = LogicFrame.Zero;
+        _localDefeatRequested = false;
+        _localDefeatFrame = LogicFrame.Zero;
     }
 
     /// <summary>
@@ -295,6 +327,11 @@ public sealed class SimScriptEngine
             SimScriptConditionKind.NamedNotDestroyed => EvaluateNamedExistsAlive(condition),
             SimScriptConditionKind.TeamDestroyed => _host.IsTeamDestroyed(condition.SubjectName),
             SimScriptConditionKind.PlayerAllDestroyed => _host.IsPlayerAllDestroyed(condition.SubjectName),
+            SimScriptConditionKind.MultiPlayerAlliedVictory => _host.IsLocalAlliedVictory,
+            SimScriptConditionKind.MultiPlayerAlliedDefeat => _host.IsLocalAlliedDefeat,
+            // GPL evaluateMultiplayerPlayerDefeat: the and-not is composed HERE, not on the
+            // seam — an alliance-wide loss reports allied defeat, never player defeat.
+            SimScriptConditionKind.MultiPlayerPlayerDefeat => _host.IsLocalDefeat && !_host.IsLocalAlliedDefeat,
             _ => EvaluateUnknown(),
         };
 
@@ -489,6 +526,28 @@ public sealed class SimScriptEngine
                 _host.RequestMapExit();
                 break;
 
+            // GPL doDefeat / doLocalDefeat are presentation plus one latched fact each; the
+            // runtime keeps the fact, the host keeps the presentation (VD-8). Same latch-once
+            // shape as MAP_EXIT: the frame records the FIRST occurrence, and the host is
+            // notified on every occurrence (the original re-runs its window code too).
+            case SimScriptActionKind.Defeat:
+                if (!_defeatRequested)
+                {
+                    _defeatRequested = true;
+                    _defeatFrame = _host.CurrentFrame;
+                }
+                _host.RequestDefeat();
+                break;
+
+            case SimScriptActionKind.LocalDefeat:
+                if (!_localDefeatRequested)
+                {
+                    _localDefeatRequested = true;
+                    _localDefeatFrame = _host.CurrentFrame;
+                }
+                _host.RequestLocalDefeat();
+                break;
+
             default:
                 _unknownActionsExecuted++;
                 break;
@@ -579,7 +638,9 @@ public sealed class SimScriptEngine
 
     public void Xfer(IXfer xfer)
     {
-        xfer.XferVersion(1);
+        // v2 appended the VD-4 defeat latches at the tail. A v1 stream is still readable:
+        // its tail fields simply stay at their Reset values.
+        var version = xfer.XferVersion(2);
 
         // Program identity guard: loading state saved against a different program is a
         // data error the CRC/loader must catch, not silently absorb.
@@ -622,6 +683,15 @@ public sealed class SimScriptEngine
         xfer.XferFrame("MapExitFrame", ref _mapExitFrame);
         xfer.XferInt("UnknownActionsExecuted", ref _unknownActionsExecuted);
         xfer.XferInt("UnknownConditionsEvaluated", ref _unknownConditionsEvaluated);
+
+        // ---- v2 tail (VD-4). Appended; nothing above this line moved. ----
+        if (version >= 2)
+        {
+            xfer.XferBool("DefeatRequested", ref _defeatRequested);
+            xfer.XferFrame("DefeatFrame", ref _defeatFrame);
+            xfer.XferBool("LocalDefeatRequested", ref _localDefeatRequested);
+            xfer.XferFrame("LocalDefeatFrame", ref _localDefeatFrame);
+        }
     }
 
     /// <summary>FNV-1a over the program's table names and shape — stable across processes.</summary>

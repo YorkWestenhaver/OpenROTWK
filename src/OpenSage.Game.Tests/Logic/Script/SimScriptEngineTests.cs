@@ -8,6 +8,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using System.Reflection;
 using OpenSage.Data.Map;
 using OpenSage.Logic.Map;
 using OpenSage.Logic.Object;
@@ -92,6 +93,19 @@ public class SimScriptEngineTests
             MapExitRequested = true;
             Log.Add($"mapexit:{Frame.Value}");
         }
+
+        // ---- VD-4: the three GPL victory readers, set directly by the test ----
+        public bool LocalAlliedVictory;
+        public bool LocalAlliedDefeat;
+        public bool LocalDefeat;
+
+        public bool IsLocalAlliedVictory => LocalAlliedVictory;
+        public bool IsLocalAlliedDefeat => LocalAlliedDefeat;
+        public bool IsLocalDefeat => LocalDefeat;
+
+        public void RequestDefeat() => Log.Add($"defeat:{Frame.Value}");
+
+        public void RequestLocalDefeat() => Log.Add($"localdefeat:{Frame.Value}");
     }
 
     // ---- hand-built program helper ----
@@ -184,6 +198,12 @@ public class SimScriptEngineTests
         new() { Kind = SimScriptActionKind.SetTimer, SlotIndex = slot, IntValue = frames };
 
     private static SimScriptAction MapExit() => new() { Kind = SimScriptActionKind.MapExit };
+
+    private static SimScriptAction Defeat() => new() { Kind = SimScriptActionKind.Defeat };
+
+    private static SimScriptAction LocalDefeat() => new() { Kind = SimScriptActionKind.LocalDefeat };
+
+    private static SimScriptCondition Mp(SimScriptConditionKind kind) => new() { Kind = kind };
 
     private static void Run(SimScriptEngine engine, FakeScriptHost host, uint frames, uint startFrame = 0)
     {
@@ -645,6 +665,314 @@ public class SimScriptEngineTests
             engine2.Update();
             Assert.Equal(CrcOf(engine1), CrcOf(engine2));
         }
+    }
+
+    // ================= L4 victory/defeat lane (VD-4) =================
+    //
+    // DEFEAT / LOCALDEFEAT actions and the three MULTIPLAYER_* conditions. The runtime side
+    // only ever sees compiled kinds and the host seam; the compiler side is exercised
+    // separately below, keyed on internal NAME with the numeric fallback deliberately absent.
+
+    private static SimScriptAction RaiseFlag(int slot) =>
+        new() { Kind = SimScriptActionKind.SetFlag, SlotIndex = slot, IntValue = 1 };
+
+    [Fact]
+    public void Defeat_LatchesTheFirstFrameOnly_ButNotifiesTheHostEveryTime()
+    {
+        var b = new ProgramBuilder();
+        b.AddScript("Lose", [True()], [Defeat()], oneShot: false);
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+
+        Run(engine, host, frames: 4, startFrame: 3);
+
+        Assert.True(engine.DefeatRequested);
+        Assert.Equal(3u, engine.DefeatFrame.Value);              // first occurrence, never rewritten
+        Assert.Equal(new[] { "defeat:3", "defeat:4", "defeat:5", "defeat:6" }, host.Log);
+        Assert.False(engine.LocalDefeatRequested);               // a separate latch
+        Assert.Equal(0u, engine.LocalDefeatFrame.Value);
+    }
+
+    [Fact]
+    public void LocalDefeat_LatchesSeparately_AndDoesNotSetTheDefeatLatch()
+    {
+        var b = new ProgramBuilder();
+        b.AddScript("LocalLose", [True()], [LocalDefeat()], oneShot: false);
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+
+        Run(engine, host, frames: 2, startFrame: 7);
+
+        Assert.True(engine.LocalDefeatRequested);
+        Assert.Equal(7u, engine.LocalDefeatFrame.Value);
+        Assert.Equal(new[] { "localdefeat:7", "localdefeat:8" }, host.Log);
+        Assert.False(engine.DefeatRequested);
+        Assert.Equal(0u, engine.DefeatFrame.Value);
+    }
+
+    /// <summary>
+    /// The point of the packet: before VD-4 both actions compiled to Unknown and were
+    /// silently absorbed by the diagnostics counter. An Unknown action still counts.
+    /// </summary>
+    [Fact]
+    public void UnknownActionsExecuted_StopsAbsorbingDefeat()
+    {
+        var b = new ProgramBuilder();
+        b.AddScript("Lose", [True()], [Defeat(), LocalDefeat()]);
+        var host = new FakeScriptHost();
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+
+        Run(engine, host, frames: 1);
+
+        Assert.True(engine.DefeatRequested);
+        Assert.True(engine.LocalDefeatRequested);
+        Assert.Equal(0, engine.UnknownActionsExecuted);
+
+        var unknown = new ProgramBuilder();
+        unknown.AddScript("Bogus", [True()], [new SimScriptAction { Kind = SimScriptActionKind.Unknown }]);
+        var unknownHost = new FakeScriptHost();
+        var unknownEngine = new SimScriptEngine(unknown.Build(), unknownHost, NewRandom());
+
+        Run(unknownEngine, unknownHost, frames: 1);
+
+        Assert.Equal(1, unknownEngine.UnknownActionsExecuted);
+    }
+
+    /// <summary>
+    /// GPL evaluateMultiplayerAlliedVictory/AlliedDefeat/PlayerDefeat. The third is
+    /// <c>isLocalDefeat() AND NOT isLocalAlliedDefeat()</c> — row 3 is that and-not: a player
+    /// whose whole alliance lost reports allied defeat, NOT player defeat.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, false, false, false, false)]
+    [InlineData(true, false, false, true, false, false)]
+    [InlineData(false, true, true, false, true, false)]
+    [InlineData(false, false, true, false, false, true)]
+    [InlineData(false, true, false, false, true, false)]
+    public void MultiPlayerConditions_ReadTheHostReaders_AndComposeThePlayerDefeatAndNot(
+        bool alliedVictory,
+        bool alliedDefeat,
+        bool localDefeat,
+        bool expectAlliedVictory,
+        bool expectAlliedDefeat,
+        bool expectPlayerDefeat)
+    {
+        var b = new ProgramBuilder();
+        var av = b.Flag("SawAlliedVictory");
+        var ad = b.Flag("SawAlliedDefeat");
+        var pd = b.Flag("SawPlayerDefeat");
+        b.AddScript("AV", [Mp(SimScriptConditionKind.MultiPlayerAlliedVictory)], [RaiseFlag(av)]);
+        b.AddScript("AD", [Mp(SimScriptConditionKind.MultiPlayerAlliedDefeat)], [RaiseFlag(ad)]);
+        b.AddScript("PD", [Mp(SimScriptConditionKind.MultiPlayerPlayerDefeat)], [RaiseFlag(pd)]);
+
+        var host = new FakeScriptHost
+        {
+            LocalAlliedVictory = alliedVictory,
+            LocalAlliedDefeat = alliedDefeat,
+            LocalDefeat = localDefeat,
+        };
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+
+        Run(engine, host, frames: 1);
+
+        Assert.Equal(expectAlliedVictory, engine.GetFlagValue("SawAlliedVictory"));
+        Assert.Equal(expectAlliedDefeat, engine.GetFlagValue("SawAlliedDefeat"));
+        Assert.Equal(expectPlayerDefeat, engine.GetFlagValue("SawPlayerDefeat"));
+        Assert.Equal(0, engine.UnknownConditionsEvaluated);
+    }
+
+    [Fact]
+    public void MultiPlayerCondition_HonoursTheInvertedFlag()
+    {
+        var b = new ProgramBuilder();
+        var seen = b.Flag("NotDefeated");
+        b.AddScript(
+            "NotYet",
+            [new SimScriptCondition { Kind = SimScriptConditionKind.MultiPlayerAlliedDefeat, Inverted = true }],
+            [RaiseFlag(seen)]);
+
+        var host = new FakeScriptHost { LocalAlliedDefeat = false };
+        var engine = new SimScriptEngine(b.Build(), host, NewRandom());
+
+        Run(engine, host, frames: 1);
+
+        Assert.True(engine.GetFlagValue("NotDefeated"));
+    }
+
+    [Fact]
+    public void Xfer_DefeatLatches_SurviveASaveLoadRoundTrip()
+    {
+        var b = new ProgramBuilder();
+        var t = b.Counter("LoseIn");
+        b.AddScript("Arm", [True()], [SetTimer(t, 2)]);
+        b.AddScript("Lose", [TimerExpired(t)], [Defeat(), LocalDefeat()]);
+        var program = b.Build();
+
+        var hostA = new FakeScriptHost();
+        var original = new SimScriptEngine(program, hostA, NewRandom());
+        Run(original, hostA, frames: 6);
+        Assert.True(original.DefeatRequested);
+        Assert.Equal(2u, original.DefeatFrame.Value);
+        Assert.Equal(2u, original.LocalDefeatFrame.Value);
+
+        var stream = new MemoryStream();
+        using (var save = new XferSave(stream, leaveOpen: true))
+        {
+            original.Xfer(save);
+        }
+
+        var restored = new SimScriptEngine(program, new FakeScriptHost(), NewRandom(0xDEAD));
+        Assert.False(restored.DefeatRequested);
+        stream.Position = 0;
+        using (var load = new XferLoad(stream, leaveOpen: true))
+        {
+            restored.Xfer(load);
+        }
+
+        Assert.True(restored.DefeatRequested);
+        Assert.Equal(2u, restored.DefeatFrame.Value);
+        Assert.True(restored.LocalDefeatRequested);
+        Assert.Equal(2u, restored.LocalDefeatFrame.Value);
+        Assert.Equal(CrcOf(original), CrcOf(restored));
+    }
+
+    /// <summary>
+    /// The v2 tail is part of the CRC: two engines that differ ONLY in the defeat latch must
+    /// not hash the same, or a desync in the defeat path would be invisible to the oracle.
+    /// </summary>
+    [Fact]
+    public void DefeatLatch_ParticipatesInTheCrc()
+    {
+        // Two programs identical in every CRC-visible way EXCEPT the action kind: same script
+        // name (so the fingerprint matches), same one-shot deactivation, no counters or flags.
+        // After one frame the ONLY difference in the walk is the v2 defeat latch.
+        var losing = new ProgramBuilder();
+        losing.AddScript("Lose", [True()], [Defeat()]);
+        var surviving = new ProgramBuilder();
+        surviving.AddScript("Lose", [True()], [new SimScriptAction { Kind = SimScriptActionKind.NoOp }]);
+
+        var host1 = new FakeScriptHost();
+        var host2 = new FakeScriptHost();
+        var latched = new SimScriptEngine(losing.Build(), host1, NewRandom(0xAA));
+        var unlatched = new SimScriptEngine(surviving.Build(), host2, NewRandom(0xAA));
+
+        Assert.Equal(CrcOf(latched), CrcOf(unlatched));   // same shape before either runs
+
+        Run(latched, host1, frames: 1);
+        Run(unlatched, host2, frames: 1);
+
+        Assert.True(latched.DefeatRequested);
+        Assert.False(unlatched.DefeatRequested);
+        Assert.NotEqual(CrcOf(latched), CrcOf(unlatched));
+    }
+
+    // ---- compiler: internal NAME only, no Generals-era numeric fallback ----
+
+    /// <summary>
+    /// Builds the parsed-map shape a v2+/v3+ script asset would have produced. The parse
+    /// types expose only private/protected setters (they are written by the map reader), so
+    /// the test sets them reflectively rather than widening production accessibility for a
+    /// fixture; the compiler under test is entered through its ordinary public entry point.
+    /// </summary>
+    private static T ParsedAsset<T>(params (string Member, object Value)[] members) where T : class
+    {
+        var instance = (T)System.Activator.CreateInstance(typeof(T), nonPublic: true);
+        foreach (var (member, value) in members)
+        {
+            var property = typeof(T).GetProperty(member, BindingFlags.Public | BindingFlags.Instance);
+            if (property?.SetMethod != null)
+            {
+                property.SetValue(instance, value);
+                continue;
+            }
+
+            typeof(T).GetField(member, BindingFlags.Public | BindingFlags.Instance).SetValue(instance, value);
+        }
+
+        return instance;
+    }
+
+    private static ScriptAction ParsedAction(string internalName, uint contentType) =>
+        ParsedAsset<ScriptAction>(
+            ("ContentType", (ScriptActionType)contentType),
+            ("InternalName", internalName == null ? null : new AssetPropertyKey(internalName, AssetPropertyType.AsciiString)),
+            ("Arguments", System.Array.Empty<ScriptArgument>()),
+            ("Enabled", true));
+
+    private static ScriptCondition ParsedCondition(string internalName, uint contentType) =>
+        ParsedAsset<ScriptCondition>(
+            ("ContentType", (ScriptConditionType)contentType),
+            ("InternalName", internalName == null ? null : new AssetPropertyKey(internalName, AssetPropertyType.AsciiString)),
+            ("Arguments", System.Array.Empty<ScriptArgument>()),
+            ("Enabled", true));
+
+    private static SimScriptProgram CompileOneScript(ScriptCondition condition, ScriptAction action)
+    {
+        var script = ParsedAsset<OpenSage.Scripting.Script>(
+            ("Name", "Fixture"),
+            ("IsActive", true),
+            ("ActiveInEasy", true),
+            ("ActiveInMedium", true),
+            ("ActiveInHard", true),
+            ("OrConditions", new[]
+            {
+                ParsedAsset<ScriptOrCondition>(("Conditions", new[] { condition })),
+            }),
+            ("ActionsIfTrue", new[] { action }));
+
+        var list = ParsedAsset<ScriptList>(("Scripts", new[] { script }));
+        return SimScriptCompiler.Compile(new[] { list });
+    }
+
+    [Theory]
+    [InlineData("DEFEAT", SimScriptActionKind.Defeat)]
+    [InlineData("LOCALDEFEAT", SimScriptActionKind.LocalDefeat)]
+    public void Compiler_MapsTheDefeatActions_ByInternalName(string internalName, SimScriptActionKind expected)
+    {
+        var program = CompileOneScript(ParsedCondition("CONDITION_TRUE", 3), ParsedAction(internalName, 0));
+
+        Assert.Equal(expected, program.Scripts[0].ActionsIfTrue[0].Kind);
+        Assert.Empty(program.UnknownActionIds);
+    }
+
+    [Theory]
+    [InlineData("MULTIPLAYER_ALLIED_VICTORY", SimScriptConditionKind.MultiPlayerAlliedVictory)]
+    [InlineData("MULTIPLAYER_ALLIED_DEFEAT", SimScriptConditionKind.MultiPlayerAlliedDefeat)]
+    [InlineData("MULTIPLAYER_PLAYER_DEFEAT", SimScriptConditionKind.MultiPlayerPlayerDefeat)]
+    public void Compiler_MapsTheMultiPlayerConditions_ByInternalName(string internalName, SimScriptConditionKind expected)
+    {
+        var program = CompileOneScript(ParsedCondition(internalName, 0), ParsedAction("NO_OP", 5));
+
+        Assert.Equal(expected, program.Scripts[0].OrClauses[0][0].Kind);
+        Assert.Empty(program.UnknownConditionIds);
+    }
+
+    /// <summary>
+    /// design-victory-defeat.md §1.8: the Generals-era ordinals (DEFEAT 4, LOCALDEFEAT 295,
+    /// the conditions 43/44/45) are advisory only — BFME2 renumbered the tables, so a
+    /// name-less map must NOT resolve them. Same rule MAP_EXIT already lives under.
+    /// </summary>
+    [Theory]
+    [InlineData(4u)]
+    [InlineData(295u)]
+    public void Compiler_RefusesTheDefeatActions_OnANameLessMap(uint zhOrdinal)
+    {
+        var program = CompileOneScript(ParsedCondition("CONDITION_TRUE", 3), ParsedAction(null, zhOrdinal));
+
+        Assert.Equal(SimScriptActionKind.Unknown, program.Scripts[0].ActionsIfTrue[0].Kind);
+        Assert.Equal(new[] { zhOrdinal }, program.UnknownActionIds);
+    }
+
+    [Theory]
+    [InlineData(43u)]
+    [InlineData(44u)]
+    [InlineData(45u)]
+    public void Compiler_RefusesTheMultiPlayerConditions_OnANameLessMap(uint zhOrdinal)
+    {
+        var program = CompileOneScript(ParsedCondition(null, zhOrdinal), ParsedAction("NO_OP", 5));
+
+        Assert.Equal(SimScriptConditionKind.Unknown, program.Scripts[0].OrClauses[0][0].Kind);
+        Assert.Equal(new[] { zhOrdinal }, program.UnknownConditionIds);
     }
 
     // ---- HeadlessSimGame end-to-end: real spawn + real order + exit ----

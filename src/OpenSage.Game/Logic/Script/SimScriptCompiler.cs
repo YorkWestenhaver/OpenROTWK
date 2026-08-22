@@ -206,6 +206,12 @@ public static class SimScriptCompiler
                         };
                     }
 
+                // Parameterless (GPL m_numParameters = 0): the whole condition IS its kind.
+                case SimScriptConditionKind.MultiPlayerAlliedVictory:
+                case SimScriptConditionKind.MultiPlayerAlliedDefeat:
+                case SimScriptConditionKind.MultiPlayerPlayerDefeat:
+                    return new SimScriptCondition { Kind = kind, Inverted = condition.IsInverted, RawContentType = raw };
+
                 case SimScriptConditionKind.TeamDestroyed:
                 case SimScriptConditionKind.PlayerAllDestroyed:
                     return new SimScriptCondition
@@ -234,10 +240,19 @@ public static class SimScriptCompiler
             "NAMED_NOT_DESTROYED" => SimScriptConditionKind.NamedNotDestroyed,
             "TEAM_DESTROYED" => SimScriptConditionKind.TeamDestroyed,
             "PLAYER_ALL_DESTROYED" => SimScriptConditionKind.PlayerAllDestroyed,
+            "MULTIPLAYER_ALLIED_VICTORY" => SimScriptConditionKind.MultiPlayerAlliedVictory,
+            "MULTIPLAYER_ALLIED_DEFEAT" => SimScriptConditionKind.MultiPlayerAlliedDefeat,
+            "MULTIPLAYER_PLAYER_DEFEAT" => SimScriptConditionKind.MultiPlayerPlayerDefeat,
             _ => SimScriptConditionKind.Unknown,
         };
 
-        /// <summary>Generals-era numeric fallback (maps too old to store internal names).</summary>
+        /// <summary>
+        /// Generals-era numeric fallback (maps too old to store internal names). NOTE:
+        /// deliberately NO entries for the three MULTIPLAYER_* conditions. BFME2 renumbered
+        /// the script tables — that is exactly why MAP_EXIT has no numeric fallback either —
+        /// so their Generals-era ordinals cannot be trusted against a BFME2 map. Internal
+        /// name is their only path (design-victory-defeat.md §1.8, ordinal note).
+        /// </summary>
         private static SimScriptConditionKind ConditionKindByZhId(uint id) => id switch
         {
             0 => SimScriptConditionKind.False,
@@ -281,8 +296,11 @@ public static class SimScriptCompiler
 
             switch (kind)
             {
+                // Parameterless actions (GPL m_numParameters = 0).
                 case SimScriptActionKind.NoOp:
                 case SimScriptActionKind.MapExit:
+                case SimScriptActionKind.Defeat:
+                case SimScriptActionKind.LocalDefeat:
                     return new SimScriptAction { Kind = kind, RawContentType = raw };
 
                 case SimScriptActionKind.SetCounter:
@@ -424,6 +442,8 @@ public static class SimScriptCompiler
             "MAP_EXIT" => SimScriptActionKind.MapExit,
             "MOVE_NAMED_UNIT_TO" => SimScriptActionKind.NamedMoveToWaypoint,
             "ATTACK_MOVE_NAMED_UNIT_TO" => SimScriptActionKind.NamedAttackMoveToWaypoint,
+            "DEFEAT" => SimScriptActionKind.Defeat,
+            "LOCALDEFEAT" => SimScriptActionKind.LocalDefeat,
             _ => SimScriptActionKind.Unknown,
         };
 
@@ -435,6 +455,9 @@ public static class SimScriptCompiler
         /// all, so it can never appear on a name-less (Generals-era) map — internal name is
         /// its only path. MOVE_NAMED_UNIT_TO's ZH id (38) is the real GPL enum ordinal
         /// (generals-gpl Scripts.h ScriptActionType) and is safe to carry here.
+        /// Same exclusion, same reason, for DEFEAT and LOCALDEFEAT (VD-4): BFME2 renumbered
+        /// the action table, so their Generals-era ordinals are advisory only and must never
+        /// key a compiled kind (design-victory-defeat.md §1.8).
         /// </summary>
         private static SimScriptActionKind ActionKindByZhId(uint id) => id switch
         {
