@@ -88,6 +88,12 @@ public static class Program
         [Option("mod", Default = null, Required = false, HelpText = "Load a mod on top of the game, the same way the retail engine's -mod argument does. Accepts either a mod directory (its loose files and its .BIG archives are layered over the game) or a single .big archive.")]
         public string? ModPath { get; set; }
 
+        [Option("headed-crc", Default = 0, Required = false, HelpText = "Logic-frame interval between deep-CRC checkpoints in this headed game, written to --headed-crc-out in the same 'opensage-deepdump v2' format the SimCore ScenarioDriver writes (so the two dumps are comparable with ddiff/DumpDiff). 0 (the default) disables the CRC entirely and the run is byte-identical to one built without this flag. Values above 100 are clamped to 100, as the retail interval is. Requires the developer speed multiplier to stay at 1x.")]
+        public int HeadedCrcIntervalInFrames { get; set; }
+
+        [Option("headed-crc-out", Default = null, Required = false, HelpText = "Path the --headed-crc dump is written to. Required whenever --headed-crc is non-zero; ignored otherwise.")]
+        public string HeadedCrcOut { get; set; }
+
         [Option('u', "uniqueports", Default = false, Required = false, HelpText = "Use a unique port for each client in a multiplayer game. Normally, port 8088 is used, but when we want to run multiple game instances on the same machine (for debugging purposes), each client needs a different port.")]
         public bool UseUniquePorts { get; set; }
     }
@@ -322,6 +328,28 @@ public static class Program
             GameTrace.Start(opts.TraceFile);
         }
 
+        // R15 packet 5: --headed-crc is an argument error when it cannot be honoured, not a
+        // silently-ignored flag. A run asked for a CRC dump and got none is the worst outcome
+        // here: the operator only finds out after the match, when the comparison has nothing
+        // to compare.
+        if (opts.HeadedCrcIntervalInFrames < 0)
+        {
+            var message = $"--headed-crc must be 0 (off) or a positive frame interval, not {opts.HeadedCrcIntervalInFrames}. Aborting.";
+            Logger.Error(message);
+            Console.Error.WriteLine(message);
+            Environment.Exit(2);
+        }
+
+        if (opts.HeadedCrcIntervalInFrames > 0 && string.IsNullOrEmpty(opts.HeadedCrcOut))
+        {
+            const string message = "--headed-crc needs --headed-crc-out <path>: there is nowhere to write the dump. Aborting.";
+            Logger.Error(message);
+            Console.Error.WriteLine(message);
+            Environment.Exit(2);
+        }
+
+        var headedCrcInterval = (uint)opts.HeadedCrcIntervalInFrames;
+
         // TODO: Read game version from assembly metadata or .git folder
         // TODO: Set window icon.
         var config = new Configuration()
@@ -330,6 +358,8 @@ public static class Program
             LoadShellMap = !opts.NoShellmap,
             UseUniquePorts = opts.UseUniquePorts,
             SimHeartbeatIntervalInFrames = opts.TraceFrames,
+            HeadedCrcIntervalInFrames = headedCrcInterval,
+            HeadedCrcDumpPath = opts.HeadedCrcOut,
         };
 
         UPnP.InitializeAsync(TimeSpan.FromSeconds(10)).ContinueWith(_ => Logger.Info($"UPnP status: {UPnP.Status}"));

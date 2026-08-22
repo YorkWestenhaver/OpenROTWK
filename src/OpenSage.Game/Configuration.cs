@@ -41,4 +41,22 @@ public sealed class Configuration
     /// enough to stay noise.
     /// </remarks>
     public int SimHeartbeatInfoEveryNth { get; set; } = 10;
+
+    /// <summary>
+    /// R15 packet 5: logic-frame interval between deep-CRC checkpoints in a HEADED game.
+    /// 0 (the default) disables the CRC entirely - the loop keeps
+    /// <c>CrcCheckpointIntervalInFrames = 0</c>, nothing is attached to the CrcCheckpoint
+    /// phase, and the run is byte-identical to one built before the flag existed. Non-zero
+    /// values are clamped by <c>SyncChecker.EffectiveInterval</c> (max 100). CLI:
+    /// <c>--headed-crc</c>.
+    /// </summary>
+    public uint HeadedCrcIntervalInFrames { get; set; } = 0;
+
+    /// <summary>
+    /// R15 packet 5: where the headed deep-CRC dump is written (the "opensage-deepdump v2"
+    /// format the ScenarioDriver writes, so <c>DumpDiff</c> can compare the two). Required
+    /// whenever <see cref="HeadedCrcIntervalInFrames"/> is non-zero; ignored otherwise.
+    /// CLI: <c>--headed-crc-out</c>.
+    /// </summary>
+    public string HeadedCrcDumpPath { get; set; } = null;
 }
