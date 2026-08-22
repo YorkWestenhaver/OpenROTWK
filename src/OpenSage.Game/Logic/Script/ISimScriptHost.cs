@@ -78,4 +78,48 @@ public interface ISimScriptHost
     /// Unknown unit or waypoint is a silent no-op.
     /// </summary>
     void NamedAttackMoveToWaypoint(string unitName, string waypointName);
+
+    // ---- L4 victory/defeat lane (VD-4) ----
+    //
+    // The three readers are the GPL VictoryConditions convenience readers, verbatim and
+    // uncomposed: MULTIPLAYER_PLAYER_DEFEAT's "and-not" is composed by the runtime, exactly
+    // where the original composes it (ScriptConditions::evaluateMultiplayerPlayerDefeat),
+    // so this seam stays a set of independent facts about the world.
+    //
+    // The two requests follow the RequestMapExit pattern: the host records the request and
+    // ends/annotates the session however it sees fit (windows and banners are VD-8), while
+    // the runtime independently latches the fact and the frame in its own Xfer'd state.
+
+    /// <summary>
+    /// GPL <c>TheVictoryConditions-&gt;isLocalAlliedVictory()</c>: a single alliance remains
+    /// and the local player is in it. False when there is no local player (observer).
+    /// </summary>
+    bool IsLocalAlliedVictory { get; }
+
+    /// <summary>
+    /// GPL <c>isLocalAlliedDefeat()</c>: the local player's whole alliance has been
+    /// eliminated. For an observer this is the "match decided" fact instead.
+    /// </summary>
+    bool IsLocalAlliedDefeat { get; }
+
+    /// <summary>
+    /// GPL <c>isLocalDefeat()</c>: the local player's own defeat latch. False for an
+    /// observer. Do NOT pre-compose the and-not against
+    /// <see cref="IsLocalAlliedDefeat"/> here — the runtime does that.
+    /// </summary>
+    bool IsLocalDefeat { get; }
+
+    /// <summary>
+    /// GPL doDefeat (ScriptActions.cpp): announce the local player's defeat. Everything the
+    /// original does is presentation (Defeat.wnd / ObserverQuit.wnd, input disable, the
+    /// end-game timer); a host with no presentation layer may record it and no more.
+    /// </summary>
+    void RequestDefeat();
+
+    /// <summary>
+    /// GPL doLocalDefeat: announce a defeat that is local-only (the match continues for the
+    /// rest of the alliance). The original's one sim-visible side effect,
+    /// <c>markMPLocalDefeatWindowShown</c>, is latched by the runtime, not by the host.
+    /// </summary>
+    void RequestLocalDefeat();
 }

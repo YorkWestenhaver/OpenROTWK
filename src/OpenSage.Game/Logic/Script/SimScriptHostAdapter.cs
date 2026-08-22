@@ -21,6 +21,7 @@ using System.Numerics;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Object.Horde;
 using OpenSage.Logic.Object.Locomotion;
+using OpenSage.Logic.Victory;
 using OpenSage.SimCore.Numerics;
 using OpenSage.SimCore.Ticking;
 
@@ -433,6 +434,42 @@ public sealed class SimScriptHostAdapter : ISimScriptHost
     public void RequestMapExit()
     {
         MapExitRequested = true;
+    }
+
+    // ---- L4 victory/defeat lane (VD-4) ----
+    //
+    // The three readers delegate straight to the victory core (VD-2) — the adapter derives
+    // nothing of its own, so there is exactly ONE implementation of "is the local player
+    // defeated" in the engine. Until a core is attached (a scenariogen run, a unit test, a
+    // single-player map) every reader answers false, which is what GPL's own
+    // TheVictoryConditions reports before reset() has cached a player pool.
+
+    /// <summary>
+    /// The match's victory core, or null when this session has none. Set once, at match
+    /// start, by whoever builds the victory system; the adapter only reads it.
+    /// </summary>
+    public VictoryConditionsCore VictoryConditions { get; set; }
+
+    public bool IsLocalAlliedVictory => VictoryConditions?.IsLocalAlliedVictory ?? false;
+
+    public bool IsLocalAlliedDefeat => VictoryConditions?.IsLocalAlliedDefeat ?? false;
+
+    public bool IsLocalDefeat => VictoryConditions?.IsLocalDefeat ?? false;
+
+    /// <summary>True once a DEFEAT action ran this session (presentation is VD-8).</summary>
+    public bool DefeatRequested { get; private set; }
+
+    /// <summary>True once a LOCALDEFEAT action ran this session.</summary>
+    public bool LocalDefeatRequested { get; private set; }
+
+    public void RequestDefeat()
+    {
+        DefeatRequested = true;
+    }
+
+    public void RequestLocalDefeat()
+    {
+        LocalDefeatRequested = true;
     }
 
     /// <summary>
