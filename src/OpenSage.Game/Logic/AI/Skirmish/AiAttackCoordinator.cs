@@ -387,15 +387,17 @@ public sealed class AiAttackCoordinator : IAiBrainManager
             return;
         }
 
-        var centre = AiTargetScoring.CentreOf(world.OwnObjects, team.Members, Vector3.Zero);
         var targetStillLegal = IsLegalTarget(world.EnemyObjects, wave.TargetId);
         var dueForRescan = frame >= wave.LastOrderFrame + ReissueInterval(world.Difficulty);
 
+        // The common case by a wide margin - an engaged wave between re-scans - costs one
+        // snapshot walk and nothing else. The centre below is only computed when a scan follows.
         if (targetStillLegal && !dueForRescan)
         {
             return;
         }
 
+        var centre = AiTargetScoring.CentreOf(world.OwnObjects, team.Members, Vector3.Zero);
         var best = AiTargetScoring.PickBest(world.EnemyObjects, centre);
 
         if (best is null)
