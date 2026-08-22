@@ -39,10 +39,35 @@ internal sealed class DozerAndWorkerState : IPersistableObject
         {
             UpdateBuildTarget(buildTarget);
         }
+        else if (HasBuildTask)
+        {
+            // The task is still pending but its goal object no longer exists (destroyed, or sold
+            // mid-approach). Retail treats a NULL goal object as a hard failure of the dozer
+            // state: it clears the machine's goal object, cancels the task, and idles the unit
+            // (DozerAIUpdate's approach/action states return STATE_FAILURE on a null goal, and
+            // internalCancelTask stops the dozer via aiIdle). Do the same rather than keep the
+            // task pending, which would leave the worker driving at a dead object forever.
+            CancelTaskWithMissingTarget();
+        }
         else if (TryGetRepairTarget(out var repairTarget))
         {
             UpdateRepairTarget(repairTarget);
         }
+        else if (HasRepairTask)
+        {
+            CancelTaskWithMissingTarget();
+        }
+    }
+
+    private bool HasBuildTask => _dozerTargets[0].ObjectId.IsValid;
+
+    private bool HasRepairTask => _dozerTargets[1].ObjectId.IsValid;
+
+    private void CancelTaskWithMissingTarget()
+    {
+        ClearDozerTasks();
+        // aiIdle equivalent: stop moving toward the target that is gone.
+        _aiUpdate.Stop();
     }
 
     public void ArrivedAtDestination()
@@ -67,9 +92,34 @@ internal sealed class DozerAndWorkerState : IPersistableObject
             if (buildTarget is { BuildProgress: >= 1 })
             {
                 ClearDozerTasks();
-                _gameEngine.AudioSystem.PlayAudioEvent(_gameObject, _gameObject.Definition.VoiceTaskComplete.Value);
+                PlayTaskCompleteVoice();
             }
         }
+    }
+
+    /// <summary>
+    /// The "construction complete" bark. Retail plays it only for a dozer the local human owns
+    /// (the whole block is inside <c>if (dozer-&gt;isLocallyControlled())</c> alongside the
+    /// on-screen message and the radar event), so an AI-owned worker finishing a building is
+    /// silent - it never touches the audio system at all. Two things follow, both of which the
+    /// unconditional version got wrong: an AI-built structure must not bark, and a definition
+    /// with no VoiceTaskComplete at all (no BFME2/AotR worker declares one) must not be
+    /// dereferenced.
+    /// </summary>
+    private void PlayTaskCompleteVoice()
+    {
+        if (_gameObject.Owner != _gameEngine.Scene3D?.LocalPlayer)
+        {
+            return;
+        }
+
+        var voice = _gameObject.Definition.VoiceTaskComplete;
+        if (voice?.Value is null)
+        {
+            return;
+        }
+
+        _gameEngine.AudioSystem?.PlayAudioEvent(_gameObject, voice.Value);
     }
 
     private void UpdateRepairTarget(GameObject repairTarget)
@@ -98,8 +148,10 @@ internal sealed class DozerAndWorkerState : IPersistableObject
         var id = _dozerTargets[0].ObjectId;
         if (id.IsValid)
         {
+            // GetObjectById returns null for an object that has been destroyed since the task was
+            // issued - the id stays valid, the slot does not. [NotNullWhen(true)] must hold.
             gameObject = _gameEngine.GameLogic.GetObjectById(id);
-            return true;
+            return gameObject != null;
         }
 
         gameObject = null;
@@ -126,7 +178,7 @@ internal sealed class DozerAndWorkerState : IPersistableObject
         if (id.IsValid)
         {
             gameObject = _gameEngine.GameLogic.GetObjectById(id);
-            return true;
+            return gameObject != null;
         }
 
         gameObject = null;
