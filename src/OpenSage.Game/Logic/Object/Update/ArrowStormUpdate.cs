@@ -83,6 +83,14 @@
 // Logic/Object/Combat/SimWeapon.cs and GameObject.Disable(DisabledType.Paralyzed, ...) - NOT
 // Weapon/WeaponTemplate.cs or ParalyzeNugget.cs (both wrong targets per the corrected audit).
 //
+// R15 L5-P10 re-grade note (ordering): this module was written and landed before L5-P6/A0-prime
+// wired the per-object GameObject.Update() sweep into GameLogic.Update(), i.e. at a time when no
+// DisabledType window ever expired. The "no paralysis is applied" claim above was therefore
+// unfalsifiable when it was first written - an accidental disable and a correct absence looked
+// identical. It has now been re-graded against the post-L5-P6 T+1 expiry semantics on both exit
+// paths (persistent triggering and Abort), per test 11b. The held-field verdict is unchanged; only
+// the evidence behind it is now real.
+//
 // Every mutable sim field appears in Xfer exactly once (§3 of the spec); tolerances are the
 // field's conformance class at its declaration site (§4).
 //

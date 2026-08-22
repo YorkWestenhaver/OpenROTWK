@@ -78,6 +78,17 @@ End
 Object XPArcher
   KindOf = INFANTRY
   IsTrainable = Yes
+  ; R15 L5-P10: an XP fixture MUST declare ExperienceRequired (round test convention).
+  ; ExperienceTracker.AddExperiencePoints/SetExperienceAndLevel walk
+  ; `_currentExperience >= (Definition.ExperienceRequired?[level] ?? 0)` over all four
+  ; VeterancyLevels, so with the table absent every threshold reads 0 and the very first
+  ; award - including ExperienceUpdate.Initialize's floor-of-1 - promotes the object
+  ; straight to Heroic, firing OnVeterancyLevelChanged and the ActiveBody health-bonus
+  ; path. That cascade has nothing to do with this module and (post R15 L1-11, which put
+  ; the veterancy clamp and the ActiveBody switch on that same path) is live state churn
+  ; inside an XP contract test. Thresholds are set far above the 100/300 this fixture can
+  ; award, so the object stays Regular and the delta assertions measure the award alone.
+  ExperienceRequired = 0 1000 2000 3000
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
@@ -93,6 +104,9 @@ End
 Object PersistentXPArcher
   KindOf = INFANTRY
   IsTrainable = Yes
+  ; See XPArcher: declared so the floor-of-1 baseline and the per-trigger awards cannot
+  ; promote the object and pull unrelated veterancy machinery into the measurement.
+  ExperienceRequired = 0 1000 2000 3000
   Body = ActiveBody ModuleTag_Body
     MaxHealth = 100
   End
@@ -389,6 +403,12 @@ End
         // this module neither controls nor should be asserted against. Sample the baseline
         // after the helper has settled but before the trigger frame, and assert the award
         // as a delta.
+        //
+        // R15 L5-P10: the helper's Initialize now lands on the SECOND Step, not the first
+        // (measured by the INT-R2A gate on the L1-11 control shape), so the baseline must be
+        // sampled at least two Steps in. This four-Step window already satisfies that; the
+        // sample point is pinned here so a future retiming of the helper trips this comment
+        // rather than the assertion.
         Step(game, 4);
         Assert.Equal(0, module.TriggerCount);
         var archerBaseline = archer.ExperienceTracker.CurrentExperience;
@@ -403,6 +423,12 @@ End
         Step(game, 10);
         Assert.Equal(archerBaseline + 100, archer.ExperienceTracker.CurrentExperience);
         Assert.Equal(bystanderBaseline, bystander.ExperienceTracker.CurrentExperience);
+
+        // The award must stay an award: with ExperienceRequired declared, 100 XP is far below
+        // the rank-1 threshold, so no promotion may have happened. If this ever fails the
+        // fixture has lost its ExperienceRequired table and the deltas above are measuring a
+        // veterancy cascade as well as the award.
+        Assert.Equal(VeterancyLevel.Regular, archer.ExperienceTracker.VeterancyLevel);
     }
 
     [Fact]
@@ -432,6 +458,7 @@ End
         }
 
         Assert.Equal(afterFirstTrigger + 200, archer.ExperienceTracker.CurrentExperience);
+        Assert.Equal(VeterancyLevel.Regular, archer.ExperienceTracker.VeterancyLevel);
     }
 
     // 9. RequiredConditions ModelConditionFlag gate.
@@ -543,6 +570,64 @@ End
 
         Assert.Equal(healthBefore, body.Health);
         Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
+    }
+
+    // 11b. R15 L5-P10 regression fence for the held paralyze tail, re-graded against the
+    // post-L5-P6 world. When ArrowStormUpdate landed (a35f4fa5), GameObject.Update() had zero
+    // callers, so DisabledType windows never expired and "not paralyzed" was unfalsifiable:
+    // an accidental Disable(Paralyzed) would have stuck forever and been just as visible, but
+    // so would a disable applied and never cleared by anything. L5-P6/A0-prime then wired the
+    // per-object sweep into GameLogic.Update() after the frame-counter increment, so a T-frame
+    // window now reads clear on the T+1'th Update(). This test walks BOTH exit paths -
+    // persistent triggering, and Abort() - past the T+1 boundary of both declared durations
+    // (ParalyzeDurationWhenCompleted = 600ms = 3 frames, ParalyzeDurationWhenAborted = 800ms =
+    // 4 frames), so a disable applied at either exit would now be observable while it lasted
+    // instead of being indistinguishable from the permanent case.
+    //
+    // This must stay RED-on-behavior until the shot loop is specced: the paralyze split has no
+    // source (see the module's file header), so the correct behavior today is no disable at
+    // all. When it is specced it composes GameObject.Disable(DisabledType.Paralyzed, ...) -
+    // not ParalyzeNugget.cs - and this test is where the window assertions go.
+    [Fact]
+    public void ParalyzeTail_HeldNotModeled_NoDisableOnEitherExitPath_AcrossTPlusOne()
+    {
+        var game = NewGame();
+        var archer = game.SpawnObject("HeldFieldArcher", game.CivilianPlayer, Vector3.Zero);
+        var module = ModuleOf(archer);
+
+        game.Step();
+        Assert.True(module.InitiateIntentToDoSpecialPower("TestArrowStorm", null));
+
+        // Persistent-trigger path: step well past the T+1 boundary of the longer (aborted)
+        // duration, checking every frame rather than only at the end - a 3- or 4-frame window
+        // opened at any trigger would otherwise be stepped straight over.
+        while (module.TriggerCount < 2)
+        {
+            game.Step();
+            Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
+        }
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+            Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
+        }
+
+        // Abort path (the exit GPL's onExit(false) models, and the one a future split would
+        // most plausibly call "aborted").
+        Assert.True(module.Abort());
+        Assert.True(module.IsPacked);
+        Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
+
+        for (var i = 0; i < 6; i++)
+        {
+            game.Step();
+            Assert.False(archer.IsDisabledByType(DisabledType.Paralyzed));
+        }
+
+        // And the durations are still merely parsed and held - no exit path consumed them.
+        Assert.Equal(600, module.ParalyzeDurationWhenCompleted);
+        Assert.Equal(800, module.ParalyzeDurationWhenAborted);
     }
 
     // 12. Negative control: never self-starts while Packed.
