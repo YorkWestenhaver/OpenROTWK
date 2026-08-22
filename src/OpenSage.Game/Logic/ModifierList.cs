@@ -1,22 +1,35 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using FixedMath.NET;
 using OpenSage.Content;
 using OpenSage.Data.Ini;
 using OpenSage.FX;
 using OpenSage.Logic.Object;
 using OpenSage.Mathematics;
+using OpenSage.SimCore.Ticking;
 
 namespace OpenSage.Logic;
 
+/// <summary>
+/// One live grant of a <see cref="ModifierList"/> to one object.
+/// </summary>
+/// <remarks>
+/// R15 packet 3 (one clock): this used to expire against a wall-clock <c>TimeInterval</c> -
+/// the map timer - while everything else in the sim expires against the logic frame counter.
+/// Two clocks meant a buff's lifetime depended on how the host's frame pacing happened to line
+/// up with real time, which is a desync by construction in lockstep. Both deadlines are now
+/// <see cref="LogicFrame"/>s, quantized once at <see cref="Apply"/> by the same
+/// ceil(ms / MsPerLogicFrame) rule the INI parser uses for every other duration field
+/// (<c>IniParser.ParseTimeMillisecondsToLogicFrames</c>), so a Duration shorter than one frame
+/// still lasts one frame rather than rounding away to nothing.
+/// </remarks>
 [AddedIn(SageGame.Bfme)]
 public class AttributeModifier
 {
     private readonly ModifierList _modifierList;
-    private TimeSpan _activeUntil;
+    private LogicFrame _activeUntil;
     private readonly bool _selfExpiring;
 
-    private List<(UpgradeTemplate, TimeSpan)> _delayedUpgrades;
+    private readonly List<(UpgradeTemplate Upgrade, LogicFrame ActivatesAt)> _delayedUpgrades;
 
     public bool Applied { get; private set; }
     public bool Invalid { get; set; }
@@ -27,14 +40,15 @@ public class AttributeModifier
         _selfExpiring = _modifierList.Duration > 0;
         Invalid = false;
         Applied = false;
-        _delayedUpgrades = new List<(UpgradeTemplate, TimeSpan)>();
+        _delayedUpgrades = new List<(UpgradeTemplate, LogicFrame)>();
     }
 
-    public void Apply(GameObject gameObject, IGameEngine gameEngine, in TimeInterval time)
+    /// <param name="currentFrame">The logic frame this grant takes effect on.</param>
+    public void Apply(GameObject gameObject, IGameEngine gameEngine, LogicFrame currentFrame)
     {
         if (_selfExpiring)
         {
-            _activeUntil = time.TotalTime + TimeSpan.FromMilliseconds(_modifierList.Duration);
+            _activeUntil = currentFrame + ToLogicFrames(_modifierList.Duration, gameEngine);
         }
 
         foreach (var modifier in _modifierList.Modifiers)
@@ -62,7 +76,7 @@ public class AttributeModifier
                 }
                 else
                 {
-                    var activatesAt = time.TotalTime + TimeSpan.FromMilliseconds(_modifierList.Upgrade.Delay);
+                    var activatesAt = currentFrame + ToLogicFrames(_modifierList.Upgrade.Delay, gameEngine);
                     _delayedUpgrades.Add((upgrade.Value, activatesAt));
                 }
             }
@@ -75,28 +89,48 @@ public class AttributeModifier
         Applied = true;
     }
 
-    public bool Expired(in TimeInterval time)
+    /// <summary>
+    /// Whether a self-expiring grant has outlived its Duration, as of
+    /// <paramref name="currentFrame"/>.
+    /// </summary>
+    /// <remarks>
+    /// Strictly greater-than, preserving the wall-clock predicate this replaced: a grant
+    /// applied on frame F with a one-frame Duration is still live on F+1 and expires on F+2.
+    /// </remarks>
+    public bool Expired(LogicFrame currentFrame)
     {
         if (!_selfExpiring)
         {
             return false;
         }
 
-        return time.TotalTime > _activeUntil;
+        return currentFrame > _activeUntil;
     }
 
-    public void Update(GameObject gameObject, in TimeInterval time)
+    /// <summary>Grant any delayed upgrades whose activation frame has passed.</summary>
+    public void Update(GameObject gameObject, LogicFrame currentFrame)
     {
-        for (var i = 0; i < _delayedUpgrades.Count; i++)
+        // Reverse iteration: the pre-packet-3 forward loop combined with RemoveAt skipped the
+        // entry after every grant, so two upgrades activating on the same frame took two
+        // frames to both land.
+        for (var i = _delayedUpgrades.Count - 1; i >= 0; i--)
         {
             var (upgrade, activatesAt) = _delayedUpgrades[i];
-            if (time.TotalTime > activatesAt)
+            if (currentFrame > activatesAt)
             {
                 upgrade.GrantUpgrade(gameObject);
                 _delayedUpgrades.RemoveAt(i);
             }
         }
     }
+
+    /// <summary>
+    /// Quantize a millisecond duration from INI to whole logic frames, rounding up - the same
+    /// rule <c>IniParser.ParseTimeMillisecondsToLogicFrames</c> applies to every other
+    /// duration field. Zero stays zero.
+    /// </summary>
+    private static LogicFrameSpan ToLogicFrames(long milliseconds, IGameEngine gameEngine) =>
+        LogicFrameSpan.FromMilliseconds(milliseconds, gameEngine.MsPerLogicFrame);
 
     public void Remove(GameObject gameObject, IGameEngine gameEngine)
     {

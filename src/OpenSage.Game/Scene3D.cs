@@ -365,11 +365,18 @@ public sealed class Scene3D : DisposableBase, IScene3D
     /// beside the pathfind queue drain - GPL runs <c>ThePlayerList::update()</c> inside
     /// <c>AI::update</c>, at the tail of the module update, not out here.
     /// </remarks>
+    /// <remarks>
+    /// R15 packet 3 (one clock) retired the last sim consumer of this wall-clock interval -
+    /// attribute-modifier expiry now runs off the logic frame counter, which the objects read
+    /// from <c>GameLogic</c> directly. The parameter stays on <see cref="IScene3D"/> for now
+    /// rather than churning the interface mid-round; it is vestigial and the next revision of
+    /// <see cref="IScene3D"/> should drop it.
+    /// </remarks>
     public void SimObjectTick(in TimeInterval time)
     {
         foreach (var gameObject in GameObjects.Objects)
         {
-            gameObject.LogicTick(time);
+            gameObject.LogicTick();
         }
     }
 

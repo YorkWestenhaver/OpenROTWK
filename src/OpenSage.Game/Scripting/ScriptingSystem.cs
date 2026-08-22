@@ -4,13 +4,14 @@ using System.Numerics;
 using System.Text;
 using OpenSage.Logic;
 using OpenSage.Logic.Object;
+using OpenSage.Logic.Sim;
 
 namespace OpenSage.Scripting;
 
 public delegate bool ScriptingCondition(ScriptExecutionContext context, ScriptCondition condition);
 public delegate void ScriptingAction(ScriptExecutionContext context, ScriptAction action);
 
-public sealed class ScriptingSystem : GameSystem, IPersistableObject
+public sealed class ScriptingSystem : GameSystem, IPersistableObject, IScriptingTick
 {
     private readonly List<SequentialScript> _sequentialScripts = new();
 
@@ -248,6 +249,13 @@ public sealed class ScriptingSystem : GameSystem, IPersistableObject
         return null;
     }
 
+    /// <summary>
+    /// One scripting evaluation pass. Since R15 packet 3 this runs at the head of
+    /// <c>SimPhase.ModuleUpdate</c>, once per logic frame, instead of off a second wall-clock
+    /// accumulator in <c>Game.Update</c>: <see cref="TickRate"/>
+    /// (<c>IGameDefinition.ScriptingTicksPerSecond</c>) equals the logic rate in every shipped
+    /// game, so the old second accumulator only ever added drift.
+    /// </summary>
     public void ScriptingTick()
     {
         if (Game.Scene3D?.PlayerScripts?.ScriptLists == null)

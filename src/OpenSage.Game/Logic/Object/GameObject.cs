@@ -998,7 +998,19 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
         _gameEngine.Quadtree.Update(this);
     }
 
-    internal void LogicTick(in TimeInterval time)
+    /// <summary>
+    /// The per-object sim residue that is not a behavior module: collider/passability refresh
+    /// on move, the attacking weapon tick, the Sold-&gt;Kill transition, and the attribute
+    /// modifier apply/update/expire sweep. Runs at the head of
+    /// <c>SimPhase.PartitionUpdate</c>, from <c>Scene3D.SimObjectTick</c>.
+    /// </summary>
+    /// <remarks>
+    /// R15 packet 3 (one clock): this took a wall-clock <c>TimeInterval</c> until the
+    /// attribute modifiers - its only consumer - moved onto the logic frame counter. The
+    /// deadline clock is now read straight from <c>GameLogic</c>, so nothing in the sim
+    /// expires against the map timer any more.
+    /// </remarks>
+    internal void LogicTick()
     {
         if (_objectMoved)
         {
@@ -1024,13 +1036,18 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
 
         List<string> expiredAttributeModifierKeys = null;
 
+        // One clock: PartitionUpdate runs after ModuleUpdate, so the logic clock has already
+        // advanced to this frame's number. Apply and Expired therefore read the same counter,
+        // and a Duration of N frames means exactly N frames on every host.
+        var currentFrame = _gameEngine.GameLogic.CurrentFrame;
+
         foreach (var (key, modifier) in _attributeModifiers)
         {
             if (!modifier.Applied)
             {
-                modifier.Apply(this, _gameEngine, time);
+                modifier.Apply(this, _gameEngine, currentFrame);
             }
-            else if (modifier.Invalid || modifier.Expired(time))
+            else if (modifier.Invalid || modifier.Expired(currentFrame))
             {
                 modifier.Remove(this, _gameEngine);
                 expiredAttributeModifierKeys ??= new List<string>();
@@ -1038,7 +1055,7 @@ public sealed class GameObject : Entity, IInspectable, ICollidable, IPersistable
             }
             else
             {
-                modifier.Update(this, time);
+                modifier.Update(this, currentFrame);
             }
         }
 
