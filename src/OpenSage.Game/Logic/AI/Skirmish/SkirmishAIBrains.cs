@@ -100,6 +100,15 @@ public static class SkirmishAIBrains
         // every order-emitting manager. The team manager emits nothing itself (S9-09 gives teams
         // their orders), so it is last.
         brain.RegisterManager(new AiProductionManager(emitter, economy));
-        brain.RegisterManager(new AiTeamManager());
+
+        var teams = new AiTeamManager();
+        brain.RegisterManager(teams);
+
+        // (S9-09) PURE APPEND, and LAST for a reason: the attack coordinator reads the team
+        // manager's teams and must see this frame's state, not last frame's. Registered after it,
+        // a team promoted to Ready on frame F is available to a wave on frame F; registered
+        // before it, every wave would be a frame stale and a team wiped this frame could still be
+        // ordered to attack.
+        brain.RegisterManager(new AiAttackCoordinator(emitter, teams));
     }
 }
