@@ -17,7 +17,6 @@ using System.Collections.Generic;
 using OpenSage.Gui.ControlBar;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Object.Castle;
-using OpenSage.Logic.Object.Update;
 
 namespace OpenSage.Logic.AI.Skirmish;
 
@@ -316,7 +315,7 @@ public sealed class LiveAiWorldView : IAiWorldView
     // ---- (S9-08) producer snapshot ----
 
     /// <summary>Snapshots one owned producer structure.</summary>
-    private AiProducerView SnapshotProducer(GameObject producer, ProductionUpdate production)
+    private AiProducerView SnapshotProducer(GameObject producer, OpenSage.Logic.Object.Update.ProductionUpdate production)
     {
         return new AiProducerView(
             producer.Id,
