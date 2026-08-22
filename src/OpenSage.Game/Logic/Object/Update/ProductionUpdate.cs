@@ -412,21 +412,30 @@ public sealed class ProductionUpdate : UpdateModule
             return;
         }
 
+        // Not everything a producer emits can walk: Age of the Ring's AI builds objects with no
+        // AIUpdate module at all, and dereferencing it here took the whole match down.
+        var producedUnitAi = producedUnit.AIUpdate;
+
         // First go to the natural rally point
         var naturalRallyPoint = ProductionExit?.GetNaturalRallyPoint();
-        if (naturalRallyPoint.HasValue)
+        if (producedUnitAi != null && naturalRallyPoint.HasValue)
         {
             naturalRallyPoint = GameObject.ToWorldspace(naturalRallyPoint.Value);
-            producedUnit.AIUpdate.AddTargetPoint(naturalRallyPoint.Value);
+            producedUnitAi.AddTargetPoint(naturalRallyPoint.Value);
         }
 
         // Then go to the rally point if it exists
-        if (GameObject.RallyPoint.HasValue)
+        if (producedUnitAi != null && GameObject.RallyPoint.HasValue)
         {
-            producedUnit.AIUpdate.AddTargetPoint(GameObject.RallyPoint.Value);
+            producedUnitAi.AddTargetPoint(GameObject.RallyPoint.Value);
         }
 
-        GameEngine.AudioSystem.PlayAudioEvent(producedUnit, producedUnit.Definition.SoundMoveStart.Value);
+        // SoundMoveStart is optional: plenty of AotR objects declare none.
+        var soundMoveStart = producedUnit.Definition.SoundMoveStart;
+        if (soundMoveStart != null)
+        {
+            GameEngine.AudioSystem.PlayAudioEvent(producedUnit, soundMoveStart.Value);
+        }
 
         HandleHordeCreation(producedUnit);
         HandleHarvesterUnitCreation(GameObject, producedUnit);
