@@ -298,4 +298,5 @@ __pycache__/
 imgui.ini
 
 ShaderCache
-DeveloperMode.iniworktrees/
+DeveloperMode.ini
+worktrees/
