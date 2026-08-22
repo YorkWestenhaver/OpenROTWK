@@ -229,6 +229,9 @@ public sealed class InstructionCollection
                     case InstructionType.LessThan2:
                         instruction = new LessThan2();
                         break;
+                    case InstructionType.Equals:
+                        instruction = new EqualsNumeric();
+                        break;
                     case InstructionType.Equals2:
                         instruction = new Equals2();
                         break;

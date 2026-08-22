@@ -6,6 +6,7 @@ using OpenSage.Gui;
 using OpenSage.Gui.Apt;
 using OpenSage.Gui.CommandListOverlay;
 using OpenSage.Gui.ControlBar;
+using OpenSage.Mods.Bfme;
 
 namespace OpenSage.Mods.Bfme2;
 
@@ -33,7 +34,9 @@ public class Bfme2RotwkDefinition : IGameDefinition
     public string Identifier { get; } = "bfme2_rotwk";
 
     public IMainMenuSource MainMenu { get; } = new AptMainMenuSource("MainMenu.apt");
-    public IControlBarSource? ControlBar { get; }
+    // ROTWK shares BFME2's Palantir-based in-match HUD; without this the control bar
+    // is never created (Game.StartGame only builds one when Definition.ControlBar != null).
+    public IControlBarSource? ControlBar { get; } = new AptControlBarSource();
     public ICommandListOverlaySource? CommandListOverlay => null;
 
     public uint ScriptingTicksPerSecond => 5;
