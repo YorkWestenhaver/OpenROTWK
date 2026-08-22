@@ -315,7 +315,7 @@ public sealed class LiveAiWorldView : IAiWorldView
     // ---- (S9-08) producer snapshot ----
 
     /// <summary>Snapshots one owned producer structure.</summary>
-    private AiProducerView SnapshotProducer(GameObject producer, OpenSage.Logic.Object.Update.ProductionUpdate production)
+    private AiProducerView SnapshotProducer(GameObject producer, ProductionUpdate production)
     {
         return new AiProducerView(
             producer.Id,
