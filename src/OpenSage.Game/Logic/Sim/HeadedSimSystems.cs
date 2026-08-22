@@ -197,6 +197,12 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     /// legacy <c>Game.GetTimeInterval()</c> used - map time plus one logic frame's worth of
     /// wall clock.
     /// </summary>
+    /// <remarks>
+    /// Vestigial since packet 3: nothing on the sim side reads it any more (attribute-modifier
+    /// expiry, its last consumer, is on the logic frame counter now). It survives only because
+    /// <c>IScene3D.SimObjectTick</c> still declares the parameter; both should go together the
+    /// next time that interface is revised.
+    /// </remarks>
     // TODO: Calculate time correctly (inherited from the legacy tick).
     private TimeInterval GetTimeInterval() =>
         new(_game.MapTime.TotalTime, TimeSpan.FromMilliseconds(_game.GameEngine.MsPerLogicFrame));
