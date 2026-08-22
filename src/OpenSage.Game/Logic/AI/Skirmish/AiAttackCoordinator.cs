@@ -183,7 +183,16 @@ public sealed class AiAttackCoordinator : IAiBrainManager
     /// Below it the team is dissolved and AiTeamManager re-recruits the survivors into a fresh
     /// team next frame, which is how a mauled army becomes a whole one again.
     /// </summary>
-    public const int RelaunchAtPercentOfTargetSize = 50;
+    /// <remarks>
+    /// MUST stay strictly below <see cref="RetreatAtPercentOfPeak"/>, and that is a constraint
+    /// rather than a preference. A team recruits only while Building, so its peak size is its
+    /// target size in every ordinary match; if the two percentages were equal, "mauled enough to
+    /// retreat" would be exactly "too small to relaunch" and every single mustered wave would
+    /// dissolve - the relaunch arc would be unreachable code that still looked implemented.
+    /// AiAttackCoordinatorTests.MusteredWave_WithEnoughSurvivors_IsSentBackIn is the test that
+    /// keeps it reachable.
+    /// </remarks>
+    public const int RelaunchAtPercentOfTargetSize = 34;
 
     private readonly AiOrderEmitter _emitter;
     private readonly AiTeamManager _teams;
