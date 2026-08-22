@@ -105,4 +105,28 @@ public interface IAiWorldView
     IReadOnlyList<AiBuildableTemplate> BuildableStructures { get; }
 
     // ==== END (S9-06) base/plot slice ===================================================
+
+    // ==== BEGIN (S9-08) production slice ================================================
+    //
+    // Added because AiProductionManager cannot be written without it. "Which of my buildings can
+    // train something right now, and what may it train" needs a ProductionUpdate module lookup,
+    // a CommandSet walk and an ObjectDefinition cost read - three things a manager is forbidden
+    // to do (see the file header). The team manager needs no slice of its own: it recruits out
+    // of OwnObjects, using the horde facts S9-08 added to AiObjectView.
+    //
+    // Append a NEW region below this one; do not grow this one.
+
+    /// <summary>
+    /// The player's own finished unit-producing structures, in ascending object-id order,
+    /// rebuilt per frame alongside <see cref="OwnObjects"/>.
+    /// </summary>
+    /// <remarks>
+    /// Membership is the sim's own rule: the object has a ProductionUpdate module. Whether it
+    /// will actually accept another entry right now is reported separately as
+    /// <see cref="AiProducerView.CanEnqueue"/>, so a manager can tell "no producers" (build a
+    /// barracks) from "producers all full" (wait), which are opposite decisions.
+    /// </remarks>
+    IReadOnlyList<AiProducerView> Producers { get; }
+
+    // ==== END (S9-08) production slice ==================================================
 }

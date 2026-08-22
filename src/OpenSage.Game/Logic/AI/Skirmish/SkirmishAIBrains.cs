@@ -93,5 +93,13 @@ public static class SkirmishAIBrains
         brain.RegisterManager(emitter);
 
         brain.RegisterManager(new AiBaseManager(emitter, economy));
+
+        // (S9-08) PURE APPEND, in this order and after the base manager for a reason: production
+        // spends what the base manager's farms earn, and the team manager only ever reads the
+        // objects production made. Both append AFTER the emitter, as the S9-06 note requires of
+        // every order-emitting manager. The team manager emits nothing itself (S9-09 gives teams
+        // their orders), so it is last.
+        brain.RegisterManager(new AiProductionManager(emitter, economy));
+        brain.RegisterManager(new AiTeamManager());
     }
 }

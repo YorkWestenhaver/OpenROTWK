@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using OpenSage.Gui.ControlBar;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Object.Castle;
 
@@ -33,6 +34,14 @@ public sealed class LiveAiWorldView : IAiWorldView
     // (S9-06) Rebuilt with the object snapshot; resolved once for the whole match.
     private readonly List<AiPlotView> _plots = new();
     private readonly List<AiBuildableTemplate> _buildableStructures = new();
+
+    // (S9-08) Rebuilt with the object snapshot. The trainable list hanging off each producer is
+    // a property of the DEFINITION (its CommandSet), not of the instance, so it is resolved once
+    // per definition name and shared by every producer of that type for the rest of the match -
+    // a CommandSet walk per barracks per frame would be pure waste in a 20-minute soak.
+    private readonly List<AiProducerView> _producers = new();
+    private readonly Dictionary<string, IReadOnlyList<AiTrainableUnit>> _trainableByDefinition =
+        new(StringComparer.OrdinalIgnoreCase);
 
     private uint _snapshotFrame;
     private bool _hasSnapshot;
@@ -94,6 +103,17 @@ public sealed class LiveAiWorldView : IAiWorldView
     }
 
     public IReadOnlyList<AiBuildableTemplate> BuildableStructures => _buildableStructures;
+
+    // ---- (S9-08) production slice ----
+
+    public IReadOnlyList<AiProducerView> Producers
+    {
+        get
+        {
+            EnsureSnapshot();
+            return _producers;
+        }
+    }
 
     public LiveAiWorldView(IGame game, Player player, Difficulty difficulty)
     {
@@ -221,6 +241,7 @@ public sealed class LiveAiWorldView : IAiWorldView
         _ownObjects.Clear();
         _enemyObjects.Clear();
         _plots.Clear();
+        _producers.Clear();
 
         foreach (var gameObject in _game.GameLogic.Objects)
         {
@@ -256,6 +277,17 @@ public sealed class LiveAiWorldView : IAiWorldView
                 {
                     _plots.Add(SnapshotPlot(gameObject, castle));
                 }
+
+                // (S9-08) A producer is any owned, finished object carrying a ProductionUpdate.
+                // Membership is the module's presence and nothing else; whether the queue will
+                // take another entry right now is the module's own CanEnqueue answer
+                // (ProductionUpdate.cs:554), carried through rather than re-derived here.
+                var production = gameObject.ProductionUpdate;
+
+                if (production != null && !gameObject.IsBeingConstructed())
+                {
+                    _producers.Add(SnapshotProducer(gameObject, production));
+                }
             }
             else if (_player.Enemies != null && _player.Enemies.Contains(owner))
             {
@@ -268,6 +300,7 @@ public sealed class LiveAiWorldView : IAiWorldView
         _ownObjects.Sort(CompareById);
         _enemyObjects.Sort(CompareById);
         _plots.Sort(ComparePlotById);
+        _producers.Sort(CompareProducerById);
 
         _snapshotFrame = frame;
         _hasSnapshot = true;
@@ -276,6 +309,95 @@ public sealed class LiveAiWorldView : IAiWorldView
     private static int CompareById(AiObjectView a, AiObjectView b) => a.Id.Index.CompareTo(b.Id.Index);
 
     private static int ComparePlotById(AiPlotView a, AiPlotView b) => a.Id.Index.CompareTo(b.Id.Index);
+
+    private static int CompareProducerById(AiProducerView a, AiProducerView b) => a.Id.Index.CompareTo(b.Id.Index);
+
+    // ---- (S9-08) producer snapshot ----
+
+    /// <summary>Snapshots one owned producer structure.</summary>
+    private AiProducerView SnapshotProducer(GameObject producer, OpenSage.Logic.Object.Update.ProductionUpdate production)
+    {
+        return new AiProducerView(
+            producer.Id,
+            producer.Definition.Name,
+            producer.Translation,
+            production.CanEnqueue(),
+            production.ProductionQueue.Count,
+            TrainableFor(producer.Definition));
+    }
+
+    /// <summary>
+    /// What a producer definition may train, cheapest first, ties by ordinal name.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The source is the definition's CommandSet: every button whose Command is
+    /// <c>CommandType.UnitBuild</c> names the ObjectDefinition that button trains, which is
+    /// exactly the set a human player can click at that building. Reusing the command bar's own
+    /// data is what keeps the AI's options and the player's options from drifting - and it means
+    /// AotR's renamed and re-costed units need no AI change at all.
+    /// </para>
+    /// <para>
+    /// Prerequisites and upgrade gating are NOT evaluated here: the AI may therefore propose a
+    /// unit the sim refuses, which costs it one cooldown and is traced. Modelling prerequisites
+    /// properly needs the science/upgrade state and belongs to a later packet; guessing at them
+    /// here would risk the opposite failure, an AI that thinks it can build nothing.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<AiTrainableUnit> TrainableFor(ObjectDefinition definition)
+    {
+        var key = definition.Name ?? string.Empty;
+
+        if (_trainableByDefinition.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var units = new List<AiTrainableUnit>();
+        var commandSet = definition.CommandSet?.Value;
+
+        if (commandSet != null)
+        {
+            // Buttons is a Dictionary keyed by slot number; walking it directly would be an
+            // iteration over an unordered hash collection, which the determinism rule forbids.
+            // Sorting the slots first makes the walk - and therefore the tie-breaks below -
+            // independent of dictionary internals.
+            var slots = new List<int>(commandSet.Buttons.Keys);
+            slots.Sort();
+
+            foreach (var slot in slots)
+            {
+                var button = commandSet.Buttons[slot]?.Value;
+
+                if (button == null || button.Command != CommandType.UnitBuild)
+                {
+                    continue;
+                }
+
+                var unit = button.Object?.Value;
+
+                if (unit == null || unit.InternalId <= 0)
+                {
+                    continue;
+                }
+
+                units.Add(new AiTrainableUnit(
+                    unit.InternalId,
+                    unit.Name,
+                    (int)Math.Max(0f, unit.BuildCost),
+                    unit.KindOf != null && unit.KindOf.Get(ObjectKinds.Horde)));
+            }
+
+            units.Sort(static (a, b) =>
+            {
+                var byCost = a.Cost.CompareTo(b.Cost);
+                return byCost != 0 ? byCost : string.CompareOrdinal(a.TemplateName, b.TemplateName);
+            });
+        }
+
+        _trainableByDefinition[key] = units;
+        return units;
+    }
 
     /// <summary>
     /// Snapshots one owned KINDOF BASE_FOUNDATION object.
@@ -330,6 +452,12 @@ public sealed class LiveAiWorldView : IAiWorldView
             (int)owner.Id,
             gameObject.IsKindOf(ObjectKinds.Structure),
             gameObject.IsBeingConstructed(),
-            healthFraction);
+            healthFraction,
+            gameObject.IsKindOf(ObjectKinds.Horde),
+            // (S9-08) The one fact the whole team lane turns on. ParentHorde is set on every
+            // object a horde contains, and AIUpdate.SetTargetPoint early-outs on it, so an order
+            // addressed to such an object is silently discarded. Reported here so managers can
+            // exclude them without ever touching a GameObject.
+            gameObject.ParentHorde != null);
     }
 }
