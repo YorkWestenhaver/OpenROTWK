@@ -53,6 +53,13 @@ internal sealed class FakeAiWorldView : IAiWorldView
 
     public IReadOnlyList<AiBuildableTemplate> BuildableStructures => Buildable;
 
+    // ---- (S9-08) production slice ----
+
+    /// <summary>Mutable backing for <see cref="Producers"/>.</summary>
+    public List<AiProducerView> ProducerList { get; } = new();
+
+    public IReadOnlyList<AiProducerView> Producers => ProducerList;
+
     /// <summary>Advances the fake clock by one frame, as a real logic tick would.</summary>
     public void AdvanceFrame() => CurrentFrame++;
 }
