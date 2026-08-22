@@ -75,6 +75,9 @@ using OpenSage.Terrain;
 using OpenSage.Terrain.Roads;
 using Xunit;
 using Player = OpenSage.Logic.Player;
+// [INT-R2B] CS0104: OpenSage.Graphics.Rendering (needed for the IGame/render-context stubs below)
+// also declares a RenderItem. The Apt display-list RenderItem is the one this file means.
+using RenderItem = OpenSage.Gui.Apt.RenderItem;
 
 namespace OpenSage.Tests.Mods.Bfme;
 
@@ -392,6 +395,16 @@ public class AptControlBarSelectionPathTests : MockedGameTest
                 var placeholderScript = new ObjectContext();
                 var placeholder = NewSprite(placeholderScript);
                 placeholder.Visible = true;
+
+                // [INT-R2B] The slot needs BOTH display items, not just the one the engine reads.
+                // AptControlBar.GetSecondRenderItem gates on `items.Count > 1` before taking
+                // items[1], so a display list holding only key 1 is skipped entirely and
+                // ClearCommandbuttons silently touches nothing — which is what made all three
+                // Clear cases fail, including the CncGenerals control pair. A real Palantir slot
+                // is a background at depth 0 with the button shape at depth 1; model that.
+                var background = (RenderItem)RuntimeHelpers.GetUninitializedObject(typeof(RenderItem));
+                GC.SuppressFinalize(background);
+                ItemsOf(placeholder.Content).Add(0, background);
                 ItemsOf(placeholder.Content).Add(1, shape);
 
                 var button = new ObjectContext();
