@@ -15,6 +15,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using OpenSage.Logic;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Sim;
 using Xunit;
