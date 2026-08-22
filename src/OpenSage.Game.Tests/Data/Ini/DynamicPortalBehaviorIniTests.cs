@@ -1,4 +1,5 @@
-﻿using OpenSage.Logic.Object;
+﻿using System.Linq;
+using OpenSage.Logic.Object;
 using Xunit;
 
 namespace OpenSage.Tests.Data.Ini;
@@ -7,9 +8,11 @@ namespace OpenSage.Tests.Data.Ini;
 /// Parse-level regression tests for the four fixes in spec-dynamic-portal.md §3.2
 /// (g2-portal): the missing WallBoundsMesh field, TopAttackRadius's retail type/default,
 /// AboveWall's retail default, and the shared upgrade-mux field block replacing the
-/// module's former private TriggeredBy/ConflictsWith/CustomAnimAndDuration copies.
-/// DynamicPortalBehaviorModuleData is still [ParseOnly] (no runtime module), so these
-/// assert directly on the parsed ModuleData rather than spawning a GameObject.
+/// module's former private TriggeredBy/ConflictsWith/CustomAnimAndDuration copies, plus the
+/// R15 L5-P8 Link reshape (§5.6, §6: a flat [From, Via..., To] vector in authored order).
+/// These assert directly on the parsed ModuleData rather than spawning a GameObject; the
+/// runtime module the L5-P8 port added is covered by
+/// Logic/Object/Behaviors/DynamicPortalBehaviorContractTests.cs.
 /// </summary>
 public class DynamicPortalBehaviorIniTests
 {
@@ -161,6 +164,57 @@ public class DynamicPortalBehaviorIniTests
         Assert.False(module.UpgradeData.RequiresAllTriggers);
         Assert.False(module.UpgradeData.RequiresAllConflictingTriggers);
         Assert.False(module.UpgradeData.Permanent);
+    }
+
+    [Fact]
+    public void Link_ParsesAsAFlatRouteInAuthoredOrder()
+    {
+        // Retail stores and consumes a Link row as a flat, variable-length int vector in
+        // authored order - [From, Via1..ViaN, To] - and its chaining loop walks consecutive
+        // pairs of it (spec §5.6, §6). The former {From, Vias, To} shape round-tripped the
+        // same data but would make any consumer reproduce the wrong iteration bound.
+        var module = ParsePortal(
+            "    BonePrefix = Ladder\n" +
+            "    NumberOfBones = 4\n" +
+            "    Link = From:0 Via:4 Via:5 To:3\n");
+
+        var link = Assert.Single(module.Links);
+        Assert.Equal(new[] { 0, 4, 5, 3 }, link.Route);
+        Assert.Equal(0, link.From);
+        Assert.Equal(3, link.To);
+        Assert.Equal(new[] { 4, 5 }, link.Vias);
+    }
+
+    [Fact]
+    public void Link_WithNoVias_IsATwoElementRoute()
+    {
+        var module = ParsePortal(
+            "    BonePrefix = Post\n" +
+            "    Link = From:0 To:1\n");
+
+        var link = Assert.Single(module.Links);
+        Assert.Equal(new[] { 0, 1 }, link.Route);
+        Assert.Empty(link.Vias);
+    }
+
+    [Fact]
+    public void WayPoint_IndexIsABoneIndex_AndListPositionIsTheWaypointNumber()
+    {
+        // Three separate index spaces (spec §2.1): bones 1 and 2 each appear twice, once on
+        // the way up and once on the way down, so the six-entry list is not a bone list.
+        var module = ParsePortal(
+            "    BonePrefix = Ladder\n" +
+            "    NumberOfBones = 4\n" +
+            "    WayPoint = Index:0 Type:PreClimb\n" +
+            "    WayPoint = Index:1 Type:PreClimb\n" +
+            "    WayPoint = Index:2 Type:Climb\n" +
+            "    WayPoint = Index:3 Type:Climb\n" +
+            "    WayPoint = Index:2 Type:Climb\n" +
+            "    WayPoint = Index:1 Type:Climb\n");
+
+        Assert.Equal(new[] { 0, 1, 2, 3, 2, 1 }, module.WayPoints.Select(w => w.Index));
+        Assert.Equal(DynamicPortalWayPointType.PreClimb, module.WayPoints[0].Type);
+        Assert.Equal(DynamicPortalWayPointType.Climb, module.WayPoints[5].Type);
     }
 
     [Fact]

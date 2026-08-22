@@ -18,9 +18,13 @@
 // TODO-spec (deliberate, filed not invented - spec §9 lists these as the Phase-2 boundary):
 //   - The waypoint helper object's own template ("#dynamicportal_wp") and the class that
 //     reads the fields stamped onto it are not recovered (spec §9 item 3). This port creates
-//     the helper objects when the template resolves and records the per-portal stamp values
-//     (AllowEnemies / ObjectFilter / activation deadline) on the module instead of on the
-//     helper, because there is no helper class to hold them yet.
+//     the helper objects when the template resolves, and holds the activation deadline on the
+//     module because there is no helper class to stamp it onto. The AllowEnemies and
+//     ObjectFilter stamps have no holder at all yet and no reader either (the eligibility
+//     decision lives in whatever consumes the helper object, spec §8 Q8), so they stay on the
+//     ModuleData until the helper class ports. Note also that the template name begins with
+//     '#', which the INI tokenizer reads as a macro-function sigil, so NO .ini file can
+//     declare it: the missing-template path below is the one the fork actually takes today.
 //   - The pathfinder-side registration/unregistration and the (first,last) route pairing
 //     (spec §9 item 2) are calls whose callees are not identified. This port records the
 //     route heads and pairs it WOULD register, deterministically, and does not invent a
@@ -297,7 +301,17 @@ public sealed class DynamicPortalBehavior : UpgradeModule, ICreateModule
 
     private void ChainRoutes(bool firstGeneration)
     {
-        ClearChainState();
+        // The route-head registration is what re-runs on a refresh call, so the head list is
+        // "the heads handed over by the most recent call" and is rebuilt every time. The pairs
+        // and the chain are registered ONCE, at first generation, and survive refreshes -
+        // they are cleared only by teardown (spec §5.3 Phase B, §5.7).
+        _registeredRouteHeads.Clear();
+
+        if (firstGeneration)
+        {
+            Array.Clear(_chainNext, 0, _chainNext.Length);
+            _routePairs.Clear();
+        }
 
         foreach (var link in _moduleData.Links)
         {
