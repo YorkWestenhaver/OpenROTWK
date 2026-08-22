@@ -9,6 +9,8 @@ namespace OpenSage.Logic.Object;
 [AddedIn(SageGame.Bfme)]
 public sealed class HordeContainBehavior : UpdateModule
 {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
     private readonly HordeContainModuleData _moduleData;
 
     private Dictionary<int, List<HordeMemberPosition>> _formation;
@@ -36,6 +38,25 @@ public sealed class HordeContainBehavior : UpdateModule
         return _payload;
     }
 
+    /// <summary>
+    /// Builds the per-rank formation slots from the module's RankInfo list.
+    /// </summary>
+    /// <remarks>
+    /// A rank's <c>UnitType</c> can fail to resolve in two ways, both of which occur on real
+    /// AotR content: the field can be absent/NONE (<see cref="RankInfo.UnitType"/> is then null,
+    /// see <c>IniParser.ParseObjectReference</c>), or it can name an object whose definition was
+    /// never loaded — <c>ScopedAssetCollection.GetByName</c> has no on-demand loader for
+    /// ObjectDefinitions and simply returns null, so the lazy reference resolves to null. Either
+    /// way the slot has no template to spawn.
+    ///
+    /// Degraded behavior: the unresolvable slots are DROPPED from the formation rather than kept
+    /// as null-template placeholders. Dropping (not keeping-and-skipping) is what makes the rest
+    /// of the horde behave correctly: a retained empty slot would keep
+    /// <see cref="EnqueuePayload"/> counting a registration that can never arrive, so
+    /// <see cref="_pendingRegistrations"/> would never reach zero and the producing structure's
+    /// door would never close. The horde still forms with its resolvable ranks, which is the
+    /// closest correct approximation of a horde whose content is partially missing.
+    /// </remarks>
     private Dictionary<int, List<HordeMemberPosition>> CreateFormationOffsets()
     {
         var result = new Dictionary<int, List<HordeMemberPosition>>();
@@ -43,11 +64,23 @@ public sealed class HordeContainBehavior : UpdateModule
         foreach (var rankInfo in _moduleData.RankInfos)
         {
             result.Add(i, new List<HordeMemberPosition>());
+
+            var definition = rankInfo.UnitType?.Value;
+            if (definition == null)
+            {
+                Logger.Warn(
+                    $"HordeContain on '{GameObject.Definition.Name}': rank {rankInfo.RankNumber} " +
+                    $"references unresolvable UnitType '{rankInfo.UnitTypeName ?? "NONE"}'; " +
+                    $"dropping {rankInfo.Positions.Count} formation slot(s) from this rank");
+                i++;
+                continue;
+            }
+
             foreach (var pos in rankInfo.Positions)
             {
                 result[i].Add(new HordeMemberPosition
                 {
-                    Definition = rankInfo.UnitType.Value,
+                    Definition = definition,
                     Object = null,
                     Position = new Vector3(pos, 0)
                 });
@@ -64,6 +97,19 @@ public sealed class HordeContainBehavior : UpdateModule
             foreach (var position in rank)
             {
                 var createdObject = GameEngine.GameLogic.CreateObject(position.Definition, GameObject.Owner);
+                if (createdObject == null)
+                {
+                    // GameLogic.CreateObject returns null for a null template. CreateFormationOffsets
+                    // already drops ranks whose UnitType does not resolve, so this is defence in depth
+                    // for any other path that seats a slot: leave the slot empty (Register can still
+                    // fill it later, SetTargetPoints/GetFormationOffset already tolerate a null Object)
+                    // instead of dereferencing null and taking the whole map load down with it.
+                    Logger.Warn(
+                        $"HordeContain on '{GameObject.Definition.Name}': could not create horde member " +
+                        $"'{position.Definition?.Name ?? "NONE"}'; leaving its formation slot empty");
+                    continue;
+                }
+
                 createdObject.ParentHorde = GameObject;
                 position.Object = createdObject;
                 _payload.Add(createdObject);
@@ -362,7 +408,9 @@ public sealed class RankInfo
     internal static readonly IniParseTable<RankInfo> FieldParseTable = new IniParseTable<RankInfo>
     {
         { "RankNumber", (parser, x) => x.RankNumber = parser.ParseInteger() },
-        { "UnitType", (parser, x) => x.UnitType = parser.ParseObjectReference() },
+        // The raw token is kept alongside the lazy reference so a failure to resolve it can name
+        // the missing object in a log line; LazyAssetReference itself carries no identity.
+        { "UnitType", (parser, x) => { x.UnitTypeName = parser.ParseAssetReference(); x.UnitType = parser.ParseObjectReference(x.UnitTypeName); } },
         { "Position", (parser, x) => x.Positions.Add(parser.ParseVector2()) },
         { "RevokedWeaponCondition", (parser, x) => x.RevokedWeaponCondition = parser.ParseEnum<WeaponSetConditions>() },
         { "GrantedWeaponCondition", (parser, x) => x.GrantedWeaponCondition = parser.ParseEnum<WeaponSetConditions>() },
@@ -371,6 +419,9 @@ public sealed class RankInfo
 
     public int RankNumber { get; private set; }
     public LazyAssetReference<ObjectDefinition> UnitType { get; private set; }
+
+    /// <summary>The raw <c>UnitType</c> token, for diagnostics when it fails to resolve.</summary>
+    public string UnitTypeName { get; private set; }
     public List<Vector2> Positions { get; } = new List<Vector2>();
     public WeaponSetConditions RevokedWeaponCondition { get; private set; }
     public WeaponSetConditions GrantedWeaponCondition { get; private set; }
