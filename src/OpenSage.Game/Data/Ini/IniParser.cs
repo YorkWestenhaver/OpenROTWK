@@ -334,7 +334,10 @@ internal sealed partial class IniParser
         return result.ToArray();
     }
 
-    public bool IsInteger(in IniToken token) => int.TryParse(token.Text, out _);
+    // Must agree with ScanInteger (ParseUtility.ParseInteger / sscanf "%d" semantics), otherwise
+    // float-shaped tokens like "2." are peeked as non-integers but scanned as 2, and inline
+    // integer lists silently stop short of their real end.
+    public bool IsInteger(in IniToken token) => ParseUtility.IsInteger(token.Text);
 
     public int GetIntegerOptional()
     {
@@ -375,7 +378,7 @@ internal sealed partial class IniParser
         return result.ToArray();
     }
 
-    public uint ScanUnsignedInteger(in IniToken token) => Convert.ToUInt32(token.Text);
+    public uint ScanUnsignedInteger(in IniToken token) => ParseUtility.ParseUnsignedInteger(token.Text);
 
     public uint ParseUnsignedInteger() => ScanUnsignedInteger(GetNextToken());
 
@@ -1078,7 +1081,7 @@ internal sealed partial class IniParser
     {
         var token = PeekNextTokenOptional();
 
-        if (token.HasValue && int.TryParse(token.Value.Text, out var integer))
+        if (token.HasValue && ParseUtility.TryParseInteger(token.Value.Text, out var integer))
         {
             return integer;
         }

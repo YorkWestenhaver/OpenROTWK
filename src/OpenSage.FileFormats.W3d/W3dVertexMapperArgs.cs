@@ -154,16 +154,29 @@ public sealed record W3dVertexMapperArgs(
                             ParseUtility.TryParseFloat(mapperArgValue, out fps);
                             break;
 
+                        // Mapper-arg integers go through ParseUtility, which reproduces the
+                        // engine's sscanf("%d") field scan: float-shaped values such as "2."
+                        // (present in shipped art) truncate to their integer part instead of
+                        // throwing, and a value with no digits leaves the default in place.
                         case "Log1Width":
-                            log1Width = int.Parse(mapperArgValue);
+                            if (ParseUtility.TryParseInteger(mapperArgValue, out var parsedLog1Width))
+                            {
+                                log1Width = parsedLog1Width;
+                            }
                             break;
 
                         case "Log2Width":
-                            log2Width = int.Parse(mapperArgValue);
+                            if (ParseUtility.TryParseInteger(mapperArgValue, out var parsedLog2Width))
+                            {
+                                log2Width = parsedLog2Width;
+                            }
                             break;
 
                         case "Last":
-                            int.TryParse(mapperArgValue, out last);
+                            if (ParseUtility.TryParseInteger(mapperArgValue, out var parsedLast))
+                            {
+                                last = parsedLast;
+                            }
                             break;
 
                         case "Speed":
