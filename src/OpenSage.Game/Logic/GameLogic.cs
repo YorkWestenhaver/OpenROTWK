@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using ImGuiNET;
 using OpenSage.Content;
+using OpenSage.Diagnostics;
 using OpenSage.Logic.Map;
 using OpenSage.Logic.Object;
 using OpenSage.Logic.Object.Castle;
@@ -346,6 +347,11 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
     {
         var now = _currentFrame;
 
+        // OBS-2: every sim-side crash so far named a method but not a subject. One cheap
+        // ambient frame here (two array writes, no allocation) means the crash handler can
+        // print the logic frame the sim died on without any per-frame logging.
+        using var frameScope = CrashContext.Push("frame", now.Value);
+
         while (_sleepyUpdates.Count > 0)
         {
             var updateModule = _sleepyUpdates.Peek();
@@ -360,12 +366,20 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
             // Default, if it is disabled.
             var sleepLength = UpdateSleepTime.None;
 
-            var disabledMask = updateModule.ParentGameObject.DisabledFlags;
+            var parentGameObject = updateModule.ParentGameObject;
+            var disabledMask = parentGameObject.DisabledFlags;
             if (!disabledMask.AnyBitSet || disabledMask.Intersects(updateModule.DisabledTypesToProcess))
             {
                 _currentUpdateModule = updateModule;
 
-                sleepLength = updateModule.Update();
+                // OBS-2: names the object and module a sim crash died inside. Type.Name is
+                // cached by the runtime and the definition name is a string we already hold,
+                // so this is allocation-free per module tick.
+                using (CrashContext.Push("object", parentGameObject.Definition?.Name, parentGameObject.Id.Index))
+                using (CrashContext.Push("module", updateModule.GetType().Name))
+                {
+                    sleepLength = updateModule.Update();
+                }
 
                 DebugUtility.AssertCrash(sleepLength.FrameSpan > LogicFrameSpan.Zero, "You may not return 0 from an update");
                 if (sleepLength.FrameSpan < LogicFrameSpan.One)
@@ -438,7 +452,16 @@ internal sealed class GameLogic : DisposableBase, IGameObjectCollection, IPersis
         // rather than one call later.
         foreach (var gameObject in _objects)
         {
-            gameObject?.Update();
+            if (gameObject == null)
+            {
+                continue;
+            }
+
+            using (CrashContext.Push("object", gameObject.Definition?.Name, gameObject.Id.Index))
+            using (CrashContext.Push("module", "GameObject.Update"))
+            {
+                gameObject.Update();
+            }
         }
     }
 

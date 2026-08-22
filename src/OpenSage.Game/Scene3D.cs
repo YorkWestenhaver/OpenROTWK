@@ -184,6 +184,11 @@ public sealed class Scene3D : DisposableBase, IScene3D
         {
             var mapObject = mapObjects[i];
 
+            // OBS-2: map load is the other place crashes are anonymous - the stack names
+            // GameObject.FromMapObject or a behavior ctor, never which map object. Scoped per
+            // iteration, so `continue` and the bridge/road `++i` paths all unwind it correctly.
+            using var mapObjectScope = OpenSage.Diagnostics.CrashContext.Push("mapObject", mapObject.TypeName, i);
+
             switch (mapObject.RoadType & RoadType.PrimaryType)
             {
                 case RoadType.None:

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using CommandLine;
 using NLog;
 using NLog.Targets;
@@ -96,11 +98,141 @@ public static class Program
 
         LogManager.Setup().SetupExtensions(b => b.RegisterTarget<Core.InternalLogger>("OpenSage"));
 
+        InstallCrashHandlers();
+
         Parser.Default.ParseArguments<Options>(args)
           .WithParsed(opts => Run(opts));
     }
 
     private static NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+    // ---- OBS-2: crash observability -------------------------------------------------
+    //
+    // Two defects this closes, both proven by the R1 sweep:
+    //   1. A managed crash printed a stack and nothing else - not the logic frame, not the
+    //      object, not the map object being loaded. CrashContext (OpenSage.Core) carries that
+    //      identity ambiently; here we format it into ONE greppable CRASH-CONTEXT-V1 line.
+    //   2. THE INSTRUMENT DEFECT: --ai-report was only written after the game loop exited
+    //      cleanly, so a crashing run produced zero M-a/M-b signal and the gate could not tell
+    //      "the AI did nothing" from "the process died first". The report is now also flushed
+    //      on the unhandled-exception path, marked partial=true.
+
+    /// <summary>Set once a match with --ai-report is underway; invoked (once) by the crash path.</summary>
+    private static Action? _flushPartialAiReport;
+
+    /// <summary>0/1 latch so a crash emits exactly one CRASH-CONTEXT-V1 line per process.</summary>
+    private static int _crashLineEmitted;
+
+    private static void InstallCrashHandlers()
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            EmitCrashContext(e.ExceptionObject as Exception, e.IsTerminating ? "unhandled-terminating" : "unhandled");
+        };
+
+        // An unobserved task fault does not terminate the process on .NET Core, so this path
+        // deliberately does NOT flush the AI report or consume the one-line latch: it reports a
+        // background fault that would otherwise be invisible, without pre-empting the real crash
+        // line for a crash that may still be coming.
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Logger.Fatal(e.Exception, "Unobserved task exception");
+            WriteCrashLineToStderr(CrashContext.FormatCrashLine(e.Exception, "unobserved-task"));
+        };
+    }
+
+    /// <summary>
+    /// Emits the single machine-readable crash record (stderr AND the NLog file, because the
+    /// harness reads the wrapper log and triage reads the NLog file), then flushes a partial
+    /// AI match report if a match was underway.
+    /// </summary>
+    internal static void EmitCrashContext(Exception? exception, string phase)
+    {
+        if (Interlocked.Exchange(ref _crashLineEmitted, 1) != 0)
+        {
+            return;
+        }
+
+        var line = CrashContext.FormatCrashLine(exception, phase);
+
+        WriteCrashLineToStderr(line);
+
+        try
+        {
+            Logger.Fatal(exception, line);
+            LogManager.Flush(TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
+            // Never let the crash reporter throw out of a crash path.
+        }
+
+        FlushPartialAiReport();
+    }
+
+    private static void WriteCrashLineToStderr(string line)
+    {
+        try
+        {
+            Console.Error.WriteLine(line);
+            Console.Error.Flush();
+        }
+        catch
+        {
+            // Never let the crash reporter throw out of a crash path.
+        }
+    }
+
+    private static void FlushPartialAiReport()
+    {
+        var flush = Interlocked.Exchange(ref _flushPartialAiReport, null);
+        if (flush == null)
+        {
+            return;
+        }
+
+        try
+        {
+            flush();
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                Console.Error.WriteLine($"--ai-report: partial flush failed: {ex}");
+            }
+            catch
+            {
+                // Swallowed: we are already unwinding a crash.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Captures the end-of-match snapshots and writes the report. Used by BOTH the clean exit
+    /// path and the crash flush; <paramref name="partial"/> is the only difference. On the crash
+    /// path the live capture may itself throw (that is how we got here), so it degrades to
+    /// re-using the start snapshots rather than losing the report entirely - still marked
+    /// partial, so a grader never mistakes it for a verdict.
+    /// </summary>
+    private static void WriteAiReport(
+        Game game,
+        IReadOnlyList<AiMatchReport.PlayerSnapshot> start,
+        string path,
+        bool partial)
+    {
+        IReadOnlyList<AiMatchReport.PlayerSnapshot> CaptureEnd() =>
+            AiMatchReport.CaptureAll(AiMatchReport.SkirmishAiBrains(game.PlayerManager.Players));
+
+        var report = partial
+            ? AiMatchReport.BuildPartial(
+                start,
+                CaptureEnd,
+                ex => Logger.Error(ex, "--ai-report: end-of-match capture failed on the crash path; falling back to the start snapshots."))
+            : AiMatchReport.Build(start, CaptureEnd(), generatedAtUtc: null, partial: false);
+        report.WriteToFile(path);
+        Logger.Info($"--ai-report: wrote {path} (milestoneA={report.MilestoneA} milestoneB={report.MilestoneB} pass={report.Pass} partial={report.Partial})");
+    }
 
     private static PlayerOwner LogUnknownDifficultyAndDefault(string? requested)
     {
@@ -317,6 +449,14 @@ public static class Program
                 var brains = AiMatchReport.SkirmishAiBrains(game.PlayerManager.Players);
                 aiReportStart = AiMatchReport.CaptureAll(brains);
                 Logger.Info($"--ai-report: capturing {aiReportStart.Count} skirmish-AI player(s) for {opts.AiReport}");
+
+                // OBS-2: arm the crash-path flush. From here until the clean write below, an
+                // unhandled exception still produces an --ai-report file (partial=true) instead
+                // of nothing, so a crashing run yields graded M-a/M-b signal for the frames it
+                // did manage to run.
+                var reportStart = aiReportStart;
+                var reportPath = opts.AiReport;
+                _flushPartialAiReport = () => WriteAiReport(game, reportStart, reportPath, partial: true);
             }
 
             game.InputMessageBuffer.Handlers.Add(
@@ -346,50 +486,62 @@ public static class Program
 
             game.StartRun();
 
-            while (game.IsRunning)
+            // OBS-2: the game loop is the crash surface the sweep actually hits. Catching here
+            // (rather than relying only on the AppDomain hook) means the partial report is
+            // written while `game` is still alive and undisposed; the exception is rethrown
+            // unchanged, so the process exit code and the AppDomain hook's stack are unaffected.
+            try
             {
-                if (!window.PumpEvents())
+                while (game.IsRunning)
                 {
-                    break;
+                    if (!window.PumpEvents())
+                    {
+                        break;
+                    }
+
+                    if (developerModeEnabled)
+                    {
+                        developerModeView.Tick();
+                    }
+                    else
+                    {
+                        game.Update(window.MessageQueue);
+
+                        game.Panel.EnsureFrame(window.ClientBounds);
+
+                        game.Render();
+
+                        textureCopier.Execute(
+                            game.Panel.Framebuffer.ColorTargets[0].Target,
+                            window.Swapchain.Framebuffer);
+                    }
+
+                    window.MessageQueue.Clear();
+
+                    game.GraphicsDevice.SwapBuffers(window.Swapchain);
+
+                    if (opts.ExitAfterFrames.HasValue && game.CurrentLogicFrameNumber >= (uint)opts.ExitAfterFrames.Value)
+                    {
+                        Logger.Info($"Exiting after reaching logic frame {game.CurrentLogicFrameNumber} (--exit-after-frames {opts.ExitAfterFrames.Value})");
+                        break;
+                    }
                 }
-
-                if (developerModeEnabled)
-                {
-                    developerModeView.Tick();
-                }
-                else
-                {
-                    game.Update(window.MessageQueue);
-
-                    game.Panel.EnsureFrame(window.ClientBounds);
-
-                    game.Render();
-
-                    textureCopier.Execute(
-                        game.Panel.Framebuffer.ColorTargets[0].Target,
-                        window.Swapchain.Framebuffer);
-                }
-
-                window.MessageQueue.Clear();
-
-                game.GraphicsDevice.SwapBuffers(window.Swapchain);
-
-                if (opts.ExitAfterFrames.HasValue && game.CurrentLogicFrameNumber >= (uint)opts.ExitAfterFrames.Value)
-                {
-                    Logger.Info($"Exiting after reaching logic frame {game.CurrentLogicFrameNumber} (--exit-after-frames {opts.ExitAfterFrames.Value})");
-                    break;
-                }
+            }
+            catch (Exception ex)
+            {
+                EmitCrashContext(ex, "game-loop");
+                throw;
             }
 
             // --ai-report: written here, still inside the `game` using-block, so the final
             // capture reads live World/Trace state before disposal - never after.
             if (aiReportStart != null && !string.IsNullOrEmpty(opts.AiReport))
             {
-                var brains = AiMatchReport.SkirmishAiBrains(game.PlayerManager.Players);
-                var aiReportEnd = AiMatchReport.CaptureAll(brains);
-                var report = AiMatchReport.Build(aiReportStart, aiReportEnd);
-                report.WriteToFile(opts.AiReport);
-                Logger.Info($"--ai-report: wrote {opts.AiReport} (milestoneA={report.MilestoneA} milestoneB={report.MilestoneB} pass={report.Pass})");
+                // Clean exit: disarm the crash flush first, so nothing can overwrite this
+                // complete report with a partial one during teardown.
+                Interlocked.Exchange(ref _flushPartialAiReport, null);
+
+                WriteAiReport(game, aiReportStart, opts.AiReport, partial: false);
             }
         }
 

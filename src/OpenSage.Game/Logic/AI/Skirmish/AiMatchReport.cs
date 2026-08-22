@@ -175,11 +175,23 @@ public sealed class AiMatchReport
     /// <summary>The R1-gate verdict this run contributes: both milestones, for every AI player.</summary>
     public bool Pass => MilestoneA && MilestoneB;
 
-    public AiMatchReport(IReadOnlyList<PlayerResult> players, string? generatedAtUtc = null)
+    /// <summary>
+    /// OBS-2: true when this report was flushed from a crash/teardown path instead of a clean
+    /// end-of-match capture, i.e. the match was cut short by an unhandled exception. The
+    /// milestone booleans are still computed from whatever the AI managed to do before the
+    /// crash - a partial report with milestoneB=true is real evidence that a foundation was
+    /// built; a partial report with milestoneA=false is NOT evidence that money failed to
+    /// rise, only that the run died before it could. Graders must read this field before
+    /// scoring a FAIL: partial=true means "no verdict", not "failed".
+    /// </summary>
+    public bool Partial { get; }
+
+    public AiMatchReport(IReadOnlyList<PlayerResult> players, string? generatedAtUtc = null, bool partial = false)
     {
         ArgumentNullException.ThrowIfNull(players);
 
         Players = players;
+        Partial = partial;
         GeneratedAtUtc = generatedAtUtc ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
     }
 
@@ -223,7 +235,8 @@ public sealed class AiMatchReport
     public static AiMatchReport Build(
         IReadOnlyList<PlayerSnapshot> start,
         IReadOnlyList<PlayerSnapshot> end,
-        string? generatedAtUtc = null)
+        string? generatedAtUtc = null,
+        bool partial = false)
     {
         ArgumentNullException.ThrowIfNull(start);
         ArgumentNullException.ThrowIfNull(end);
@@ -243,7 +256,41 @@ public sealed class AiMatchReport
             }
         }
 
-        return new AiMatchReport(results, generatedAtUtc);
+        return new AiMatchReport(results, generatedAtUtc, partial);
+    }
+
+    /// <summary>
+    /// OBS-2's crash/teardown flush. Before this existed the report was written only after a
+    /// clean game-loop exit, so any run that crashed produced NO report at all and the R1 gate
+    /// could not distinguish "the AI achieved nothing" from "the process died at frame 127".
+    ///
+    /// The end capture is passed as a delegate rather than a list because on the crash path it
+    /// reads live world state that may be exactly what just blew up: if it throws, the report
+    /// degrades to start-vs-start (every delta reads zero) instead of being lost.
+    /// <paramref name="onCaptureFailed"/> is how the caller logs that degradation. The result is
+    /// always <see cref="Partial"/>.
+    /// </summary>
+    public static AiMatchReport BuildPartial(
+        IReadOnlyList<PlayerSnapshot> start,
+        Func<IReadOnlyList<PlayerSnapshot>> captureEnd,
+        Action<Exception>? onCaptureFailed = null,
+        string? generatedAtUtc = null)
+    {
+        ArgumentNullException.ThrowIfNull(start);
+        ArgumentNullException.ThrowIfNull(captureEnd);
+
+        IReadOnlyList<PlayerSnapshot> end;
+        try
+        {
+            end = captureEnd() ?? start;
+        }
+        catch (Exception ex)
+        {
+            onCaptureFailed?.Invoke(ex);
+            end = start;
+        }
+
+        return Build(start, end, generatedAtUtc, partial: true);
     }
 
     // ---- serialization: hand-rolled, dependency-free (same house rule as GameTrace.cs's
@@ -259,6 +306,7 @@ public sealed class AiMatchReport
         AppendRawField(sb, "milestoneA", Bool(MilestoneA));
         AppendRawField(sb, "milestoneB", Bool(MilestoneB));
         AppendRawField(sb, "pass", Bool(Pass));
+        AppendRawField(sb, "partial", Bool(Partial));
 
         sb.Append(",\"players\":[");
         for (var i = 0; i < Players.Count; i++)
