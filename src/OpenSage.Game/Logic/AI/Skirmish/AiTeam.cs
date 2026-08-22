@@ -191,9 +191,36 @@ public sealed class AiTeam
         return State == AiTeamState.Tasked && MoveTo(AiTeamState.Ready, frame);
     }
 
-    /// <summary>Ready -> Tasked. Only a Ready team may be given a mission.</summary>
+    /// <summary>
+    /// Ready -> Tasked. Only a Ready team may be given a mission.
+    /// </summary>
+    /// <remarks>
+    /// Taking a mission REBASES <see cref="PeakSize"/> onto the members the team actually marches
+    /// out with, because peak means "the most this team held on its current sortie" — the maul
+    /// judgement <see cref="AiTeamManager.ShouldRetreat"/> makes is only meaningful against the
+    /// strength the team set out with. [INT-R2B] Without the rebase a regrouped survivor team is
+    /// re-tasked while its peak still records the pre-maul army, so
+    /// <c>AiTeamManager.Update</c> marks it Retreating on the very next tick, the attack wave
+    /// musters again, regroups, relaunches — and the wave ping-pongs between Engaging and
+    /// Mustering forever instead of fighting. On a first sortie the team is at target size, so
+    /// this is a no-op; it only bites on the relaunch arc S9-09 introduced.
+    /// </remarks>
     public bool MarkTasked(uint frame)
-        => State == AiTeamState.Ready && MoveTo(AiTeamState.Tasked, frame);
+    {
+        if (State != AiTeamState.Ready || !MoveTo(AiTeamState.Tasked, frame))
+        {
+            return false;
+        }
+
+        // Never rebase to zero: PeakSize > 0 is also the manager's "this team once had members"
+        // wipe test, and an empty team must still grade as wiped rather than as a fresh slot.
+        if (_members.Count > 0)
+        {
+            PeakSize = _members.Count;
+        }
+
+        return true;
+    }
 
     /// <summary>Tasked -> Retreating.</summary>
     public bool MarkRetreating(uint frame)
