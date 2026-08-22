@@ -96,8 +96,25 @@ public sealed class AptFile
 
             //get the export from that apt and proceed
             var export = importApt.Movie.Exports.Find(x => x.Name == import.Name);
+            if (export == null)
+            {
+                Logger.Warn($"Apt file '{MovieName}' imports '{import.Name}' from '{import.Movie}', which exports no such name; skipping the import.");
+                continue;
+            }
 
-            //place the exported character inside our movie
+            //place the exported character inside our movie. Both indices are trusted by the
+            //format but not by us: Age of the Ring ships apt files (reachable from Palantir.apt)
+            //whose import slot is past the end of the importing movie's character table, and an
+            //out-of-range write there used to take the whole process down mid-match rather than
+            //costing one widget.
+            if (import.Character >= Movie.Characters.Count ||
+                export.Character >= importApt.Movie.Characters.Count)
+            {
+                Logger.Warn($"Apt file '{MovieName}' import '{import.Name}' from '{import.Movie}' is out of range " +
+                            $"(slot {import.Character} of {Movie.Characters.Count}, source {export.Character} of {importApt.Movie.Characters.Count}); skipping the import.");
+                continue;
+            }
+
             Movie.Characters[(int)import.Character] = importApt.Movie.Characters[(int)export.Character];
         }
     }

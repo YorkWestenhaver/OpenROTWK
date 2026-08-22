@@ -18,6 +18,26 @@ public sealed class Not : InstructionBase
 }
 
 /// <summary>
+/// SWF4 ActionEquals (0x0E): pop two values, compare them AS NUMBERS, push the result.
+/// </summary>
+/// <remarks>
+/// Distinct from <see cref="Equals2"/> (0x49), which compares with type semantics and returns
+/// false for a type mismatch. The numeric form is what Age of the Ring's Palantir.apt emits, and
+/// leaving it unimplemented made <c>InstructionCollection.Parse</c> throw for the whole movie.
+/// </remarks>
+public sealed class EqualsNumeric : InstructionBase
+{
+    public override InstructionType Type => InstructionType.Equals;
+
+    public override void Execute(ActionContext context)
+    {
+        var a = context.Pop().ToFloat();
+        var b = context.Pop().ToFloat();
+        context.Push(Value.FromBoolean(a == b));
+    }
+}
+
+/// <summary>
 /// Pop two values from stack and check them for equality. Does work with types. Result on stack
 /// </summary>
 public sealed class Equals2 : InstructionBase

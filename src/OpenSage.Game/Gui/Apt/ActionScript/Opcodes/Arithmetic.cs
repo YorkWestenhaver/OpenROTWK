@@ -11,7 +11,10 @@ public sealed class Add : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        var a = context.Pop();
+        var b = context.Pop();
+
+        context.Push(Value.FromFloat(b.ToFloat() + a.ToFloat()));
     }
 }
 
@@ -64,7 +67,10 @@ public sealed class Multiply : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        var a = context.Pop();
+        var b = context.Pop();
+
+        context.Push(Value.FromFloat(b.ToFloat() * a.ToFloat()));
     }
 }
 
@@ -77,7 +83,12 @@ public sealed class Divide : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        var a = context.Pop();
+        var b = context.Pop();
+
+        // IEEE division: a zero divisor yields Infinity/NaN rather than throwing, which is
+        // what the ActionScript these movies were authored against does.
+        context.Push(Value.FromFloat(b.ToFloat() / a.ToFloat()));
     }
 }
 
@@ -90,7 +101,10 @@ public sealed class Modulo : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        var a = context.Pop();
+        var b = context.Pop();
+
+        context.Push(Value.FromFloat(b.ToFloat() % a.ToFloat()));
     }
 }
 
@@ -117,7 +131,8 @@ public sealed class Decrement : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        var num = context.Pop().ToInteger();
+        context.Push(Value.FromInteger(--num));
     }
 }
 
@@ -127,6 +142,10 @@ public sealed class ShiftRight2 : InstructionBase
 
     public override void Execute(ActionContext context)
     {
-        throw new NotImplementedException();
+        // ECMA-262 >>> : unsigned shift, count taken modulo 32.
+        var count = context.Pop().ToInteger() & 0x1F;
+        var value = unchecked((uint)context.Pop().ToInteger());
+
+        context.Push(Value.FromInteger(unchecked((int)(value >> count))));
     }
 }
