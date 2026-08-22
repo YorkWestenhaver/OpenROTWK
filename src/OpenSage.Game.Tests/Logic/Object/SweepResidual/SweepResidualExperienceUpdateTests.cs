@@ -100,6 +100,11 @@ End
         var game = NewGame();
         var ent = game.SpawnObject("SweepOverLevelledEnt", game.CivilianPlayer, Vector3.Zero);
 
+        // T+1: SpawnObject registers the helper module for the frame it was created on, and
+        // the sleepy list only reaches it on the following Step - so the first Step spawns and
+        // the second is the one that runs ExperienceUpdate.Initialize. (INT-R2A: the packet
+        // authored one Step here; measured afterOne=0, afterTwo=25 on the control shape.)
+        game.Step();
         game.Step();
 
         // The list drained: levelUp's empty-list branch sets the "no next level" sentinel.
@@ -126,6 +131,8 @@ End
         var game = NewGame();
         var recruit = game.SpawnObject("SweepFreshRecruit", game.CivilianPlayer, Vector3.Zero);
 
+        // T+1, same reason as above: Initialize lands on the second Step.
+        game.Step();
         game.Step();
 
         // Control: the guard must not short-circuit ordinary progression.
