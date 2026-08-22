@@ -27,9 +27,20 @@
 // is that local input now takes effect two logic frames (400ms) after the click, which is what
 // every peer in a lockstep match sees and is not a regression.
 //
-// Non-goals, deliberately left for later packets: folding the second scripting accumulator
-// into a phase and unifying the two frame counters (packet 3), and attaching SyncChecker to
-// the CrcCheckpoint phase (packet 5).
+// R15 packet 3 (one clock) then retired the second accumulator and unified the counters:
+//   * ScriptingSystem.ScriptingTick() runs at the HEAD of ModuleUpdate, once per logic frame,
+//     instead of off its own wall-clock accumulator in Game.Update. Every shipped game has
+//     ScriptingTicksPerSecond == LogicFramesPerSecond, so the two accumulators were drifting
+//     copies of one cadence. DEVIATION, stated plainly: GPL has no "scripting phase" - it
+//     calls TheScriptEngine->update() from GameLogic::update. We do NOT add a SimPhase for it
+//     (the phase sequence is a frozen netplay contract, F6); it shares ModuleUpdate's slot and
+//     runs first within it, which is the same relative position GPL gives it.
+//   * The EndFrame reconciliation is now plain equality against the loop's own counter, not
+//     the weaker "advanced by exactly one" delta - see OnPhase. SimLoop.ResetTo is what makes
+//     that assertable across a host-side clock jump.
+//
+// Non-goal, deliberately left for a later packet: attaching SyncChecker to the CrcCheckpoint
+// phase (packet 5).
 
 using System;
 using OpenSage.Diagnostics;
@@ -57,7 +68,12 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
 
     private readonly IGame _game;
 
-    private uint _logicFrameBeforeModuleUpdate;
+    /// <summary>
+    /// Test seam only (packet 3). Null in a real game, where the scripting tick resolves to
+    /// <c>IGame.Scripting</c> every frame - late, because a headless host has none at all.
+    /// </summary>
+    private readonly IScriptingTick _scriptingOverride;
+
     private bool _frameOpen;
 
     // Heartbeat bookkeeping (see Heartbeat below). Wall time is read from IGame.RenderTime
@@ -70,11 +86,16 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     private long _heartbeatOrdinal;
 
     /// <param name="game">The headed game whose subsystems this drives.</param>
-    public HeadedSimSystems(IGame game)
+    /// <param name="scriptingOverride">
+    /// Stands in for <c>game.Scripting</c> at the head of ModuleUpdate. Tests pass a recorder;
+    /// production passes nothing.
+    /// </param>
+    public HeadedSimSystems(IGame game, IScriptingTick scriptingOverride = null)
     {
         ArgumentNullException.ThrowIfNull(game);
 
         _game = game;
+        _scriptingOverride = scriptingOverride;
     }
 
     /// <summary>
@@ -118,14 +139,31 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
         _game.OrderProcessor.Process(legacyOrder);
     }
 
+    /// <summary>
+    /// The sim's module slot: one scripting pass, then the sleepy update queue.
+    /// </summary>
+    /// <remarks>
+    /// Packet 3's one-slot deviation. GPL calls <c>TheScriptEngine-&gt;update()</c> from inside
+    /// <c>GameLogic::update</c>, ahead of the object updates; we call it from inside the
+    /// ModuleUpdate phase, ahead of <c>GameLogic.Update()</c> - the same relative order, one
+    /// stack frame out. It is NOT given a <c>SimPhase</c> of its own: the phase sequence is a
+    /// frozen netplay contract (F6) and inserting into it is a protocol-version bump.
+    /// <para>
+    /// Scripts run BEFORE the module queue so that a script firing on frame N is observed by
+    /// that same frame's modules, which is the ordering the legacy accumulator produced
+    /// whenever the two happened to land on the same frame (see <c>Game.Update</c>'s
+    /// now-deleted "TODO: Which update should be performed first?").
+    /// </para>
+    /// <para>
+    /// Null-tolerant: a headless host has no <c>ScriptingSystem</c>, and
+    /// <c>ScriptingTick</c> itself already no-ops with no scene or with scripting inactive.
+    /// </para>
+    /// </remarks>
     public void ModuleUpdate(LogicFrame frame)
     {
-        // Frame-counter reconciliation (see OnPhase): remember where the logic clock stood
-        // immediately before the module update advanced it. Captured here, not at
-        // IngestOrders, so that anything an order handler does to the logic clock (an order
-        // that ends the game or loads a save) falls outside the window being asserted.
-        _logicFrameBeforeModuleUpdate = _game.GameLogic.CurrentFrame.Value;
         _frameOpen = true;
+
+        (_scriptingOverride ?? _game.Scripting)?.ScriptingTick();
 
         _game.GameLogic.Update();
     }
@@ -159,6 +197,12 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     /// legacy <c>Game.GetTimeInterval()</c> used - map time plus one logic frame's worth of
     /// wall clock.
     /// </summary>
+    /// <remarks>
+    /// Vestigial since packet 3: nothing on the sim side reads it any more (attribute-modifier
+    /// expiry, its last consumer, is on the logic frame counter now). It survives only because
+    /// <c>IScene3D.SimObjectTick</c> still declares the parameter; both should go together the
+    /// next time that interface is revised.
+    /// </remarks>
     // TODO: Calculate time correctly (inherited from the legacy tick).
     private TimeInterval GetTimeInterval() =>
         new(_game.MapTime.TotalTime, TimeSpan.FromMilliseconds(_game.GameEngine.MsPerLogicFrame));
@@ -175,18 +219,20 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
     /// Frame-counter reconciliation, asserted at EndFrame.
     /// </summary>
     /// <remarks>
-    /// There are two frame counters and packet 1 deliberately does not unify them (that is
-    /// packet 3). <c>GameLogic.CurrentFrame</c> increments inside <c>GameLogic.Update()</c>,
-    /// i.e. in the ModuleUpdate phase; <c>SimLoop.CurrentFrame</c> increments in EndFrame.
-    /// So within a frame, after ModuleUpdate, the logic clock reads one ahead of the loop's,
-    /// and at a frame boundary the two agree - the same pairing AutoHealScenario documents
-    /// for the headless host.
+    /// <c>GameLogic.CurrentFrame</c> increments inside <c>GameLogic.Update()</c>, i.e. in the
+    /// ModuleUpdate phase; <c>SimLoop.CurrentFrame</c> increments in EndFrame. So within a
+    /// frame, after ModuleUpdate, the logic clock reads one ahead of the loop's, and at a
+    /// frame boundary the two agree - the same pairing AutoHealScenario documents for the
+    /// headless host.
     /// <para>
-    /// The invariant asserted here is the reset-proof half: the logic clock advanced by
-    /// exactly one during this <c>Advance()</c>. Plain equality is NOT asserted, because
-    /// <c>GameLogic.Reset()</c> (which Scene3D construction calls) re-zeros the logic clock
-    /// while the loop keeps counting, and a loaded save restores an arbitrary logic frame.
-    /// Giving SimLoop a reset seam so the two can be pinned equal is packet 3's business.
+    /// Packet 1 could only assert the delta (the logic clock advanced by exactly one during
+    /// this <c>Advance()</c>), because a host-side clock jump - a loaded save restores an
+    /// arbitrary logic frame - would leave the two permanently offset with no way to put them
+    /// back. Packet 3 added <c>SimLoop.ResetTo</c> and made <c>Game</c> re-seat the loop
+    /// wherever the logic clock lands, so this is now plain equality: at EndFrame of loop
+    /// frame N the logic clock reads exactly N+1, i.e. the loop and the logic clock name the
+    /// same frame. That is the invariant M3 needs; a delta assert would silently tolerate two
+    /// hosts running the same frame under two different numbers.
     /// </para>
     /// </remarks>
     public void OnPhase(SimPhase phase, LogicFrame frame)
@@ -199,12 +245,12 @@ internal sealed class HeadedSimSystems : ISimSystems, ISimPhaseObserver
         _frameOpen = false;
 
         var logicFrame = _game.GameLogic.CurrentFrame.Value;
-        if (logicFrame != _logicFrameBeforeModuleUpdate + 1)
+        if (logicFrame != frame.Value + 1)
         {
             DebugUtility.Crash(
-                $"GameLogic went {_logicFrameBeforeModuleUpdate} -> {logicFrame} across one " +
-                $"SimLoop.Advance() (loop frame {frame.Value}); the logic clock and the loop " +
-                "must move in lockstep.");
+                $"Logic clock reads {logicFrame} at EndFrame of loop frame {frame.Value}; " +
+                $"expected {frame.Value + 1}. One clock: the loop and GameLogic must name the " +
+                "same frame (SimLoop.ResetTo is the seam for re-seating them).");
         }
 
         Heartbeat(frame, logicFrame);

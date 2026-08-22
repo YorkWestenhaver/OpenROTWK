@@ -101,6 +101,25 @@ public sealed class SimLoop
 
     public LogicFrame CurrentFrame { get; private set; }
 
+    /// <summary>
+    /// Re-seat the loop's frame counter (R15 packet 3, "one clock").
+    /// </summary>
+    /// <remarks>
+    /// The loop counts frames; it does not own when a match begins. A host whose own logic
+    /// clock can jump - a save being loaded restores an arbitrary frame number - has to be
+    /// able to put the loop back on that number, otherwise the two counters are permanently
+    /// offset and "loop frame N" and "logic frame N" stop naming the same frame. With this
+    /// seam the headed host can assert plain equality at EndFrame instead of the weaker
+    /// "advanced by exactly one" invariant packet 1 had to settle for.
+    /// <para>
+    /// Deliberately NOT a general-purpose setter for the sim: it resets the counter only.
+    /// Anything already scheduled in <see cref="Orders"/> is stamped with absolute frames and
+    /// is not rewritten, so a reset with orders in flight would strand them - callers reset at
+    /// a match/save boundary, where the order pipe is empty.
+    /// </para>
+    /// </remarks>
+    public void ResetTo(LogicFrame frame) => CurrentFrame = frame;
+
     public OrderIngest Orders { get; } = new();
 
     public SimLoop(ISimSystems systems, ISimPhaseObserver? observer = null)

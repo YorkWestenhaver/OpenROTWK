@@ -11,6 +11,13 @@
 //     PartitionCellManager.Update - packet 2's one claimed behavior change, matching GPL,
 //     which reaps its pending-delete list once ThePartitionManager has already run.
 //
+// R15 packet 3 ("one clock") extends them again:
+//   * the scripting tick is inside the frame now, at the HEAD of ModuleUpdate, instead of on
+//     a second wall-clock accumulator in Game.Update;
+//   * the EndFrame reconciliation is plain equality against the loop's own counter, which is
+//     only assertable because SimLoop.ResetTo exists to re-seat the loop after a host-side
+//     clock jump (a loaded save).
+//
 // These are render-free by construction: the host is HeadlessSimGame (a real GameLogic, a real
 // PlayerManager and a real PartitionCellManager, no renderer, no files), the scene is a
 // recording decorator over HeadlessSimGame's own null-object scene, and the connection is a
@@ -38,6 +45,7 @@ using OpenSage.Network;
 using OpenSage.Rendering;
 using OpenSage.Scripting;
 using OpenSage.Settings;
+using OpenSage.SimCore.Orders;
 using OpenSage.SimCore.Ticking;
 using OpenSage.Terrain;
 using OpenSage.Terrain.Roads;
@@ -49,6 +57,44 @@ namespace OpenSage.Tests.Logic.Sim;
 [Collection(GameTraceCollection.Name)]
 public class HeadedSimSystemsTests
 {
+    /// <summary>
+    /// Stands in for the game's <c>ScriptingSystem</c> (a headless host has none): records the
+    /// logic frame the tick saw, so the test can prove the call lands BEFORE
+    /// <c>GameLogic.Update()</c> advanced the clock.
+    /// </summary>
+    private sealed class RecordingScriptingTick : IScriptingTick
+    {
+        private readonly Func<uint> _readLogicFrame;
+        private readonly List<string> _log;
+
+        public readonly List<uint> LogicFrameAtTick = new();
+
+        public RecordingScriptingTick(Func<uint> readLogicFrame, List<string> log = null)
+        {
+            _readLogicFrame = readLogicFrame;
+            _log = log;
+        }
+
+        public void ScriptingTick()
+        {
+            LogicFrameAtTick.Add(_readLogicFrame());
+            _log?.Add(nameof(ScriptingTick));
+        }
+    }
+
+    /// <summary>
+    /// The smallest possible <see cref="ISimSystems"/>: does nothing at all. Used where the
+    /// test is about the loop's own counter rather than about what a frame does.
+    /// </summary>
+    private sealed class InertSystems : ISimSystems
+    {
+        public void IngestOrders(LogicFrame frame) { }
+        public void DispatchOrder(in ScheduledOrder order) { }
+        public void ModuleUpdate(LogicFrame frame) { }
+        public void PartitionUpdate(LogicFrame frame) { }
+        public void CrcCheckpoint(LogicFrame frame) { }
+    }
+
     /// <summary>Records every phase entry the loop announces, in order.</summary>
     private sealed class PhaseRecorder : ISimPhaseObserver
     {
@@ -182,9 +228,10 @@ public class HeadedSimSystemsTests
     /// </summary>
     private static (SimLoop Loop, PhaseRecorder Recorder) CreateLoop(
         HeadlessSimGame game,
-        List<string> log = null)
+        List<string> log = null,
+        IScriptingTick scripting = null)
     {
-        var systems = new HeadedSimSystems(game);
+        var systems = new HeadedSimSystems(game, scripting);
         var recorder = new PhaseRecorder(systems, log);
         var loop = new SimLoop(systems, recorder)
         {
@@ -330,6 +377,108 @@ public class HeadedSimSystemsTests
         Assert.Equal(1u, game.GameLogic.CurrentFrame.Value);
     }
 
+    // -------------------------------------------------------- packet 3: one clock
+
+    [Fact]
+    public void TheScriptingTickRunsOncePerFrameAtTheHeadOfModuleUpdate()
+    {
+        var game = new HeadlessSimGame(SageGame.Bfme2, matchSeed: 0x81D6E);
+
+        var log = new List<string>();
+        var scripting = new RecordingScriptingTick(() => game.GameLogic.CurrentFrame.Value, log);
+        var (loop, _) = CreateLoop(game, log, scripting);
+
+        loop.Advance();
+        loop.Advance();
+        loop.Advance();
+
+        // Once per frame, reading the PRE-increment logic clock: the tick precedes
+        // GameLogic.Update() within the phase. (Under the deleted second accumulator this
+        // count was whatever the wall clock happened to produce.)
+        Assert.Equal(new uint[] { 0, 1, 2 }, scripting.LogicFrameAtTick);
+
+        // ...and it is inside ModuleUpdate, not a phase of its own: the sequence between the
+        // ModuleUpdate entry and the next phase entry contains the tick and nothing else.
+        var moduleIndex = log.IndexOf($"phase:{SimPhase.ModuleUpdate}");
+        Assert.True(moduleIndex >= 0, string.Join(" -> ", log));
+        Assert.Equal("ScriptingTick", log[moduleIndex + 1]);
+        Assert.Equal($"phase:{SimPhase.PartitionUpdate}", log[moduleIndex + 2]);
+
+        // The frozen sequence is untouched - no scripting phase was added (F6).
+        Assert.Equal(6, SimLoop.PhaseSequence.Length);
+    }
+
+    [Fact]
+    public void AFrameWithNoScriptingSystemStillRuns()
+    {
+        // A headless host has no ScriptingSystem at all, and a headed game has none before
+        // its content loads; the ModuleUpdate head must tolerate that.
+        var game = new HeadlessSimGame(SageGame.Bfme2, matchSeed: 0x81D6E);
+        Assert.Null(game.Scripting);
+
+        var (loop, _) = CreateLoop(game);
+
+        loop.Advance();
+
+        Assert.Equal(1u, loop.CurrentFrame.Value);
+        Assert.Equal(1u, game.GameLogic.CurrentFrame.Value);
+    }
+
+    [Fact]
+    public void ResetToReSeatsTheLoopsCounter()
+    {
+        // The seam itself, against an inert host: the loop resumes counting from wherever it
+        // is put, which is what lets a save restore an arbitrary frame number.
+        var loop = new SimLoop(new InertSystems());
+
+        loop.Advance();
+        loop.Advance();
+        Assert.Equal(2u, loop.CurrentFrame.Value);
+
+        loop.ResetTo(new LogicFrame(4711));
+        Assert.Equal(4711u, loop.CurrentFrame.Value);
+
+        loop.Advance();
+        Assert.Equal(4712u, loop.CurrentFrame.Value);
+    }
+
+    [Fact]
+    public void TheEndFrameAssertRejectsALoopThatHasDriftedOffTheLogicClock()
+    {
+        // The strengthened assert. A loop sitting on frame 7 while the logic clock sits on 0
+        // is exactly the state a save load produces if nobody re-seats the loop; packet 1's
+        // delta assert accepted it (the logic clock still advanced by one), packet 3's
+        // equality assert does not.
+        var game = new HeadlessSimGame(SageGame.Bfme2, matchSeed: 0x81D6E);
+        var (loop, _) = CreateLoop(game);
+
+        loop.ResetTo(new LogicFrame(7));
+
+        var exception = Assert.Throws<Exception>(() => loop.Advance());
+        Assert.Contains("EndFrame of loop frame 7", exception.Message);
+    }
+
+    [Fact]
+    public void ResetToPutsTheLoopBackOnTheLogicClockAfterAJump()
+    {
+        // ...and the recovery Game performs at StartGame/LoadSaveFile: re-seat the loop onto
+        // the logic clock and frames run again.
+        var game = new HeadlessSimGame(SageGame.Bfme2, matchSeed: 0x81D6E);
+        var (loop, _) = CreateLoop(game);
+
+        loop.Advance();
+        loop.ResetTo(new LogicFrame(500));
+        Assert.Throws<Exception>(() => loop.Advance());
+
+        // The failed Advance still ran GameLogic.Update(), so the logic clock is where it is;
+        // this is precisely what Game does after SaveFile.Load.
+        loop.ResetTo(game.GameLogic.CurrentFrame);
+
+        loop.Advance();
+
+        Assert.Equal(game.GameLogic.CurrentFrame.Value, loop.CurrentFrame.Value);
+    }
+
     // ------------------------------------------------- the R14 intentional behavior change
 
     [Fact]
@@ -385,10 +534,10 @@ public class HeadedSimSystemsTests
         var created = CreateLoop(game);
         loop = created.Loop;
 
-        // Both clocks start at zero on a freshly constructed host; equality below is only
-        // meaningful because nothing resets GameLogic mid-test (Scene3D construction and save
-        // loading both re-zero/restore it, which is why HeadedSimSystems asserts lockstep
-        // rather than equality, and why giving SimLoop a reset seam is packet 3).
+        // Both clocks start at zero on a freshly constructed host. Since packet 3 this is the
+        // asserted invariant, not an incidental one: HeadedSimSystems.OnPhase crashes the game
+        // if the two ever name different frames, and SimLoop.ResetTo is what a host uses to
+        // restore the pairing after loading a save.
         Assert.Equal(0u, loop.CurrentFrame.Value);
         Assert.Equal(0u, game.GameLogic.CurrentFrame.Value);
 

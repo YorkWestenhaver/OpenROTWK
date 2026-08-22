@@ -41,8 +41,6 @@ namespace OpenSage;
 
 public sealed class Game : DisposableBase, IGame
 {
-    private readonly double _scriptingUpdateInterval;
-
     private readonly FileSystem _fileSystem;
     private readonly WndCallbackResolver _wndCallbackResolver;
 
@@ -141,6 +139,11 @@ public sealed class Game : DisposableBase, IGame
     public void LoadSaveFile(FileSystemEntry entry)
     {
         SaveFile.Load(entry, this);
+
+        // A save restores an arbitrary logic frame (GameLogic.Persist). Re-seat the loop onto
+        // it, or the two counters stay permanently offset and the EndFrame equality assert in
+        // HeadedSimSystems.OnPhase - correctly - crashes the game (R15 packet 3).
+        _simLoop.ResetTo(GameLogic.CurrentFrame);
     }
 
     public void LoadReplayFile(FileSystemEntry replayFileEntry)
@@ -299,8 +302,9 @@ public sealed class Game : DisposableBase, IGame
     // The time of the next logic update.
     private TimeSpan _nextLogicUpdate;
 
-    // When is the next scripting update?
-    private TimeSpan _nextScriptingUpdate;
+    // R15 packet 3 (one clock): there is no second, scripting-specific accumulator any more.
+    // ScriptingSystem.ScriptingTick() runs inside the logic frame, at the head of the
+    // ModuleUpdate phase (HeadedSimSystems.ModuleUpdate).
 
     // The deterministic frame driver (R14 packet 1). The wall-clock accumulator above decides
     // WHEN a logic frame is due; the loop decides what happens inside one.
@@ -309,8 +313,8 @@ public sealed class Game : DisposableBase, IGame
     /// <summary>
     /// The deterministic loop's frame counter. Advances once per logic frame, in the EndFrame
     /// phase. Not the same object as <c>GameLogic.CurrentFrame</c>, which advances earlier in
-    /// the frame (in ModuleUpdate) - see <see cref="HeadedSimSystems.OnPhase"/>. Unifying the
-    /// two is packet 3.
+    /// the frame (in ModuleUpdate) - see <see cref="HeadedSimSystems.OnPhase"/>, which asserts
+    /// the two name the same frame at every frame boundary (R15 packet 3).
     /// </summary>
     internal LogicFrame SimLoopFrame => _simLoop.CurrentFrame;
 
@@ -556,8 +560,6 @@ public sealed class Game : DisposableBase, IGame
 
             Graphics = AddDisposable(new GraphicsSystem(this));
 
-            _scriptingUpdateInterval = 1000.0 / installation.Game.ScriptingTicksPerSecond;
-
             Scripting = AddDisposable(new ScriptingSystem(this));
 
             Lua = AddDisposable(new LuaScriptEngine(this));
@@ -764,8 +766,13 @@ public sealed class Game : DisposableBase, IGame
         // Reset everything, and run the first update on the first frame.
         _mapTimer.Reset();
         _nextLogicUpdate = TimeSpan.Zero;
-        _nextScriptingUpdate = TimeSpan.Zero;
         CumulativeLogicUpdateError = TimeSpan.Zero;
+
+        // One clock (R15 packet 3): pin the loop's counter to wherever the logic clock now
+        // stands, so "loop frame N" and "logic frame N" are the same frame for the whole
+        // match. A no-op on a fresh match (both have been advancing together since the Game
+        // constructor); it is the save-load path that can actually move the logic clock.
+        _simLoop.ResetTo(GameLogic.CurrentFrame);
 
         // Scripts should be enabled in all games, even replays
         Scripting.Active = true;
@@ -845,7 +852,6 @@ public sealed class Game : DisposableBase, IGame
     {
         var totalGameTime = MapTime.TotalTime;
         _nextLogicUpdate = totalGameTime;
-        _nextScriptingUpdate = totalGameTime;
     }
 
     public void Update(IEnumerable<InputMessage> messages)
@@ -871,13 +877,11 @@ public sealed class Game : DisposableBase, IGame
             }
         }
 
-        // TODO: Which update should be performed first?
-        if (IsLogicRunning && totalGameTime >= _nextScriptingUpdate)
-        {
-            Scripting.ScriptingTick();
-            // Scripting updates happen at 30Hz / 5Hz depending on game.
-            _nextScriptingUpdate += TimeSpan.FromMilliseconds(_scriptingUpdateInterval);
-        }
+        // R15 packet 3: the scripting tick used to live here, behind its own accumulator at
+        // IGameDefinition.ScriptingTicksPerSecond. That rate equals LogicFramesPerSecond in
+        // every shipped game, so the two accumulators were one cadence counted twice - and
+        // two independent wall-clock accumulators cannot stay in step across a frame the host
+        // drops. It now runs inside the logic frame (HeadedSimSystems.ModuleUpdate).
     }
 
     private void LocalLogicTick(IEnumerable<InputMessage> messages)
