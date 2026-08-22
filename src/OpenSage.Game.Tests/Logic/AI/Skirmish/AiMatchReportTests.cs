@@ -278,6 +278,194 @@ public class AiMatchReportTests
         Assert.Equal(7, counters.GetProperty("weird\"name\\with\ttab").GetInt32());
     }
 
+    // ---- S9-10: schema v2 (milestones block, mC/mD, deltas, --seed's sibling artifacts) ----
+    //
+    // v2 is an EXTENSION: every assertion above still holds unchanged, and the tests here only
+    // add to the shape. A v2 change that breaks one of the v1 tests above is a rewrite, not an
+    // extension, and should be treated as a defect.
+
+    /// <summary>A snapshot carrying an explicit counter bag, for the delta-graded v2 milestones.</summary>
+    private static AiMatchReport.PlayerSnapshot SnapWith(int playerIndex, uint frame, Dictionary<string, int> counters) =>
+        new(playerIndex, frame, 0, 0, 0, 1, 1, 1, counters);
+
+    private static Dictionary<string, int> CombatCounters(
+        int unitsQueued = 0, int teamsReady = 0, int wavesLaunched = 0, int engagements = 0,
+        int unitsLost = 0, int teamMembersLost = 0) =>
+        new()
+        {
+            [AiMatchReport.UnitsQueuedCounter] = unitsQueued,
+            [AiMatchReport.TeamsReadyCounter] = teamsReady,
+            [AiMatchReport.WaveLaunchedCounter] = wavesLaunched,
+            [AiMatchReport.WaveEngagedCounter] = engagements,
+            [AiMatchReport.UnitsLostCounter] = unitsLost,
+            [AiMatchReport.TeamMembersLostCounter] = teamMembersLost,
+        };
+
+    [Fact]
+    public void SchemaId_IsV2_AndTheV1IdIsStillNamed()
+    {
+        Assert.Equal("bfme2-ai-match/report/v2", AiMatchReport.SchemaId);
+        Assert.Equal("bfme2-ai-match/report/v1", AiMatchReport.SchemaIdV1);
+    }
+
+    /// <summary>
+    /// Drift guard for the by-value duplication in AiMatchReport's v2 counter-key constants: the
+    /// report deliberately does not take a compile-time dependency on the managers, so a manager
+    /// renaming its key would otherwise silently stop feeding a milestone. This test is the
+    /// tripwire. (No wave-manager constants exist yet - those two keys are frozen by the report.)
+    /// </summary>
+    [Fact]
+    public void CounterKeys_MatchTheManagerConstants()
+    {
+        Assert.Equal(AiProductionManager.UnitQueuedCounter, AiMatchReport.UnitsQueuedCounter);
+        Assert.Equal(AiProductionManager.UnitConfirmedCounter, AiMatchReport.UnitsConfirmedCounter);
+        Assert.Equal(AiProductionManager.UnitLostCounter, AiMatchReport.UnitsLostCounter);
+        Assert.Equal(AiTeamManager.TeamFormedCounter, AiMatchReport.TeamsFormedCounter);
+        Assert.Equal(AiTeamManager.TeamReadyCounter, AiMatchReport.TeamsReadyCounter);
+        Assert.Equal(AiTeamManager.TeamMemberLostCounter, AiMatchReport.TeamMembersLostCounter);
+        Assert.Equal(AiBaseManager.FoundationOkCounter, AiMatchReport.FoundationConstructCounter);
+    }
+
+    [Fact]
+    public void Deltas_AreEndMinusStart_NotEndTotals()
+    {
+        // A start snapshot is captured after the game is already running, so its counters are
+        // not necessarily zero - grading end totals would credit the window with earlier work.
+        var start = SnapWith(0, 0, CombatCounters(unitsQueued: 4, teamsReady: 1, wavesLaunched: 2, engagements: 1, unitsLost: 3, teamMembersLost: 2));
+        var end = SnapWith(0, 30, CombatCounters(unitsQueued: 10, teamsReady: 3, wavesLaunched: 5, engagements: 4, unitsLost: 6, teamMembersLost: 5));
+
+        var result = new AiMatchReport.PlayerResult(start, end);
+
+        Assert.Equal(6, result.UnitsQueued);
+        Assert.Equal(2, result.TeamsReady);
+        Assert.Equal(3, result.WavesLaunched);
+        Assert.Equal(3, result.Engagements);
+        Assert.Equal(6, result.Losses); // (6-3) produced units + (5-2) team members
+        Assert.Equal(0, result.Delta("never.bumped"));
+    }
+
+    [Fact]
+    public void PassesMilestoneC_NeedsBothQueuedProductionAndAReadyTeam()
+    {
+        var start = SnapWith(0, 0, CombatCounters());
+
+        Assert.True(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(unitsQueued: 1, teamsReady: 1))).PassesMilestoneC);
+        Assert.False(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(unitsQueued: 9, teamsReady: 0))).PassesMilestoneC);
+        Assert.False(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(unitsQueued: 0, teamsReady: 9))).PassesMilestoneC);
+    }
+
+    [Fact]
+    public void PassesMilestoneD_NeedsAWaveLaunchedAndAnEngagement()
+    {
+        var start = SnapWith(0, 0, CombatCounters());
+
+        Assert.True(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(wavesLaunched: 1, engagements: 1))).PassesMilestoneD);
+        // A wave that marched out and never met anyone is exactly the M-d failure mode the
+        // roadmap's S9-12 contingency exists for - it must NOT read as a pass.
+        Assert.False(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(wavesLaunched: 3, engagements: 0))).PassesMilestoneD);
+        Assert.False(new AiMatchReport.PlayerResult(start, SnapWith(0, 30, CombatCounters(wavesLaunched: 0, engagements: 2))).PassesMilestoneD);
+    }
+
+    [Fact]
+    public void MissingWaveCounters_GradeMilestoneDFalse_RatherThanThrowing()
+    {
+        // The wave keys are frozen by AiMatchReport before any manager bumps them: a report from
+        // a build with no wave producer must still grade, as mD=false.
+        var start = new AiMatchReport.PlayerSnapshot(0, 0, 0, 0, 0, 0, 0, 0, new Dictionary<string, int>());
+        var end = new AiMatchReport.PlayerSnapshot(0, 30, 0, 0, 0, 1, 1, 1, new Dictionary<string, int>());
+
+        var report = AiMatchReport.Build(new[] { start }, new[] { end });
+
+        Assert.False(report.MilestoneD);
+        Assert.Equal(0, report.Players[0].WavesLaunched);
+    }
+
+    [Fact]
+    public void MilestoneCAndD_RequireEveryPlayer_AndAreFalseWithNoPlayers()
+    {
+        var start = new[] { SnapWith(0, 0, CombatCounters()), SnapWith(1, 0, CombatCounters()) };
+        var bothPass = new[]
+        {
+            SnapWith(0, 30, CombatCounters(unitsQueued: 2, teamsReady: 1, wavesLaunched: 1, engagements: 1)),
+            SnapWith(1, 30, CombatCounters(unitsQueued: 5, teamsReady: 2, wavesLaunched: 2, engagements: 3)),
+        };
+        var oneStraggler = new[]
+        {
+            SnapWith(0, 30, CombatCounters(unitsQueued: 2, teamsReady: 1, wavesLaunched: 1, engagements: 1)),
+            SnapWith(1, 30, CombatCounters(unitsQueued: 5, teamsReady: 0, wavesLaunched: 0, engagements: 0)),
+        };
+
+        Assert.True(AiMatchReport.Build(start, bothPass).MilestoneC);
+        Assert.True(AiMatchReport.Build(start, bothPass).MilestoneD);
+        Assert.False(AiMatchReport.Build(start, oneStraggler).MilestoneC);
+        Assert.False(AiMatchReport.Build(start, oneStraggler).MilestoneD);
+
+        var empty = AiMatchReport.Build(System.Array.Empty<AiMatchReport.PlayerSnapshot>(), System.Array.Empty<AiMatchReport.PlayerSnapshot>());
+        Assert.False(empty.MilestoneC);
+        Assert.False(empty.MilestoneD);
+    }
+
+    [Fact]
+    public void MilestoneE_IsNullUnlessASoakDriverStampsIt()
+    {
+        var start = new[] { Snap(0, 100, 0, 0) };
+        var end = new[] { Snap(0, 200, 1, 1) };
+
+        Assert.Null(AiMatchReport.Build(start, end).MilestoneE);
+        Assert.True(AiMatchReport.Build(start, end, milestoneE: true).MilestoneE);
+        Assert.False(AiMatchReport.Build(start, end, milestoneE: false).MilestoneE);
+    }
+
+    [Fact]
+    public void ToJson_CarriesTheMilestonesBlock_WithMeNullWhenNotGraded()
+    {
+        var start = new[] { SnapWith(0, 0, CombatCounters()) };
+        var end = new[] { SnapWith(0, 30, CombatCounters(unitsQueued: 3, teamsReady: 1, wavesLaunched: 1, engagements: 2, unitsLost: 1, teamMembersLost: 4)) };
+        var report = AiMatchReport.Build(start, end, generatedAtUtc: "2026-08-21T00:00:00.000Z");
+
+        using var doc = JsonDocument.Parse(report.ToJson());
+        var root = doc.RootElement;
+
+        Assert.Equal("bfme2-ai-match/report/v2", root.GetProperty("schema").GetString());
+
+        var milestones = root.GetProperty("milestones");
+        Assert.False(milestones.GetProperty("mA").GetBoolean()); // money flat in this fixture
+        Assert.False(milestones.GetProperty("mB").GetBoolean());
+        Assert.True(milestones.GetProperty("mC").GetBoolean());
+        Assert.True(milestones.GetProperty("mD").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, milestones.GetProperty("mE").ValueKind);
+
+        // v1's top-level booleans are still emitted, with their v1 meanings.
+        Assert.False(root.GetProperty("milestoneA").GetBoolean());
+        Assert.False(root.GetProperty("milestoneB").GetBoolean());
+        Assert.False(root.GetProperty("pass").GetBoolean());
+        Assert.False(root.GetProperty("partial").GetBoolean());
+
+        var player0 = root.GetProperty("players")[0];
+        Assert.True(player0.GetProperty("passesMilestoneC").GetBoolean());
+        Assert.True(player0.GetProperty("passesMilestoneD").GetBoolean());
+
+        var deltas = player0.GetProperty("deltas");
+        Assert.Equal(3, deltas.GetProperty("unitsQueued").GetInt32());
+        Assert.Equal(1, deltas.GetProperty("teamsReady").GetInt32());
+        Assert.Equal(1, deltas.GetProperty("wavesLaunched").GetInt32());
+        Assert.Equal(2, deltas.GetProperty("engagements").GetInt32());
+        Assert.Equal(5, deltas.GetProperty("losses").GetInt32());
+    }
+
+    [Fact]
+    public void ToJson_EmitsMeAsABooleanOnceStamped()
+    {
+        var start = new[] { Snap(0, 100, 0, 0) };
+        var end = new[] { Snap(0, 200, 1, 1) };
+        var report = AiMatchReport.Build(start, end, generatedAtUtc: "2026-08-21T00:00:00.000Z", milestoneE: true);
+
+        using var doc = JsonDocument.Parse(report.ToJson());
+        var mE = doc.RootElement.GetProperty("milestones").GetProperty("mE");
+
+        Assert.Equal(JsonValueKind.True, mE.ValueKind);
+    }
+
     [Fact]
     public void WriteToFile_WritesParsableJsonAndCreatesParentDirectories()
     {

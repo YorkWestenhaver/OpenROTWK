@@ -49,7 +49,13 @@ public static class Program
         [Option("ai-vs-ai", Default = false, Required = false, HelpText = "In a --map skirmish, also set player 1 to AI-controlled (same --ai-difficulty as player 2) instead of human, for an unattended AI-vs-AI match.")]
         public bool AiVsAi { get; set; }
 
-        [Option("ai-report", Default = null, Required = false, HelpText = "Write a bfme2-ai-match/report/v1 JSON match report (AiMatchReport) to this path when the process exits. Captures each skirmish-AI player's AiTrace heartbeats/counters from match start to match end.")]
+        // S9-10 owns this flag campaign-wide: there is exactly ONE seed flag in the launcher and
+        // every lane consumes it. int? (not int) so "omitted" stays distinguishable from a
+        // deliberate --seed 0, which is a perfectly valid seed a reproduction script may pin.
+        [Option("seed", Default = null, Required = false, HelpText = "Random seed for a --map skirmish, for a reproducible head-to-head run. Omit to seed from the wall clock (a fresh, unreproducible seed each launch). The seed actually used is always logged at Info as 'skirmish seed=<n> source=<flag|clock>'.")]
+        public int? Seed { get; set; }
+
+        [Option("ai-report", Default = null, Required = false, HelpText = "Write a bfme2-ai-match/report/v2 JSON match report (AiMatchReport) to this path when the process exits. Captures each skirmish-AI player's AiTrace heartbeats/counters from match start to match end.")]
         public string? AiReport { get; set; }
 
         [Option("novsync", Default = false, Required = false, HelpText = "Disable vsync.")]
@@ -462,10 +468,17 @@ public static class Program
 
                             Logger.Debug($"Starting multiplayer game with factions '{faction1}' vs '{faction2}' (AI difficulty: {aiOwner}, ai-vs-ai: {opts.AiVsAi})");
 
+                            // --seed (S9-10): a pinned seed makes a head-to-head run reproducible;
+                            // without one we keep the historical wall-clock seed. Logged either way
+                            // at Info so a run's own log always records the seed it used - that is
+                            // what lets a "this match went weird" artifact be replayed at all.
+                            var seed = opts.Seed ?? Environment.TickCount;
+                            Logger.Info($"skirmish seed={seed} source={(opts.Seed.HasValue ? "flag" : "clock")}");
+
                             game.StartSkirmishOrMultiPlayerGame(opts.Map,
                                 new EchoConnection(),
                                 pSettings,
-                                Environment.TickCount,
+                                seed,
                                 false);
                         }
                     }

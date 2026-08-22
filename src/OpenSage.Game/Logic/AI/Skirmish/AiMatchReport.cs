@@ -31,13 +31,39 @@ using System.Text;
 
 namespace OpenSage.Logic.AI.Skirmish;
 
+// S9-10 (R15 L3) SCHEMA v2 — an EXTENSION of the v1 shape above, not a rewrite. Every v1
+// top-level field ("milestoneA"/"milestoneB"/"pass"/"partial"/"players[].start|end") is still
+// emitted with the same meaning, so a v1 grader reading a v2 document sees everything it saw
+// before; only the schema id string and the additions below changed. v2 adds:
+//
+//   * milestones{mA,mB,mC,mD,mE} — one block a grader can index by milestone name instead of
+//     matching camel-cased top-level keys one per milestone.
+//       mC "production and teams": unitsQueued > 0 AND >= 1 team reached Ready, per AI player.
+//       mD "waves engage":         >= 1 wave launched AND engagements > 0, per AI player.
+//       mE "soak":                 NOT decidable from a single match report — it is a 20-minute
+//                                  stability verdict graded by the soak driver (L1-13). It is
+//                                  therefore null unless a caller stamps its own verdict in via
+//                                  the constructor, and null must never be read as false.
+//   * players[].deltas{...} — end-minus-start counter deltas (units queued/confirmed/lost,
+//     teams formed/ready, waves launched/engaged, losses), the delta discipline this campaign
+//     grades on rather than raw end-of-match totals. The raw per-snapshot "counters" bags are
+//     unchanged and still carry every key.
+//
+// The counter KEY NAMES for mC/mD are frozen here, in the schema owner, exactly as
+// FoundationConstructCounter already was: the managers bump keys the report names, never the
+// other way round. Absent key => 0 => that milestone is false; no manager needs to exist for
+// this file to compile or grade.
+
 /// <summary>
-/// Builds and serializes a <c>bfme2-ai-match/report/v1</c> JSON document from a start/end pair
+/// Builds and serializes a <c>bfme2-ai-match/report/v2</c> JSON document from a start/end pair
 /// of per-player <see cref="PlayerSnapshot"/>s.
 /// </summary>
 public sealed class AiMatchReport
 {
-    public const string SchemaId = "bfme2-ai-match/report/v1";
+    public const string SchemaId = "bfme2-ai-match/report/v2";
+
+    /// <summary>The pre-S9-10 schema id. Kept so graders (and tests) can name the shape v2 supersedes without hard-coding the string twice.</summary>
+    public const string SchemaIdV1 = "bfme2-ai-match/report/v1";
 
     /// <summary>
     /// The counter key S9-06's base manager is contracted to bump on a successful foundation
@@ -45,6 +71,42 @@ public sealed class AiMatchReport
     /// frozen rather than chosen here.
     /// </summary>
     public const string FoundationConstructCounter = "base.foundation.ok";
+
+    // ---- mC/mD counter keys (schema v2). These duplicate the manager-side constants by VALUE
+    // on purpose: this file must not take a compile-time dependency on a manager that may not
+    // exist yet (the wave keys have no producer at the time of writing). CounterKeys_MatchTheManagerConstants
+    // in AiMatchReportTests is the drift guard that fails if a manager renames its key. ----
+
+    /// <summary>mC's production half: <c>AiProductionManager.UnitQueuedCounter</c>.</summary>
+    public const string UnitsQueuedCounter = "prod.unit.queued";
+
+    /// <summary>Units whose production was confirmed: <c>AiProductionManager.UnitConfirmedCounter</c>.</summary>
+    public const string UnitsConfirmedCounter = "prod.unit.ok";
+
+    /// <summary>Produced units later lost: <c>AiProductionManager.UnitLostCounter</c>.</summary>
+    public const string UnitsLostCounter = "prod.unit.lost";
+
+    /// <summary>Teams assembled: <c>AiTeamManager.TeamFormedCounter</c>.</summary>
+    public const string TeamsFormedCounter = "team.formed";
+
+    /// <summary>mC's team half: <c>AiTeamManager.TeamReadyCounter</c>.</summary>
+    public const string TeamsReadyCounter = "team.ready";
+
+    /// <summary>Team members lost: <c>AiTeamManager.TeamMemberLostCounter</c>.</summary>
+    public const string TeamMembersLostCounter = "team.member.lost";
+
+    /// <summary>
+    /// mD's launch half. FROZEN NAME, announced on the R15 blackboard for the attack-wave packet
+    /// to bump: one count per wave that actually left the staging area.
+    /// </summary>
+    public const string WaveLaunchedCounter = "wave.launched";
+
+    /// <summary>
+    /// mD's engagement half. FROZEN NAME (see <see cref="WaveLaunchedCounter"/>): one count per
+    /// wave/enemy engagement, i.e. the wave reached something and fought it rather than walking
+    /// into an empty map corner.
+    /// </summary>
+    public const string WaveEngagedCounter = "wave.engaged";
 
     /// <summary>One skirmish-AI player's <see cref="IAiWorldView"/>/<see cref="AiTrace"/> state, copied out at a single instant.</summary>
     public sealed class PlayerSnapshot
@@ -157,6 +219,46 @@ public sealed class AiMatchReport
         public bool PassesMilestoneA => HeartbeatsPresent && MoneyRose;
 
         public bool PassesMilestoneB => FoundationConstructed;
+
+        // ---- schema v2: end-minus-start counter deltas ----
+
+        /// <summary>
+        /// End-minus-start for one counter key. Deltas, not end totals: a snapshot pair taken
+        /// around a mid-match window must grade what happened INSIDE the window, and the start
+        /// snapshot is only zero by luck (it is captured after the game has already started).
+        /// Never negative in practice - AiTrace counters only ever increase - but not clamped,
+        /// so a bug that resets a counter shows up as a negative number instead of hiding.
+        /// </summary>
+        public int Delta(string counterName) => End.GetCount(counterName) - Start.GetCount(counterName);
+
+        /// <summary>mC's production half: units queued during the match.</summary>
+        public int UnitsQueued => Delta(UnitsQueuedCounter);
+
+        public int UnitsConfirmed => Delta(UnitsConfirmedCounter);
+
+        public int TeamsFormed => Delta(TeamsFormedCounter);
+
+        /// <summary>mC's team half: teams that reached Ready during the match.</summary>
+        public int TeamsReady => Delta(TeamsReadyCounter);
+
+        /// <summary>mD's launch half: attack waves launched during the match.</summary>
+        public int WavesLaunched => Delta(WaveLaunchedCounter);
+
+        /// <summary>mD's engagement half: wave-vs-enemy engagements during the match.</summary>
+        public int Engagements => Delta(WaveEngagedCounter);
+
+        /// <summary>
+        /// Everything this player lost: produced units plus team members. One number because the
+        /// harness grades "is this AI taking losses at all" (a stalemate tell), not an
+        /// attribution breakdown - the two component keys are still in the raw counter bags.
+        /// </summary>
+        public int Losses => Delta(UnitsLostCounter) + Delta(TeamMembersLostCounter);
+
+        /// <summary>M-c: the AI queued production AND fielded at least one ready team.</summary>
+        public bool PassesMilestoneC => UnitsQueued > 0 && TeamsReady >= 1;
+
+        /// <summary>M-d: the AI launched at least one wave AND that force actually engaged.</summary>
+        public bool PassesMilestoneD => WavesLaunched >= 1 && Engagements > 0;
     }
 
     public string Schema => SchemaId;
@@ -172,7 +274,22 @@ public sealed class AiMatchReport
     /// <summary>True iff there is at least one AI player and EVERY one of them passed M-b.</summary>
     public bool MilestoneB => Players.Count > 0 && Players.All(p => p.PassesMilestoneB);
 
-    /// <summary>The R1-gate verdict this run contributes: both milestones, for every AI player.</summary>
+    /// <summary>True iff there is at least one AI player and EVERY one of them passed M-c.</summary>
+    public bool MilestoneC => Players.Count > 0 && Players.All(p => p.PassesMilestoneC);
+
+    /// <summary>True iff there is at least one AI player and EVERY one of them passed M-d.</summary>
+    public bool MilestoneD => Players.Count > 0 && Players.All(p => p.PassesMilestoneD);
+
+    /// <summary>
+    /// M-e, the 20-minute soak verdict. NOT gradable from a match report: it is about frame
+    /// pacing, RSS slope and end-state over a full soak, all of which live in the soak driver's
+    /// own verdict, not in AiTrace. Null therefore means "not graded here", and a grader must
+    /// not collapse null to false. A soak driver that HAS a verdict may stamp it in through the
+    /// constructor so one artifact carries all five milestones.
+    /// </summary>
+    public bool? MilestoneE { get; }
+
+    /// <summary>The R1-gate verdict this run contributes: M-a and M-b, for every AI player. Unchanged from v1 - the broader profiles (mC/mD) are graded by the harness, not folded into this field.</summary>
     public bool Pass => MilestoneA && MilestoneB;
 
     /// <summary>
@@ -186,12 +303,17 @@ public sealed class AiMatchReport
     /// </summary>
     public bool Partial { get; }
 
-    public AiMatchReport(IReadOnlyList<PlayerResult> players, string? generatedAtUtc = null, bool partial = false)
+    public AiMatchReport(
+        IReadOnlyList<PlayerResult> players,
+        string? generatedAtUtc = null,
+        bool partial = false,
+        bool? milestoneE = null)
     {
         ArgumentNullException.ThrowIfNull(players);
 
         Players = players;
         Partial = partial;
+        MilestoneE = milestoneE;
         GeneratedAtUtc = generatedAtUtc ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
     }
 
@@ -236,7 +358,8 @@ public sealed class AiMatchReport
         IReadOnlyList<PlayerSnapshot> start,
         IReadOnlyList<PlayerSnapshot> end,
         string? generatedAtUtc = null,
-        bool partial = false)
+        bool partial = false,
+        bool? milestoneE = null)
     {
         ArgumentNullException.ThrowIfNull(start);
         ArgumentNullException.ThrowIfNull(end);
@@ -256,7 +379,7 @@ public sealed class AiMatchReport
             }
         }
 
-        return new AiMatchReport(results, generatedAtUtc, partial);
+        return new AiMatchReport(results, generatedAtUtc, partial, milestoneE);
     }
 
     /// <summary>
@@ -308,6 +431,16 @@ public sealed class AiMatchReport
         AppendRawField(sb, "pass", Bool(Pass));
         AppendRawField(sb, "partial", Bool(Partial));
 
+        // schema v2: the name-indexed milestone block. mE is JSON null when nobody stamped a
+        // soak verdict into this report - "not graded", which is not the same as false.
+        sb.Append(",\"milestones\":{");
+        AppendRawField(sb, "mA", Bool(MilestoneA), first: true);
+        AppendRawField(sb, "mB", Bool(MilestoneB));
+        AppendRawField(sb, "mC", Bool(MilestoneC));
+        AppendRawField(sb, "mD", Bool(MilestoneD));
+        AppendRawField(sb, "mE", MilestoneE is { } e ? Bool(e) : "null");
+        sb.Append('}');
+
         sb.Append(",\"players\":[");
         for (var i = 0; i < Players.Count; i++)
         {
@@ -344,6 +477,22 @@ public sealed class AiMatchReport
         AppendRawField(sb, "playerIndex", result.PlayerIndex.ToString(CultureInfo.InvariantCulture), first: true);
         AppendRawField(sb, "passesMilestoneA", Bool(result.PassesMilestoneA));
         AppendRawField(sb, "passesMilestoneB", Bool(result.PassesMilestoneB));
+        AppendRawField(sb, "passesMilestoneC", Bool(result.PassesMilestoneC));
+        AppendRawField(sb, "passesMilestoneD", Bool(result.PassesMilestoneD));
+
+        // schema v2: end-minus-start deltas for the keys the milestones are graded on, so a
+        // grader never has to subtract two counter bags itself (and never accidentally grades
+        // an end total as if it were a delta).
+        sb.Append(",\"deltas\":{");
+        AppendRawField(sb, "unitsQueued", Int(result.UnitsQueued), first: true);
+        AppendRawField(sb, "unitsConfirmed", Int(result.UnitsConfirmed));
+        AppendRawField(sb, "teamsFormed", Int(result.TeamsFormed));
+        AppendRawField(sb, "teamsReady", Int(result.TeamsReady));
+        AppendRawField(sb, "wavesLaunched", Int(result.WavesLaunched));
+        AppendRawField(sb, "engagements", Int(result.Engagements));
+        AppendRawField(sb, "losses", Int(result.Losses));
+        sb.Append('}');
+
         sb.Append(",\"start\":");
         AppendSnapshot(sb, result.Start);
         sb.Append(",\"end\":");
@@ -382,6 +531,8 @@ public sealed class AiMatchReport
     }
 
     private static string Bool(bool value) => value ? "true" : "false";
+
+    private static string Int(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     private static void AppendStringField(StringBuilder sb, string name, string value, bool first = false)
     {
