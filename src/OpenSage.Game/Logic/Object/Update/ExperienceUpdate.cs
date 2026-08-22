@@ -35,7 +35,14 @@ public class ExperienceUpdate : UpdateModule
             GameObject.ExperienceRequiredForNextLevel = _nextLevel.RequiredExperience;
             ObjectGainsExperience = true;
 
-            while ((int)GameObject.Rank >= _nextLevel.Rank)
+            // R15 L1-11: the loop must also stop when the level list runs dry. levelUp()
+            // pops the head of _experienceLevels but leaves _nextLevel pointing at the last
+            // level it consumed, so for an object that already starts at or above the
+            // highest declared rank (observed on RohanEntOak, "map good isengard" and
+            // "map sp evil erebor" in the R15 AotR sweep) the rank test stays true after the
+            // list is empty and the next levelUp() called RemoveAt(0) on an empty list,
+            // throwing ArgumentOutOfRangeException out of the very first GameLogic.Update.
+            while (_experienceLevels.Count > 0 && (int)GameObject.Rank >= _nextLevel.Rank)
             {
                 levelUp();
             }
@@ -94,7 +101,13 @@ public class ExperienceUpdate : UpdateModule
         // ExperienceAwardOwnGuysDie -> what is this?
         // EmotionType
 
-        _experienceLevels.RemoveAt(0);
+        // R15 L1-11: defence in depth for the same defect the Initialize loop guards —
+        // levelUp() must never pop an empty list, whatever the caller believes.
+        if (_experienceLevels.Count > 0)
+        {
+            _experienceLevels.RemoveAt(0);
+        }
+
         if (_experienceLevels.Count > 0)
         {
             _currentLevel = _nextLevel;

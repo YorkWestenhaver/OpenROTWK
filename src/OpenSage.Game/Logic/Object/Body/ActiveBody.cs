@@ -646,7 +646,12 @@ public class ActiveBody : BodyModule
                     VeterancyLevel.Veteran => GameObject.Definition.SoundPromotedVeteran?.Value,
                     VeterancyLevel.Elite => GameObject.Definition.SoundPromotedElite?.Value,
                     VeterancyLevel.Heroic => GameObject.Definition.SoundPromotedHero?.Value,
-                    _ => throw new ArgumentOutOfRangeException(nameof(newLevel))
+                    // R15 L1-11: retail declares exactly three promotion sounds, so a level
+                    // outside Veteran/Elite/Heroic simply has no bark. It used to throw here,
+                    // which killed map load on AotR content granting a rank above Heroic
+                    // (ExperienceTracker now clamps, so this arm is the defence in depth for
+                    // any other caller of GameObject.OnVeterancyLevelChanged).
+                    _ => null
                 };
                 // Null-tolerant so the headless sim host (no audio system) can promote units,
                 // same convention as GameObject.OnVeterancyLevelChanged's own client-audio call.
@@ -681,14 +686,19 @@ public class ActiveBody : BodyModule
             //    }
         }
 
-        var oldBonus = GameEngine.AssetStore.GameData.Current.HealthBonus[(int)oldLevel];
-        var newBonus = GameEngine.AssetStore.GameData.Current.HealthBonus[(int)newLevel];
+        // R15 L1-11: HealthBonus is sized from the VeterancyLevel enum, so an out-of-enum
+        // level (BFME2/AotR content declares ranks above Heroic) would index off the end.
+        var oldBonus = GameEngine.AssetStore.GameData.Current.HealthBonus[(int)VeterancyLevelSupport.Clamp(oldLevel)];
+        var newBonus = GameEngine.AssetStore.GameData.Current.HealthBonus[(int)VeterancyLevelSupport.Clamp(newLevel)];
         var mult = newBonus / oldBonus;
 
         // change the max
         SetMaxHealth(MaxHealth * mult, MaxHealthChangeType.PreserveRatio);
 
-        switch (newLevel)
+        // R15 L1-11: same clamp as the health bonus above — the armor-set conditions only
+        // exist for the four modelled levels, and a higher rank must degrade to Heroic
+        // rather than throw out of map load.
+        switch (VeterancyLevelSupport.Clamp(newLevel))
         {
             case VeterancyLevel.Regular:
                 ClearArmorSetFlag(ArmorSetCondition.Veteran);

@@ -106,7 +106,21 @@ internal sealed class RoadNetwork
                 if (connectedEdges == 2)
                 {
                     var incomingRoadData = ComputeRoadAngles(node, edgesPerTemplate, edgeSegments);
-                    CurvedRoadSegment.CreateCurve(incomingRoadData, node.Position, edgesPerTemplate.Key, edgeSegments);
+
+                    // R15 L1-11: two connected edges do NOT guarantee two distinct incoming
+                    // roads. ComputeRoadAngles groups segments arriving at the same angle into
+                    // one (duplicate/collinear road segments sharing a node, which real maps
+                    // contain) and returns an EMPTY list when fewer than two survive — see its
+                    // own `incomingRoads.Count < 2` early-out. CreateCurve then tripped its
+                    // Debug.Assert(incomingRoadData.Count == 2) and the process died with
+                    // "Assertion failed" during map load ("map ang amon sul" in the R15 AotR
+                    // sweep). Filter on the actual count, exactly as InsertCrossingSegments
+                    // above already does with its `Count == 3 || Count == 4` test; a node whose
+                    // roads collapse to one direction simply gets no curve piece.
+                    if (incomingRoadData.Count == 2)
+                    {
+                        CurvedRoadSegment.CreateCurve(incomingRoadData, node.Position, edgesPerTemplate.Key, edgeSegments);
+                    }
                 }
             }
         }
