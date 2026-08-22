@@ -366,7 +366,9 @@ public sealed class ProductionUpdate : UpdateModule
 
         if (playAudio)
         {
-            GameEngine.Scene3D.Audio.PlayAudioEvent(producedUnit, producedUnit.Definition.UnitSpecificSounds?.VoiceCreate?.Value);
+            // Audio is a presentation dependency, not a simulation one: a headless host carries
+            // no Scene3D.Audio at all. Producing a unit must not depend on a speaker existing.
+            GameEngine.Scene3D.Audio?.PlayAudioEvent(producedUnit, producedUnit.Definition.UnitSpecificSounds?.VoiceCreate?.Value);
         }
 
         if (!_moduleData.GiveNoXP)
@@ -377,9 +379,12 @@ public sealed class ProductionUpdate : UpdateModule
         var isHorde = producedUnit.Definition.KindOf.Get(ObjectKinds.Horde);
         if (isHorde && ProductionExit is QueueProductionExitUpdate queueProductionExitUpdate)
         {
+            // Horde-KindOf without a HordeContain module is malformed content, not a reason to
+            // end the match; the object still exists and is still owned, it just carries no
+            // payload. Same guard class as MoveProducedObjectOut below.
             var hordeContain = producedUnit.FindBehavior<HordeContainBehavior>();
             ParentHorde = producedUnit;
-            hordeContain.EnqueuePayload(this, queueProductionExitUpdate.ExitDelay);
+            hordeContain?.EnqueuePayload(this, queueProductionExitUpdate.ExitDelay);
         }
 
         if (ProductionExit is ParkingPlaceBehaviour parkingPlace)
@@ -403,30 +408,61 @@ public sealed class ProductionUpdate : UpdateModule
         return producedUnit;
     }
 
+    // R15 PROD-FIX. Root cause of the 14f28317 main regression, recorded here because the
+    // defect is latent rather than new: nothing on this code path changed between 9bde4556
+    // (green) and 14f28317 (red). What changed is that the skirmish AI learned to queue units,
+    // so ProduceAndMoveOut ran on an AotR map for the first time in the project's history and
+    // walked straight into two unguarded dereferences that had never been exercised:
+    //
+    //   1. Definition.SoundMoveStart is OPTIONAL. Most AotR objects declare none, so the
+    //      LazyAssetReference is null and .Value threw. OrderProcessor.cs already writes
+    //      `SoundMoveStart?.Value` for exactly this reason; this call site was the outlier.
+    //   2. A produced object need not have an AIUpdate at all. AotR's RohanArcherNewHorde
+    //      declares Behavior = HordeAIUpdate, but the block does not survive parsing, so
+    //      GameObject.AIUpdate is never assigned and every deref below is a null deref waiting
+    //      for a rally point to exist.
+    //
+    // (2) is what retail does too, so the guard is not merely defensive - it is the correct
+    // port. EA GPL, GeneralsMD DefaultProductionExitUpdate::exitObjectViaDoor: the exit path
+    // fetches `AIUpdateInterface *ai = newObj->getAIUpdateInterface();`, tests `if (ai &&
+    // ai->isDoingGroundMovement())` before adjusting the destination and `if (ai)` before
+    // aiFollowExitProductionPath. An object with no AI is placed at the create point and simply
+    // never given an exit path - no crash, no assert. That is exactly the shape below.
     private void MoveProducedObjectOut(GameObject producedUnit)
     {
+        // Retail's `AIUpdateInterface *ai = newObj->getAIUpdateInterface()` - fetched once, then
+        // every use of it is guarded.
+        var producedUnitAi = producedUnit.AIUpdate;
+
         if (ProductionExit is ParkingPlaceBehaviour && !ProducedAtHelipad(producedUnit.Definition))
         {
-            var jetAIUpdate = (JetAIUpdate)producedUnit.AIUpdate;
-            jetAIUpdate.CurrentJetAIState = JetAIUpdate.JetAIState.JustCreated;
+            // A parking place only ever produces aircraft, which always carry a JetAIUpdate; if
+            // that is not what came out, the content is malformed and the object still must not
+            // take the match down with it.
+            if (producedUnitAi is JetAIUpdate jetAIUpdate)
+            {
+                jetAIUpdate.CurrentJetAIState = JetAIUpdate.JetAIState.JustCreated;
+            }
             return;
         }
 
         // First go to the natural rally point
         var naturalRallyPoint = ProductionExit?.GetNaturalRallyPoint();
-        if (naturalRallyPoint.HasValue)
+        if (producedUnitAi != null && naturalRallyPoint.HasValue)
         {
             naturalRallyPoint = GameObject.ToWorldspace(naturalRallyPoint.Value);
-            producedUnit.AIUpdate.AddTargetPoint(naturalRallyPoint.Value);
+            producedUnitAi.AddTargetPoint(naturalRallyPoint.Value);
         }
 
         // Then go to the rally point if it exists
-        if (GameObject.RallyPoint.HasValue)
+        if (producedUnitAi != null && GameObject.RallyPoint.HasValue)
         {
-            producedUnit.AIUpdate.AddTargetPoint(GameObject.RallyPoint.Value);
+            producedUnitAi.AddTargetPoint(GameObject.RallyPoint.Value);
         }
 
-        GameEngine.AudioSystem.PlayAudioEvent(producedUnit, producedUnit.Definition.SoundMoveStart.Value);
+        // SoundMoveStart is an optional field; a missing one means "no sound", not a crash.
+        // ...and the same for AudioSystem, which is likewise null on a headless host.
+        GameEngine.AudioSystem?.PlayAudioEvent(producedUnit, producedUnit.Definition.SoundMoveStart?.Value);
 
         HandleHordeCreation(producedUnit);
         HandleHarvesterUnitCreation(GameObject, producedUnit);
@@ -442,19 +478,38 @@ public sealed class ProductionUpdate : UpdateModule
         else if (producedUnit.ParentHorde != null)
         {
             var hordeContain = producedUnit.ParentHorde.FindBehavior<HordeContainBehavior>();
+            if (hordeContain == null)
+            {
+                return;
+            }
+
             hordeContain.Register(producedUnit);
 
-            var count = producedUnit.AIUpdate.TargetPoints.Count;
-            var direction = producedUnit.AIUpdate.TargetPoints[count - 1] - producedUnit.Translation;
+            // Same class of defect as MoveProducedObjectOut, one call deeper and reached by the
+            // horde MEMBERS rather than the horde: this is the next AIUpdate deref on the same
+            // object, and it additionally indexes TargetPoints[count - 1] without checking that
+            // any target point was ever added. Both fail on exactly the run that exposed the
+            // regression - an AotR horde whose HordeAIUpdate block did not survive parsing, with
+            // no rally point set. Membership in the horde is the load-bearing part and has
+            // already happened; the formation offset is a movement refinement that an object
+            // which cannot move has no use for.
+            var ai = producedUnit.AIUpdate;
+            if (ai == null || ai.TargetPoints.Count == 0)
+            {
+                return;
+            }
+
+            var count = ai.TargetPoints.Count;
+            var direction = ai.TargetPoints[count - 1] - producedUnit.Translation;
             if (count > 1)
             {
-                direction = producedUnit.AIUpdate.TargetPoints[count - 1] - producedUnit.AIUpdate.TargetPoints[count - 2];
+                direction = ai.TargetPoints[count - 1] - ai.TargetPoints[count - 2];
             }
 
             var formationOffset = hordeContain.GetFormationOffset(producedUnit);
             var offset = Vector3.Transform(formationOffset, Quaternion.CreateFromYawPitchRoll(MathUtility.GetYawFromDirection(direction.Vector2XY()), 0, 0));
-            producedUnit.AIUpdate.AddTargetPoint(producedUnit.AIUpdate.TargetPoints[count - 1] + offset);
-            producedUnit.AIUpdate.SetTargetDirection(direction);
+            ai.AddTargetPoint(ai.TargetPoints[count - 1] + offset);
+            ai.SetTargetDirection(direction);
         }
     }
 
