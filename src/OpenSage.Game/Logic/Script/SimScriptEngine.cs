@@ -11,7 +11,9 @@
 //   setTimer/pauseTimer/restartTimer, enableScript/disableScript/callSubroutine
 // ScriptConditions.cpp: evaluateNamedCreated (= exists), evaluateNamedUnitDestroyed
 //   (live -> isEffectivelyDead, gone -> didUnitExist), evaluateNamedUnitExists.
-// ScriptActions.cpp: createUnitOnTeamAt duplicate-name guard, doAttack, doNamedAttack.
+// ScriptActions.cpp: createUnitOnTeamAt duplicate-name guard, doAttack, doNamedAttack,
+//   doDefeat / doLocalDefeat (VD-4 — only their sim-visible residue is kept here).
+// ScriptConditions.cpp: evaluateMultiplayerAlliedVictory / AlliedDefeat / PlayerDefeat.
 //
 // Determinism: evaluation order is FIXED — players ascending, scripts in compiled program
 // order (top-level then groups, map order); timers decrement in slot order before any script
